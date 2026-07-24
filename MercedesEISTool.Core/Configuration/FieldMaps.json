@@ -1,0 +1,14 @@
+{
+  "VVDI MB Tool": {
+    "VIN": { "offset": 144, "length": 17 },
+    "EIS Type": { "offset": 32, "length": 4 },
+    "MCU": { "offset": 16, "length": 4 },
+    "SSID": { "offset": 48, "length": 8 }
+  },
+  "CGDI MB": {
+    "VIN": { "offset": 144, "length": 17 },
+    "EIS Type": { "offset": 32, "length": 4 },
+    "MCU": { "offset": 16, "length": 4 },
+    "SSID": { "offset": 48, "length": 8 }
+  }
+}
