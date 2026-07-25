@@ -61,12 +61,50 @@ jobs:
           set -euo pipefail
           dotnet build -c Release "$SOLUTION_PATH" --no-restore
 
+      - name: Prepare deployment target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! sudo -n true; then
+            echo "Passwordless sudo is required for deployment preparation on the runner." >&2
+            exit 1
+          fi
+
+          for path in /opt/mercedes-eis-tool /opt/mercedes-eis-tool/releases /var/lib/mercedes-eis-tool /var/lib/mercedes-eis-tool/database; do
+            if ! sudo -n mkdir -p "$path"; then
+              echo "Creating directory $path requires additional sudo permissions on the runner." >&2
+              exit 1
+            fi
+          done
+
+          if ! sudo -n chown -R eaittonen:eaittonen /opt/mercedes-eis-tool /var/lib/mercedes-eis-tool; then
+            echo "Changing ownership for /opt/mercedes-eis-tool or /var/lib/mercedes-eis-tool requires additional sudo permissions on the runner." >&2
+            exit 1
+          fi
+
+          if ! sudo -n chmod 755 /opt/mercedes-eis-tool /opt/mercedes-eis-tool/releases /var/lib/mercedes-eis-tool /var/lib/mercedes-eis-tool/database; then
+            echo "Setting permissions on deployment directories requires additional sudo permissions on the runner." >&2
+            exit 1
+          fi
+
+          if ! sudo -n chmod 775 /var/lib/mercedes-eis-tool/database; then
+            echo "Setting writable permissions on /var/lib/mercedes-eis-tool/database requires additional sudo permissions on the runner." >&2
+            exit 1
+          fi
+
+          for path in /opt/mercedes-eis-tool /var/lib/mercedes-eis-tool/database; do
+            temp_file="$path/.deployment-write-test"
+            if ! sudo -n sh -c "touch '$temp_file' && rm -f '$temp_file'"; then
+              echo "Unable to create and remove a temporary file in $path. Check ownership and permissions." >&2
+              exit 1
+            fi
+          done
+
       - name: Publish release into a new directory
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RELEASE_ROOT"
-          mkdir -p /opt/mercedes-eis-tool
           if [ -e "$RELEASE_PATH" ]; then
             echo "Release directory already exists: $RELEASE_PATH" >&2
             exit 1
@@ -92,26 +130,40 @@ jobs:
             PREVIOUS_LINK="$(readlink -f "$CURRENT_LINK" || true)"
           fi
 
-          ln -sfn "$RELEASE_PATH" "$CURRENT_LINK"
+          if ! sudo -n ln -sfn "$RELEASE_PATH" "$CURRENT_LINK"; then
+            echo "Updating the $CURRENT_LINK symlink requires additional sudo permissions on the runner." >&2
+            exit 1
+          fi
 
-          sudo -n /usr/bin/systemctl restart "$SERVICE_NAME"
+          if ! sudo -n /usr/bin/systemctl restart "$SERVICE_NAME"; then
+            echo "Restarting systemd service $SERVICE_NAME requires additional sudo permissions on the runner." >&2
+            exit 1
+          fi
 
           for attempt in $(seq 1 30); do
-            if sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME"; then
+            if sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME" >/dev/null 2>&1; then
               break
             fi
             sleep 1
           done
 
-          if ! sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME"; then
+          if ! sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME" >/dev/null 2>&1; then
             echo "Service failed to start after deployment" >&2
             echo "== systemctl status --no-pager $SERVICE_NAME ==" >&2
-            sudo -n /usr/bin/systemctl status --no-pager "$SERVICE_NAME" || true
+            if ! sudo -n /usr/bin/systemctl status --no-pager "$SERVICE_NAME"; then
+              echo "Reading systemctl status for $SERVICE_NAME requires additional sudo permissions on the runner." >&2
+            fi
             echo "== journalctl -u $SERVICE_NAME -n 100 --no-pager ==" >&2
-            sudo -n /usr/bin/journalctl -u "$SERVICE_NAME" -n 100 --no-pager || true
+            if ! sudo -n /usr/bin/journalctl -u "$SERVICE_NAME" -n 100 --no-pager; then
+              echo "Reading journalctl output for $SERVICE_NAME requires additional sudo permissions on the runner." >&2
+            fi
             if [ -n "$PREVIOUS_LINK" ] && [ -d "$PREVIOUS_LINK" ]; then
-              ln -sfn "$PREVIOUS_LINK" "$CURRENT_LINK"
-              sudo -n /usr/bin/systemctl restart "$SERVICE_NAME"
+              if ! sudo -n ln -sfn "$PREVIOUS_LINK" "$CURRENT_LINK"; then
+                echo "Reverting the $CURRENT_LINK symlink requires additional sudo permissions on the runner." >&2
+              fi
+              if ! sudo -n /usr/bin/systemctl restart "$SERVICE_NAME"; then
+                echo "Restarting systemd service $SERVICE_NAME after rollback requires additional sudo permissions on the runner." >&2
+              fi
             fi
             exit 1
           fi
@@ -136,7 +188,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RELEASE_ROOT"
+          if ! sudo -n mkdir -p "$RELEASE_ROOT"; then
+            echo "Creating release directory $RELEASE_ROOT requires additional sudo permissions on the runner." >&2
+            exit 1
+          fi
           mapfile -t releases < <(find "$RELEASE_ROOT" -mindepth 1 -maxdepth 1 -type d | sort -V)
           keep_count=5
           if [ "${#releases[@]}" -gt "$keep_count" ]; then
