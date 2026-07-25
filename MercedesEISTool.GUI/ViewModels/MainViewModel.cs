@@ -10,11 +10,13 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Configuration;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using MercedesEISTool.ApiClient;
 using MercedesEISTool.Contracts.Models;
+using MercedesEISTool.GUI.Configuration;
 using MercedesEISTool.GUI.Services;
 
 namespace MercedesEISTool.GUI.ViewModels;
@@ -142,7 +144,7 @@ public partial class MainViewModel : ViewModelBase
     private int _selectedMainTabIndex;
 
     [ObservableProperty]
-    private string _apiBaseUrl = "http://localhost:5080";
+    private string _apiBaseUrl = string.Empty;
 
     [ObservableProperty]
     private string _selectedTargetFormat = "CGDI MB";
@@ -172,7 +174,7 @@ public partial class MainViewModel : ViewModelBase
     private string _connectionReason = string.Empty;
 
     [ObservableProperty]
-    private string _connectionUrl = "http://localhost:5080";
+    private string _connectionUrl = string.Empty;
 
     [ObservableProperty]
     private string _rawHexText = string.Empty;
@@ -277,8 +279,10 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _canSave = false;
 
-    public MainViewModel(IMercedesEisApiClient? apiClient = null)
+    public MainViewModel(IMercedesEisApiClient? apiClient = null, IConfiguration? configuration = null)
     {
+        var options = configuration?.GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new ApiOptions();
+        ApiBaseUrl = options.BaseUrl;
         _apiClient = apiClient ?? CreateApiClient(ApiBaseUrl);
         ConnectionUrl = ApiBaseUrl;
         _ = RefreshServerStatusAsync();

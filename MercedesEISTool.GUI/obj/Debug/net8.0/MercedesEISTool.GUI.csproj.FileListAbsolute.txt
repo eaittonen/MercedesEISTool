@@ -95,3 +95,4 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debu
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\Mercedes.18C12FC4.Up2Date
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\MercedesEISTool.GUI.genruntimeconfig.cache
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\ref\MercedesEISTool.GUI.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\MercedesEISTool.GUI.exe

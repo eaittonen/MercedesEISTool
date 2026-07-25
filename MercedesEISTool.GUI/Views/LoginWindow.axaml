@@ -25,6 +25,13 @@
              Text="{Binding Password, Mode=TwoWay}"
              PasswordChar="*" />
 
+    <StackPanel Spacing="4">
+      <TextBlock Text="Server" FontWeight="SemiBold" />
+      <ComboBox ItemsSource="{Binding AvailableEnvironments}"
+                SelectedItem="{Binding SelectedEnvironment, Mode=TwoWay}" />
+      <TextBlock Text="{Binding SelectedServerDisplay}" TextWrapping="Wrap" />
+    </StackPanel>
+
     <Button Content="Sign in"
             Command="{Binding LoginCommand}"
             HorizontalAlignment="Right" />

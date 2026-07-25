@@ -92,26 +92,27 @@ jobs:
             PREVIOUS_LINK="$(readlink -f "$CURRENT_LINK" || true)"
           fi
 
-          ln -sfn "$RELEASE_PATH" "$CURRENT_LINK"
-
-          if ! systemctl is-active --quiet "$SERVICE_NAME"; then
-            systemctl restart "$SERVICE_NAME"
-          else
-            systemctl restart "$SERVICE_NAME"
+          if ! sudo -n /usr/bin/systemctl status "$SERVICE_NAME" >/dev/null 2>&1; then
+            echo "sudo access for systemctl is required but not available on the runner." >&2
+            exit 1
           fi
 
+          ln -sfn "$RELEASE_PATH" "$CURRENT_LINK"
+
+          sudo -n /usr/bin/systemctl restart "$SERVICE_NAME"
+
           for attempt in $(seq 1 30); do
-            if systemctl is-active --quiet "$SERVICE_NAME"; then
+            if sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME"; then
               break
             fi
             sleep 1
           done
 
-          if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+          if ! sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME"; then
             echo "Service failed to start after deployment" >&2
             if [ -n "$PREVIOUS_LINK" ] && [ -d "$PREVIOUS_LINK" ]; then
               ln -sfn "$PREVIOUS_LINK" "$CURRENT_LINK"
-              systemctl restart "$SERVICE_NAME"
+              sudo -n /usr/bin/systemctl restart "$SERVICE_NAME"
             fi
             exit 1
           fi
