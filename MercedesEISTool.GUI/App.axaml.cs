@@ -13,6 +13,8 @@ namespace MercedesEISTool.GUI;
 
 public partial class App : Application
 {
+    private IServiceProvider? _serviceProvider;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -30,7 +32,7 @@ public partial class App : Application
                 Timeout = TimeSpan.FromSeconds(5)
             }));
 
-        ((Avalonia.Application)this).Services = services.BuildServiceProvider();
+        _serviceProvider = services.BuildServiceProvider();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -48,7 +50,7 @@ public partial class App : Application
         }
 
         var loginWindow = desktop.MainWindow;
-        var configuration = (this as App)?.Services?.GetRequiredService<IConfiguration>();
+        var configuration = _serviceProvider?.GetService<IConfiguration>();
         var mainWindow = new MainWindow
         {
             DataContext = new MainViewModel(apiClient, configuration)
