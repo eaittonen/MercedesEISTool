@@ -476,6 +476,7 @@ public partial class MainViewModel : ViewModelBase
         AdminUserForcePasswordChange = value.MustChangePassword;
         IsAdminFormEditing = true;
         IsCreatingUser = false;
+        ApplyRoleSelections(value.Roles ?? []);
         if (OrganizationOptions.FirstOrDefault(item => item.Id == value.OrganizationId) is { } organizationOption)
         {
             SelectedOrganizationOption = organizationOption;
@@ -656,13 +657,14 @@ public partial class MainViewModel : ViewModelBase
                 return;
             }
 
-            if (SelectedAdminUserRoles.Count == 0)
+            var roles = RoleOptions.Where(option => option.CanAssign).Select(option => option.Name).ToList();
+            if (roles.Count == 0)
             {
                 AdminStatus = "Select at least one role.";
                 return;
             }
 
-            var roles = SelectedAdminUserRoles.ToList();
+            SelectedAdminUserRoles = new ObservableCollection<string>(roles);
             if (IsCreatingUser && string.IsNullOrWhiteSpace(AdminUserPassword))
             {
                 AdminStatus = "Password is required when creating a user.";
@@ -915,6 +917,7 @@ public partial class MainViewModel : ViewModelBase
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 RoleOptions = new ObservableCollection<RoleOptionDto>(options);
+                ApplyRoleSelections(SelectedAdminUserRoles);
             });
         }
         catch (Exception ex)
@@ -949,6 +952,7 @@ public partial class MainViewModel : ViewModelBase
         AdminUserIsEnabled = true;
         AdminUserForcePasswordChange = false;
         SelectedAdminUserRoles = new ObservableCollection<string>();
+        ApplyRoleSelections(Array.Empty<string>());
         if (SelectedOrganizationOption is null && OrganizationOptions.Any())
         {
             SelectedOrganizationOption = OrganizationOptions.FirstOrDefault(option => option.Id == (SelectedOrganization?.Id ?? string.Empty)) ?? OrganizationOptions.First();
@@ -982,8 +986,20 @@ public partial class MainViewModel : ViewModelBase
         AdminUserPassword = string.Empty;
         AdminUserOrganizationId = string.Empty;
         SelectedAdminUserRoles = new ObservableCollection<string>();
+        ApplyRoleSelections(Array.Empty<string>());
         AdminUserIsEnabled = true;
         AdminUserForcePasswordChange = false;
+    }
+
+    private void ApplyRoleSelections(IEnumerable<string> selectedRoles)
+    {
+        var selected = new HashSet<string>(selectedRoles.Where(role => !string.IsNullOrWhiteSpace(role)).Select(role => role.Trim()), StringComparer.OrdinalIgnoreCase);
+        foreach (var roleOption in RoleOptions)
+        {
+            roleOption.CanAssign = selected.Contains(roleOption.Name);
+        }
+
+        SelectedAdminUserRoles = new ObservableCollection<string>(RoleOptions.Where(option => option.CanAssign).Select(option => option.Name));
     }
 
     [RelayCommand]

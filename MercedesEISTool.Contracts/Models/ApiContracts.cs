@@ -147,9 +147,11 @@ public sealed record OrganizationOptionDto(
     string Id,
     string Name);
 
-public sealed record RoleOptionDto(
-    string Name,
-    bool CanAssign);
+public sealed class RoleOptionDto
+{
+    public string Name { get; set; } = string.Empty;
+    public bool CanAssign { get; set; }
+}
 
 public sealed class ResetPasswordRequestDto
 {
