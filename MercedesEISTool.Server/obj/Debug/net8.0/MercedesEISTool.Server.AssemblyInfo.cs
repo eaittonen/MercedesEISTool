@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MercedesEISTool.Server")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e2053d89fe724e86a02e05164400c1669b1904e7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e1990d7db784445fee4d7067f285d9d788b4f854")]
 [assembly: System.Reflection.AssemblyProductAttribute("MercedesEISTool.Server")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MercedesEISTool.Server")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

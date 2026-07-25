@@ -39,8 +39,14 @@ public class MercedesEisApiClient : IMercedesEisApiClient
             Email = email,
             Password = password
         }, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<AuthResponseDto>(cancellationToken: cancellationToken) ?? new AuthResponseDto();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await TryReadJsonAsync<ApiErrorResponse>(response, cancellationToken);
+            throw new HttpRequestException(error?.Message ?? "Authentication failed.", null, response.StatusCode);
+        }
+
+        return await TryReadJsonAsync<AuthResponseDto>(response, cancellationToken) ?? new AuthResponseDto();
     }
 
     public async Task<CurrentUserResponseDto> GetCurrentUserAsync(CancellationToken cancellationToken = default)
@@ -161,7 +167,24 @@ public class MercedesEisApiClient : IMercedesEisApiClient
             return;
         }
 
-        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(cancellationToken: cancellationToken);
+        var error = await TryReadJsonAsync<ApiErrorResponse>(response, cancellationToken);
         throw new HttpRequestException(error?.Message ?? $"Request failed with status {(int)response.StatusCode}.", null, response.StatusCode);
+    }
+
+    private static async Task<T?> TryReadJsonAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.Content is null)
+        {
+            return default;
+        }
+
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken);
+        }
+        catch (Exception)
+        {
+            return default;
+        }
     }
 }

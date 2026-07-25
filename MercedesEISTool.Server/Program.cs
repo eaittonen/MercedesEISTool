@@ -92,14 +92,14 @@ app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, Use
 {
     if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
     {
-        return Results.BadRequest(new ApiErrorResponse { Message = "Email and password are required.", ErrorCode = "invalid_credentials", RequestId = httpContext.TraceIdentifier });
+        return Results.Json(new ApiErrorResponse { Message = "Email and password are required.", ErrorCode = "invalid_credentials", RequestId = httpContext.TraceIdentifier }, statusCode: StatusCodes.Status401Unauthorized);
     }
 
     var user = await userManager.FindByEmailAsync(request.Email);
     if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
     {
         loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=auth-login requestId={RequestId} success=false email={Email}", httpContext.TraceIdentifier, request.Email);
-        return Results.Unauthorized();
+        return Results.Json(new ApiErrorResponse { Message = "Invalid email or password.", ErrorCode = "invalid_credentials", RequestId = httpContext.TraceIdentifier }, statusCode: StatusCodes.Status401Unauthorized);
     }
 
     var roles = (await userManager.GetRolesAsync(user)).ToList();

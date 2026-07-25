@@ -122,33 +122,19 @@ jobs:
             exit 1
           fi
 
-          for attempt in $(seq 1 30); do
-            if sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME" >/dev/null 2>&1; then
-              break
+          for attempt in $(seq 1 15); do
+            if /usr/bin/systemctl is-active --quiet "$SERVICE_NAME" >/dev/null 2>&1; then
+              echo "Deployment completed successfully."
+              exit 0
             fi
             sleep 1
           done
 
-          if ! sudo -n /usr/bin/systemctl is-active --quiet "$SERVICE_NAME" >/dev/null 2>&1; then
-            echo "Service failed to start after deployment" >&2
-            echo "== systemctl status --no-pager $SERVICE_NAME ==" >&2
-            if ! sudo -n /usr/bin/systemctl status --no-pager "$SERVICE_NAME"; then
-              echo "Reading systemctl status for $SERVICE_NAME requires additional sudo permissions on the runner." >&2
-            fi
-            echo "== journalctl -u $SERVICE_NAME -n 100 --no-pager ==" >&2
-            if ! sudo -n /usr/bin/journalctl -u "$SERVICE_NAME" -n 100 --no-pager; then
-              echo "Reading journalctl output for $SERVICE_NAME requires additional sudo permissions on the runner." >&2
-            fi
-            if [ -n "$PREVIOUS_LINK" ] && [ -d "$PREVIOUS_LINK" ]; then
-              if ! sudo -n ln -sfn "$PREVIOUS_LINK" "$CURRENT_LINK"; then
-                echo "Reverting the $CURRENT_LINK symlink requires additional sudo permissions on the runner." >&2
-              fi
-              if ! sudo -n /usr/bin/systemctl restart "$SERVICE_NAME"; then
-                echo "Restarting systemd service $SERVICE_NAME after rollback requires additional sudo permissions on the runner." >&2
-              fi
-            fi
-            exit 1
-          fi
+          echo "== systemctl status --no-pager $SERVICE_NAME ==" >&2
+          /usr/bin/systemctl status --no-pager "$SERVICE_NAME" || true
+          echo "== journalctl -u $SERVICE_NAME -n 100 --no-pager ==" >&2
+          /usr/bin/journalctl -u "$SERVICE_NAME" -n 100 --no-pager || true
+          exit 1
 
       - name: Verify health endpoint
         shell: bash
