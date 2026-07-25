@@ -70,8 +70,8 @@ builder.Services.AddScoped<DevelopmentBootstrapService>();
 
 var app = builder.Build();
 
-var sqliteBuilder = new SqliteConnectionStringBuilder(connectionString);
-var databasePath = ResolveSqliteDatabasePath(sqliteBuilder, app.Logger);
+var resolver = new SqliteDatabasePathResolver();
+var databasePath = resolver.Resolve(connectionString, app.Environment.ContentRootPath, app.Logger);
 
 using (var scope = app.Services.CreateScope())
 {
@@ -913,66 +913,6 @@ app.MapPost("/api/dumps/compare", async Task<IResult> (IFormFile? leftFile, IFor
 }).DisableAntiforgery();
 
 app.Run();
-
-string ResolveSqliteDatabasePath(SqliteConnectionStringBuilder sqliteBuilder, ILogger logger)
-{
-    if (string.IsNullOrWhiteSpace(sqliteBuilder.DataSource))
-    {
-        throw new InvalidOperationException($"SQLite connection string is missing a DataSource value. Connection string: {connectionString}");
-    }
-
-    if (string.Equals(sqliteBuilder.DataSource, ":memory:", StringComparison.OrdinalIgnoreCase))
-    {
-        logger.LogInformation("SQLite database uses an in-memory connection string; skipping filesystem directory validation.");
-        return sqliteBuilder.DataSource;
-    }
-
-    var fullDataSourcePath = Path.GetFullPath(sqliteBuilder.DataSource);
-    var directory = Path.GetDirectoryName(fullDataSourcePath);
-
-    logger.LogInformation("SQLite database path resolved to '{DatabasePath}' from the configured connection string.", fullDataSourcePath);
-
-    if (string.IsNullOrWhiteSpace(directory))
-    {
-        throw new InvalidOperationException($"SQLite database path '{fullDataSourcePath}' does not have a parent directory that can be created or written to.");
-    }
-
-    try
-    {
-        Directory.CreateDirectory(directory);
-    }
-    catch (Exception ex)
-    {
-        throw new InvalidOperationException($"Unable to create SQLite database directory '{directory}' for database '{fullDataSourcePath}'. Reason: {ex.Message}", ex);
-    }
-
-    var writeTestPath = Path.Combine(directory, ".mercedes-eis-tool-write-test");
-    try
-    {
-        using var stream = File.Open(writeTestPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        stream.WriteByte(0);
-    }
-    catch (Exception ex)
-    {
-        throw new InvalidOperationException($"Unable to write to SQLite database directory '{directory}' for database '{fullDataSourcePath}'. Reason: {ex.Message}", ex);
-    }
-    finally
-    {
-        try
-        {
-            if (File.Exists(writeTestPath))
-            {
-                File.Delete(writeTestPath);
-            }
-        }
-        catch
-        {
-            // Best effort cleanup; the main startup failure is already captured above.
-        }
-    }
-
-    return fullDataSourcePath;
-}
 
 static string ComputeSha256(byte[] bytes)
 {
