@@ -46,17 +46,19 @@
         <TabControl Grid.Row="1" Margin="0,12,0,0">
             <TabItem Header="Details">
                 <Border Padding="12" CornerRadius="6" Background="#202020">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="Detected dump information" FontSize="18" FontWeight="SemiBold" />
-                        <Border Padding="8" CornerRadius="4" Background="#303030">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Workflow" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding SelectedFileName}" />
-                                <TextBlock Text="{Binding AnalysisSummary}" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding UploadSummary}" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                        <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <Grid RowDefinitions="Auto,*,Auto">
+                        <StackPanel Grid.Row="0" Spacing="10">
+                            <TextBlock Text="Detected dump information" FontSize="18" FontWeight="SemiBold" />
+                            <Border Padding="8" CornerRadius="4" Background="#303030">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Workflow" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SelectedFileName}" />
+                                    <TextBlock Text="{Binding AnalysisSummary}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding UploadSummary}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="VIN" VerticalAlignment="Center" />
                             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Vin}" IsReadOnly="True" />
 
@@ -78,6 +80,8 @@
                                     <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" />
                                     <TextBlock Text="Registration number" />
                                     <TextBox Text="{Binding RegistrationNumber}" />
+                                    <TextBlock Text="Customer name" />
+                                    <TextBox Text="{Binding CustomerName}" PlaceholderText="Optional customer label" />
                                     <CheckBox Content="I confirm that the vehicle identifier is correct" IsChecked="{Binding VinConfirmedByUser}" />
                                     <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
                                 </StackPanel>
@@ -127,7 +131,7 @@
                                 </Border>
                             </Border>
                         </Grid>
-                    </StackPanel>
+                    </Grid>
                 </Border>
             </TabItem>
             <TabItem Header="Raw Hex">
@@ -141,7 +145,7 @@
                         <StackPanel Spacing="12">
                             <TextBlock Text="Persisted uploads" FontSize="18" FontWeight="SemiBold" />
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto">
-                                <TextBox Grid.Column="0" PlaceholderText="Search by file name or identifier" Text="{Binding MyFilesSearchText}" />
+                                <TextBox Grid.Column="0" PlaceholderText="Search by file, VIN, registration, customer, or metadata" Text="{Binding MyFilesSearchText}" />
                                 <Button Grid.Column="1" Content="Search" Command="{Binding SearchMyFilesCommand}" />
                                 <Button Grid.Column="2" Content="Details" Command="{Binding OpenDetailsCommand}" />
                                 <Button Grid.Column="3" Content="Load" Command="{Binding LoadIntoWorkspaceCommand}" />
@@ -157,6 +161,7 @@
                                             <Border Padding="6" CornerRadius="4" Background="#383838">
                                                 <StackPanel Spacing="4">
                                                     <TextBlock Text="{Binding OriginalFileName}" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding CustomerName}" Opacity="0.85" />
                                                     <TextBlock Text="{Binding AnalysisStatus}" Opacity="0.8" />
                                                     <TextBlock Text="{Binding UploadedAtUtc, StringFormat='Uploaded {0:yyyy-MM-dd HH:mm}'}" Opacity="0.7" />
                                                 </StackPanel>
@@ -229,47 +234,78 @@
                             <TextBlock Text="{Binding CurrentUserDisplay}" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Refresh" Command="{Binding RefreshAdminUsersCommand}" />
+                                <Button Content="Save organization" Command="{Binding CreateOrUpdateOrganizationCommand}" />
+                                <Button Content="Delete organization" Command="{Binding DeleteSelectedOrganizationCommand}" />
+                                <Button Content="Save user" Command="{Binding CreateOrUpdateUserCommand}" />
+                                <Button Content="Delete user" Command="{Binding DeleteSelectedUserCommand}" />
+                                <Button Content="Disable user" Command="{Binding DisableSelectedAdminUserCommand}" />
+                                <Button Content="Enable user" Command="{Binding EnableSelectedAdminUserCommand}" />
+                                <Button Content="Reset password" Command="{Binding ResetSelectedUserPasswordCommand}" />
+                                <Button Content="Toggle force change" Command="{Binding ToggleSelectedUserPasswordRequirementCommand}" />
                             </StackPanel>
                             <TextBlock Text="{Binding AdminStatus}" TextWrapping="Wrap" />
                         </StackPanel>
 
                         <Border Grid.Row="1" Grid.Column="0" Margin="0,12,12,0" Padding="8" CornerRadius="4" Background="#303030">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="Organizations" FontWeight="SemiBold" />
-                                <ListBox ItemsSource="{Binding Organizations}" SelectedItem="{Binding SelectedOrganization}" SelectionMode="Single" MinHeight="240">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Padding="6" CornerRadius="4" Background="#383838">
-                                                <StackPanel Spacing="4">
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                                    <TextBlock Text="{Binding ContactEmail}" Opacity="0.8" />
-                                                    <TextBlock Text="{Binding UserCount, StringFormat='Users: {0}'}" Opacity="0.7" />
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </StackPanel>
+                            <ScrollViewer>
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Organizations" FontWeight="SemiBold" />
+                                    <ListBox ItemsSource="{Binding Organizations}" SelectedItem="{Binding SelectedOrganization}" SelectionMode="Single" MinHeight="220">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="6" CornerRadius="4" Background="#383838">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding ContactEmail}" Opacity="0.8" />
+                                                        <TextBlock Text="{Binding UserCount, StringFormat='Users: {0}'}" Opacity="0.7" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <TextBlock Text="Organization details" FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding OrganizationName}" Watermark="Name" />
+                                    <TextBox Text="{Binding OrganizationContactEmail}" Watermark="Contact email" />
+                                    <TextBox Text="{Binding OrganizationCountry}" Watermark="Country" />
+                                    <TextBox Text="{Binding OrganizationLicenseType}" Watermark="License type" />
+                                    <TextBox Text="{Binding OrganizationMaxUsers}" Watermark="Max users" />
+                                    <TextBox Text="{Binding OrganizationLicenseExpiration}" Watermark="License expiration (yyyy-MM-dd)" />
+                                    <CheckBox Content="Active" IsChecked="{Binding OrganizationIsActive}" />
+                                </StackPanel>
+                            </ScrollViewer>
                         </Border>
 
                         <Border Grid.Row="1" Grid.Column="1" Margin="0,12,0,0" Padding="8" CornerRadius="4" Background="#303030">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="Users" FontWeight="SemiBold" />
-                                <ListBox ItemsSource="{Binding AdminUsers}" SelectedItem="{Binding SelectedAdminUser}" SelectionMode="Single" MinHeight="240">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Padding="6" CornerRadius="4" Background="#383838">
-                                                <StackPanel Spacing="4">
-                                                    <TextBlock Text="{Binding Email}" FontWeight="SemiBold" />
-                                                    <TextBlock Text="{Binding DisplayName}" Opacity="0.8" />
-                                                    <TextBlock Text="{Binding Roles, Converter={StaticResource StringJoinConverter}}" Opacity="0.7" />
-                                                    <TextBlock Text="{Binding IsEnabled}" Opacity="0.7" />
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </StackPanel>
+                            <ScrollViewer>
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Users" FontWeight="SemiBold" />
+                                    <ListBox ItemsSource="{Binding AdminUsers}" SelectedItem="{Binding SelectedAdminUser}" SelectionMode="Single" MinHeight="220">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="6" CornerRadius="4" Background="#383838">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="{Binding Email}" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding DisplayName}" Opacity="0.8" />
+                                                        <TextBlock Text="{Binding Roles, Converter={StaticResource StringJoinConverter}}" Opacity="0.7" />
+                                                        <TextBlock Text="{Binding IsEnabled}" Opacity="0.7" />
+                                                        <TextBlock Text="{Binding MustChangePassword, StringFormat='Must change password: {0}'}" Opacity="0.7" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <TextBlock Text="User details" FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding AdminUserEmail}" Watermark="Email" />
+                                    <TextBox Text="{Binding AdminUserDisplayName}" Watermark="Display name" />
+                                    <TextBox Text="{Binding AdminUserPassword}" Watermark="Password" />
+                                    <TextBox Text="{Binding AdminUserOrganizationId}" Watermark="Organization ID" />
+                                    <TextBox Text="{Binding AdminUserRoles}" Watermark="Roles (comma separated)" />
+                                    <CheckBox Content="Enabled" IsChecked="{Binding AdminUserIsEnabled}" />
+                                    <CheckBox Content="Force password change on next sign-in" IsChecked="{Binding AdminUserForcePasswordChange}" />
+                                </StackPanel>
+                            </ScrollViewer>
                         </Border>
                     </Grid>
                 </Border>

@@ -98,6 +98,13 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<OrganizationDetailDto>(cancellationToken: cancellationToken) ?? new OrganizationDetailDto();
     }
 
+    public async Task<AdminUserActionResponseDto> DeleteOrganizationAsync(string organizationId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync($"/api/admin/organizations/{organizationId}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
     public async Task<AdminUserActionResponseDto> CreateUserAsync(CreateOrUpdateUserRequestDto request, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsJsonAsync("/api/admin/users", request, cancellationToken);
@@ -112,6 +119,34 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
     }
 
+    public async Task<AdminUserActionResponseDto> DeleteUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync($"/api/admin/users/{userId}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
+    public async Task<AdminUserActionResponseDto> ResetUserPasswordAsync(string userId, ResetPasswordRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync($"/api/admin/users/{userId}/reset-password", request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
+    public async Task<AdminUserActionResponseDto> SetUserPasswordChangeRequirementAsync(string userId, ForcePasswordChangeRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync($"/api/admin/users/{userId}/force-password-change", request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
+    public async Task<StorageDiagnosticsResponseDto> GetStorageDiagnosticsAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("/api/admin/storage-diagnostics", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<StorageDiagnosticsResponseDto>(cancellationToken: cancellationToken) ?? new StorageDiagnosticsResponseDto();
+    }
+
     public async Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
@@ -123,7 +158,7 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<AnalyzeDumpResponse>(cancellationToken: cancellationToken) ?? new AnalyzeDumpResponse();
     }
 
-    public async Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string? userProvidedVin, string? userProvidedRegistrationNumber, bool vehicleIdentifierConfirmed, CancellationToken cancellationToken = default)
+    public async Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string? userProvidedVin, string? userProvidedRegistrationNumber, bool vehicleIdentifierConfirmed, string? customerName, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
         using var streamContent = new ByteArrayContent(data);
@@ -131,6 +166,7 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         content.Add(new StringContent(userProvidedVin ?? string.Empty), "userProvidedVin");
         content.Add(new StringContent(userProvidedRegistrationNumber ?? string.Empty), "userProvidedRegistrationNumber");
         content.Add(new StringContent(vehicleIdentifierConfirmed.ToString()), "vehicleIdentifierConfirmed");
+        content.Add(new StringContent(customerName ?? string.Empty), "customerName");
 
         using var response = await _httpClient.PostAsync("/api/files/upload", content, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);

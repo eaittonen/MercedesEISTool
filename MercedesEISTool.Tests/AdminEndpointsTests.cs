@@ -73,6 +73,42 @@ public class AdminEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.True(updatedUser.IsEnabled);
     }
 
+    [Fact]
+    public async Task Administrator_CanReadStorageDiagnostics()
+    {
+        using var client = await CreateAuthenticatedClientAsync("admin@example.local", "development-only-password");
+
+        var response = await client.GetAsync("/api/admin/storage-diagnostics");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<StorageDiagnosticsResponseDto>();
+        Assert.NotNull(payload);
+        Assert.False(string.IsNullOrWhiteSpace(payload.StorageRoot));
+    }
+
+    [Fact]
+    public async Task Administrator_CanExposePasswordChangeRequirementState()
+    {
+        using var client = await CreateAuthenticatedClientAsync("admin@example.local", "development-only-password");
+
+        var usersResponse = await client.GetAsync("/api/admin/users");
+        Assert.Equal(HttpStatusCode.OK, usersResponse.StatusCode);
+        var usersPayload = await usersResponse.Content.ReadFromJsonAsync<AdminUserListResponseDto>();
+        var user = Assert.Single(usersPayload!.Items.Where(item => item.Email == "user@example.local"));
+
+        var toggleResponse = await client.PostAsJsonAsync($"/api/admin/users/{user.Id}/force-password-change", new ForcePasswordChangeRequestDto
+        {
+            RequirePasswordChange = true
+        });
+        Assert.Equal(HttpStatusCode.OK, toggleResponse.StatusCode);
+
+        var refreshedResponse = await client.GetAsync("/api/admin/users");
+        Assert.Equal(HttpStatusCode.OK, refreshedResponse.StatusCode);
+        var refreshedPayload = await refreshedResponse.Content.ReadFromJsonAsync<AdminUserListResponseDto>();
+        var refreshedUser = Assert.Single(refreshedPayload!.Items.Where(item => item.Id == user.Id));
+        Assert.True(refreshedUser.MustChangePassword);
+    }
+
     private async Task<HttpClient> CreateAuthenticatedClientAsync(string email, string password)
     {
         var client = _factory.CreateClient();

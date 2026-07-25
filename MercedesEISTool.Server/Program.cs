@@ -221,14 +221,7 @@ app.MapGet("/api/auth/me", async Task<IResult> (UserManager<ApplicationUser> use
 
 app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -259,6 +252,7 @@ app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser>
             OrganizationName = user.Organization?.Name ?? string.Empty,
             Roles = roles,
             IsEnabled = user.IsEnabled,
+            MustChangePassword = user.MustChangePassword,
             CreatedAtUtc = user.CreatedAtUtc,
             LastLoginAtUtc = user.LastLoginAtUtc
         });
@@ -269,14 +263,7 @@ app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser>
 
 app.MapGet("/api/admin/organizations", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -315,14 +302,7 @@ app.MapGet("/api/admin/organizations", async Task<IResult> (UserManager<Applicat
 
 app.MapPost("/api/admin/organizations", async Task<IResult> (CreateOrganizationRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -372,14 +352,7 @@ app.MapPost("/api/admin/organizations", async Task<IResult> (CreateOrganizationR
 
 app.MapDelete("/api/admin/organizations/{organizationId}", async Task<IResult> (string organizationId, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -410,14 +383,7 @@ app.MapDelete("/api/admin/organizations/{organizationId}", async Task<IResult> (
 
 app.MapPut("/api/admin/organizations/{organizationId}", async Task<IResult> (string organizationId, UpdateOrganizationRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -553,14 +519,7 @@ app.MapPost("/api/admin/users/{userId}/enable", async Task<IResult> (string user
 
 app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -632,14 +591,7 @@ app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDt
 
 app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -716,14 +668,7 @@ app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, Crea
 
 app.MapDelete("/api/admin/users/{userId}", async Task<IResult> (string userId, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -768,14 +713,7 @@ app.MapDelete("/api/admin/users/{userId}", async Task<IResult> (string userId, U
 
 app.MapPost("/api/admin/users/{userId}/reset-password", async Task<IResult> (string userId, ResetPasswordRequestDto request, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -823,14 +761,7 @@ app.MapPost("/api/admin/users/{userId}/reset-password", async Task<IResult> (str
 
 app.MapPost("/api/admin/users/{userId}/force-password-change", async Task<IResult> (string userId, ForcePasswordChangeRequestDto request, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
         return Results.Unauthorized();
@@ -861,6 +792,48 @@ app.MapPost("/api/admin/users/{userId}/force-password-change", async Task<IResul
         IsEnabled = targetUser.IsEnabled,
         Message = request.RequirePasswordChange ? "Password change required on next sign-in." : "Password change requirement cleared."
     });
+});
+
+app.MapGet("/api/admin/storage-diagnostics", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var storageRoot = JsonUploadedDumpStore.ResolveStorageRoot();
+    var databasePath = new SqliteDatabasePathResolver().Resolve("Data Source=mercedes-eis-auth.db", AppContext.BaseDirectory, NullLogger.Instance);
+    var diagnostics = new StorageDiagnosticsResponseDto
+    {
+        StorageRoot = storageRoot,
+        DatabasePath = databasePath,
+        Environment = builder.Environment.EnvironmentName,
+        TimestampUtc = DateTimeOffset.UtcNow.ToString("O"),
+        IsWritable = true,
+        ErrorMessage = null
+    };
+
+    try
+    {
+        Directory.CreateDirectory(storageRoot);
+        var filePath = Path.Combine(storageRoot, ".write-test");
+        await File.WriteAllTextAsync(filePath, "ok");
+        File.Delete(filePath);
+    }
+    catch (Exception ex)
+    {
+        diagnostics.IsWritable = false;
+        diagnostics.ErrorMessage = ex.Message;
+    }
+
+    return Results.Ok(diagnostics);
 });
 
 app.MapGet("/api/uploads", async (IUploadedDumpStore uploadedDumpStore, ICurrentUser currentUser) =>
@@ -944,7 +917,7 @@ app.MapPost("/api/files/{storedFileId:guid}/reanalyze", async Task<IResult> (Gui
     return Results.Ok(BuildStoredFileDetails(await uploadedDumpStore.GetByIdAsync(storedFileId, currentUser)));
 });
 
-app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
+app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, [FromForm] string? customerName, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {
@@ -992,7 +965,7 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
     UploadedDumpRecord savedUpload;
     try
     {
-        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, userProvidedVin ?? string.Empty, userProvidedRegistrationNumber ?? string.Empty, "upload", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump);
+        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, userProvidedVin ?? string.Empty, userProvidedRegistrationNumber ?? string.Empty, "upload", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump, customerName);
     }
     catch (ArgumentException ex)
     {
@@ -1015,6 +988,7 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
         UploadId = savedUpload.Id,
         DetectedVin = analysisDetails.DetectedVin,
         VinStatus = analysisDetails.VinStatus,
+        CustomerName = savedUpload.CustomerName,
         Message = validation.Message,
         AnalysisDetails = analysisDetails
     });
@@ -1184,6 +1158,18 @@ static string ComputeSha256(byte[] bytes)
     return Convert.ToHexString(sha.ComputeHash(bytes));
 }
 
+static async Task<ApplicationUser?> GetCurrentUserAsync(UserManager<ApplicationUser> userManager, HttpContext httpContext)
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return null;
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    return await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+}
+
 static StoredFileListItemDto BuildStoredFileListItem(UploadedDumpRecord record)
 {
     var latest = record.LatestAnalysis;
@@ -1195,6 +1181,7 @@ static StoredFileListItemDto BuildStoredFileListItem(UploadedDumpRecord record)
         UserProvidedVin = string.IsNullOrWhiteSpace(record.VehicleIdentifier) ? null : record.VehicleIdentifier,
         DetectedVin = latest?.DetectedVin,
         RegistrationNumber = string.IsNullOrWhiteSpace(record.RegistrationNumber) ? null : record.RegistrationNumber,
+        CustomerName = string.IsNullOrWhiteSpace(record.CustomerName) ? null : record.CustomerName,
         DetectedFormat = latest?.DetectedFormat ?? "Unknown",
         EisType = latest?.EisType,
         McuType = latest?.McuType,
@@ -1231,6 +1218,7 @@ static StoredFileDetailsDto BuildStoredFileDetails(UploadedDumpRecord? record)
         DetectedVin = latest?.DetectedVin,
         VinStatus = latest?.VinStatus ?? "NotMapped",
         RegistrationNumber = string.IsNullOrWhiteSpace(record.RegistrationNumber) ? null : record.RegistrationNumber,
+        CustomerName = string.IsNullOrWhiteSpace(record.CustomerName) ? null : record.CustomerName,
         DetectedFormat = latest?.DetectedFormat ?? "Unknown",
         EisType = latest?.EisType,
         EisTypeStatus = latest?.EisTypeStatus.ToString() ?? "NotMapped",

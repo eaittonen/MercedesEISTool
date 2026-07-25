@@ -34,6 +34,25 @@ public sealed class JsonUploadedDumpStoreTests : IDisposable
         Assert.True(File.Exists(Path.Combine(expectedDirectory, "index.json")));
     }
 
+    [Fact]
+    public async Task PersistAsync_StoresCustomerNameAndSupportsSearch()
+    {
+        var configuredRoot = CreateTempDirectory();
+        Environment.SetEnvironmentVariable("MERCEDES_EIS_UPLOAD_ROOT", configuredRoot);
+        Environment.SetEnvironmentVariable("UPLOAD_STORAGE_ROOT", null);
+
+        var store = new JsonUploadedDumpStore();
+        var bytes = Encoding.UTF8.GetBytes("customer payload");
+
+        var record = await store.PersistAsync(bytes, "sample.bin", "VIN123", "ABC123", "upload", customerName: "Acme Motors");
+
+        Assert.Equal("Acme Motors", record.CustomerName);
+
+        var results = await store.ListAsync(search: "Acme");
+        Assert.Single(results);
+        Assert.Equal(record.Id, results[0].Id);
+    }
+
     public void Dispose()
     {
         foreach (var variableName in _originalEnvironmentValues.Keys)

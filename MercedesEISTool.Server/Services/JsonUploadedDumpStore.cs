@@ -44,7 +44,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         return Path.GetFullPath(Path.Combine("/var/lib", "mercedes-eis-tool", "uploads"));
     }
 
-    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown)
+    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null)
     {
         if (string.IsNullOrWhiteSpace(vehicleIdentifier) && string.IsNullOrWhiteSpace(registrationNumber))
         {
@@ -56,6 +56,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
             FileName = Path.GetFileName(fileName),
             VehicleIdentifier = vehicleIdentifier.Trim(),
             RegistrationNumber = registrationNumber.Trim(),
+            CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName.Trim(),
             Operation = operation,
             SizeBytes = data.Length,
             UploadedByUserId = currentUser?.UserId ?? "development",
@@ -92,6 +93,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
                 record.FileName.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || record.VehicleIdentifier.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || record.RegistrationNumber.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || (record.CustomerName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
                 || record.Operation.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 

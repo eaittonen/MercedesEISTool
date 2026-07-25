@@ -70,6 +70,51 @@ public partial class MainViewModel : ViewModelBase
     private string _adminStatus = string.Empty;
 
     [ObservableProperty]
+    private string _organizationName = string.Empty;
+
+    [ObservableProperty]
+    private string _organizationContactEmail = string.Empty;
+
+    [ObservableProperty]
+    private string _organizationCountry = string.Empty;
+
+    [ObservableProperty]
+    private bool _organizationIsActive = true;
+
+    [ObservableProperty]
+    private string _organizationLicenseType = "Standard";
+
+    [ObservableProperty]
+    private string _organizationMaxUsers = "4";
+
+    [ObservableProperty]
+    private string _organizationLicenseExpiration = string.Empty;
+
+    [ObservableProperty]
+    private string _adminUserEmail = string.Empty;
+
+    [ObservableProperty]
+    private string _adminUserDisplayName = string.Empty;
+
+    [ObservableProperty]
+    private string _adminUserPassword = string.Empty;
+
+    [ObservableProperty]
+    private string _adminUserOrganizationId = string.Empty;
+
+    [ObservableProperty]
+    private string _adminUserRoles = string.Empty;
+
+    [ObservableProperty]
+    private bool _adminUserIsEnabled = true;
+
+    [ObservableProperty]
+    private bool _adminUserForcePasswordChange;
+
+    [ObservableProperty]
+    private bool _isAdminFormEditing;
+
+    [ObservableProperty]
     private string _selectedFileName = "No file selected";
 
     [ObservableProperty]
@@ -87,6 +132,8 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private ObservableCollection<StoredFileListItemViewModel> _storedFiles = new();
 
+    private List<StoredFileListItemViewModel> _allStoredFiles = new();
+
     [ObservableProperty]
     private StoredFileListItemViewModel? _selectedStoredFile;
 
@@ -98,6 +145,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _myFilesDetails = string.Empty;
+
+    [ObservableProperty]
+    private string _customerName = string.Empty;
 
     [ObservableProperty]
     private Guid? _selectedStoredFileId;
@@ -347,6 +397,59 @@ public partial class MainViewModel : ViewModelBase
         UpdateStoredFileCommandStates();
     }
 
+    partial void OnMyFilesSearchTextChanged(string value)
+    {
+        ApplyStoredFilesFilter();
+    }
+
+    partial void OnSelectedOrganizationChanged(OrganizationSummaryDto? value)
+    {
+        if (value is null)
+        {
+            OrganizationName = string.Empty;
+            OrganizationContactEmail = string.Empty;
+            OrganizationCountry = string.Empty;
+            OrganizationIsActive = true;
+            OrganizationLicenseType = "Standard";
+            OrganizationMaxUsers = "4";
+            OrganizationLicenseExpiration = string.Empty;
+            return;
+        }
+
+        OrganizationName = value.Name;
+        OrganizationContactEmail = value.ContactEmail;
+        OrganizationCountry = value.Country;
+        OrganizationIsActive = value.IsActive;
+        OrganizationLicenseType = value.LicenseType;
+        OrganizationMaxUsers = value.MaxUsers.ToString();
+        OrganizationLicenseExpiration = value.LicenseExpirationUtc?.ToString("yyyy-MM-dd") ?? string.Empty;
+    }
+
+    partial void OnSelectedAdminUserChanged(AdminUserListItemDto? value)
+    {
+        if (value is null)
+        {
+            AdminUserEmail = string.Empty;
+            AdminUserDisplayName = string.Empty;
+            AdminUserPassword = string.Empty;
+            AdminUserOrganizationId = string.Empty;
+            AdminUserRoles = string.Empty;
+            AdminUserIsEnabled = true;
+            AdminUserForcePasswordChange = false;
+            IsAdminFormEditing = false;
+            return;
+        }
+
+        AdminUserEmail = value.Email;
+        AdminUserDisplayName = value.DisplayName;
+        AdminUserPassword = string.Empty;
+        AdminUserOrganizationId = value.OrganizationId ?? string.Empty;
+        AdminUserRoles = string.Join(", ", value.Roles);
+        AdminUserIsEnabled = value.IsEnabled;
+        AdminUserForcePasswordChange = value.MustChangePassword;
+        IsAdminFormEditing = true;
+    }
+
     public ObservableCollection<string> SupportedFormats { get; } = new() { "VVDI MB Tool", "CGDI MB" };
     public ObservableCollection<string> ResearchSourceFiles { get; } = new() { "EIS dump", "Key file", "Compare dump" };
     public ObservableCollection<string> ResearchSearchModes { get; } = new() { "Exact", "Reversed", "BytePairSwapped", "FourByteWordReversed", "Xor" };
@@ -392,6 +495,195 @@ public partial class MainViewModel : ViewModelBase
         {
             Debug.WriteLine($"Administration refresh failed: {ex}");
             AdminStatus = $"Unable to refresh administrator users. {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task CreateOrUpdateOrganization()
+    {
+        if (!IsAdministrator)
+        {
+            return;
+        }
+
+        try
+        {
+            if (SelectedOrganization is null)
+            {
+                var request = new CreateOrganizationRequestDto
+                {
+                    Name = OrganizationName,
+                    ContactEmail = OrganizationContactEmail,
+                    Country = OrganizationCountry,
+                    IsActive = OrganizationIsActive,
+                    LicenseType = OrganizationLicenseType,
+                    MaxUsers = int.TryParse(OrganizationMaxUsers, out var maxUsers) ? maxUsers : 4,
+                    LicenseExpirationUtc = string.IsNullOrWhiteSpace(OrganizationLicenseExpiration) ? null : DateTimeOffset.Parse(OrganizationLicenseExpiration)
+                };
+
+                await _apiClient.CreateOrganizationAsync(request);
+                AdminStatus = "Organization created.";
+            }
+            else
+            {
+                var request = new UpdateOrganizationRequestDto
+                {
+                    Name = OrganizationName,
+                    ContactEmail = OrganizationContactEmail,
+                    Country = OrganizationCountry,
+                    IsActive = OrganizationIsActive,
+                    LicenseType = OrganizationLicenseType,
+                    MaxUsers = int.TryParse(OrganizationMaxUsers, out var maxUsers) ? maxUsers : 4,
+                    LicenseExpirationUtc = string.IsNullOrWhiteSpace(OrganizationLicenseExpiration) ? null : DateTimeOffset.Parse(OrganizationLicenseExpiration)
+                };
+
+                await _apiClient.UpdateOrganizationAsync(SelectedOrganization.Id, request);
+                AdminStatus = "Organization updated.";
+            }
+
+            await LoadOrganizationsAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = $"Unable to save organization. {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedOrganization()
+    {
+        if (!IsAdministrator || SelectedOrganization is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _apiClient.DeleteOrganizationAsync(SelectedOrganization.Id);
+            AdminStatus = "Organization deleted.";
+            await LoadOrganizationsAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = $"Unable to delete organization. {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task CreateOrUpdateUser()
+    {
+        if (!IsAdministrator)
+        {
+            return;
+        }
+
+        try
+        {
+            var roles = AdminUserRoles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(item => !string.IsNullOrWhiteSpace(item)).ToList();
+            if (roles.Count == 0)
+            {
+                roles.Add("ReadOnly");
+            }
+
+            var request = new CreateOrUpdateUserRequestDto
+            {
+                Email = AdminUserEmail,
+                DisplayName = AdminUserDisplayName,
+                Password = AdminUserPassword,
+                OrganizationId = !string.IsNullOrWhiteSpace(AdminUserOrganizationId) ? AdminUserOrganizationId : (SelectedOrganization?.Id ?? string.Empty),
+                Roles = roles,
+                IsEnabled = AdminUserIsEnabled
+            };
+
+            if (SelectedAdminUser is null)
+            {
+                await _apiClient.CreateUserAsync(request);
+                AdminStatus = "User created.";
+            }
+            else
+            {
+                await _apiClient.UpdateUserAsync(SelectedAdminUser.Id, request);
+                AdminStatus = "User updated.";
+            }
+
+            await LoadAdminUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = $"Unable to save user. {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedUser()
+    {
+        if (!IsAdministrator || SelectedAdminUser is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _apiClient.DeleteUserAsync(SelectedAdminUser.Id);
+            AdminStatus = "User deleted.";
+            await LoadAdminUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = $"Unable to delete user. {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ResetSelectedUserPassword()
+    {
+        if (!IsAdministrator || SelectedAdminUser is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AdminUserPassword))
+        {
+            AdminStatus = "Enter a new password before resetting.";
+            return;
+        }
+
+        try
+        {
+            var response = await _apiClient.ResetUserPasswordAsync(SelectedAdminUser.Id, new ResetPasswordRequestDto
+            {
+                NewPassword = AdminUserPassword,
+                ForcePasswordChange = AdminUserForcePasswordChange
+            });
+            AdminStatus = response?.Message ?? "Password reset.";
+            await LoadAdminUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = $"Unable to reset password. {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ToggleSelectedUserPasswordRequirement()
+    {
+        if (!IsAdministrator || SelectedAdminUser is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _apiClient.SetUserPasswordChangeRequirementAsync(SelectedAdminUser.Id, new ForcePasswordChangeRequestDto
+            {
+                RequirePasswordChange = !AdminUserForcePasswordChange
+            });
+            AdminStatus = response?.Message ?? "Password requirement updated.";
+            await LoadAdminUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = $"Unable to update password requirement. {ex.Message}";
         }
     }
 
@@ -450,6 +742,19 @@ public partial class MainViewModel : ViewModelBase
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 AdminUsers = new ObservableCollection<AdminUserListItemDto>(items);
+                if (SelectedAdminUser is not null)
+                {
+                    var currentSelection = items.FirstOrDefault(item => item.Id == SelectedAdminUser.Id);
+                    SelectedAdminUser = currentSelection;
+                }
+                else if (items.Count > 0)
+                {
+                    SelectedAdminUser = items.First();
+                }
+                else
+                {
+                    SelectedAdminUser = null;
+                }
                 AdminStatus = string.Empty;
             });
         }
@@ -473,7 +778,19 @@ public partial class MainViewModel : ViewModelBase
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Organizations = new ObservableCollection<OrganizationSummaryDto>(items);
-                SelectedOrganization ??= Organizations.FirstOrDefault();
+                if (SelectedOrganization is not null)
+                {
+                    var currentSelection = items.FirstOrDefault(item => item.Id == SelectedOrganization.Id);
+                    SelectedOrganization = currentSelection;
+                }
+                else if (items.Count > 0)
+                {
+                    SelectedOrganization = items.First();
+                }
+                else
+                {
+                    SelectedOrganization = null;
+                }
             });
         }
         catch (Exception ex)
@@ -503,6 +820,7 @@ public partial class MainViewModel : ViewModelBase
 
             SelectedFileName = Path.GetFileName(result.Value.Path);
             SelectedFilePath = result.Value.Path;
+            CustomerName = string.Empty;
             RawHexText = BuildRawHexText(bytes);
             AnalysisSummary = "File loaded locally. Use Analyze to send it to the server.";
             UploadSummary = string.Empty;
@@ -598,9 +916,13 @@ public partial class MainViewModel : ViewModelBase
         {
             IsBusy = true;
             var bytes = LoadLocalFile(SelectedFilePath);
-            var response = await _apiClient.UploadDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber, VinConfirmedByUser);
+            var response = await _apiClient.UploadDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber, VinConfirmedByUser, CustomerName);
             var details = response.AnalysisDetails;
             UploadSummary = $"Uploaded to server: {response.Status} | {response.Message}";
+            if (!string.IsNullOrWhiteSpace(response.CustomerName))
+            {
+                CustomerName = response.CustomerName;
+            }
             if (details is not null)
             {
                 UploadSummary += $"{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}; Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
@@ -645,7 +967,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var details = await _apiClient.GetStoredFileDetailsAsync(SelectedStoredFile.Id);
-            MyFilesDetails = $"File: {details.OriginalFileName}{Environment.NewLine}Format: {details.DetectedFormat}{Environment.NewLine}VIN: {details.DetectedVin ?? "Not mapped"}{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}{Environment.NewLine}MCU: {details.McuType ?? "Not mapped"}{Environment.NewLine}Key count: {details.KeyCount?.ToString() ?? "Not mapped"}{Environment.NewLine}EIS password: {details.EisPassword ?? "Not mapped"}{Environment.NewLine}SSID: {details.Ssid ?? "Not mapped"}";
+            MyFilesDetails = $"File: {details.OriginalFileName}{Environment.NewLine}Format: {details.DetectedFormat}{Environment.NewLine}VIN: {details.DetectedVin ?? "Not mapped"}{Environment.NewLine}Customer name: {details.CustomerName ?? "Not provided"}{Environment.NewLine}Registration: {details.RegistrationNumber ?? "Not provided"}{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}{Environment.NewLine}MCU: {details.McuType ?? "Not mapped"}{Environment.NewLine}Key count: {details.KeyCount?.ToString() ?? "Not mapped"}{Environment.NewLine}EIS password: {details.EisPassword ?? "Not mapped"}{Environment.NewLine}SSID: {details.Ssid ?? "Not mapped"}";
             PopulateWorkspaceFromDetails(details);
             SelectedMainTabIndex = 0;
             Status = $"Loaded details for {details.OriginalFileName}.";
@@ -1558,9 +1880,10 @@ public partial class MainViewModel : ViewModelBase
         {
             var response = await _apiClient.GetStoredFilesAsync(MyFilesSearchText, 1, 50);
             var selectedItemId = SelectedStoredFile?.Id;
-            StoredFiles = new ObservableCollection<StoredFileListItemViewModel>(response.Items.Select(item => new StoredFileListItemViewModel(item)));
+            _allStoredFiles = response.Items.Select(item => new StoredFileListItemViewModel(item)).ToList();
+            ApplyStoredFilesFilter();
             SelectedStoredFile = StoredFiles.FirstOrDefault(item => item.Id == selectedItemId) ?? StoredFiles.FirstOrDefault();
-            var lines = response.Items.Select(item => $"{item.Id:N} | {item.OriginalFileName} | VIN={item.UserProvidedVin ?? item.DetectedVin ?? ""} | REG={item.RegistrationNumber ?? ""} | {item.AnalysisStatus} | {item.FileSizeBytes} bytes").ToList();
+            var lines = response.Items.Select(item => $"{item.Id:N} | {item.OriginalFileName} | VIN={item.UserProvidedVin ?? item.DetectedVin ?? ""} | REG={item.RegistrationNumber ?? ""} | CUST={item.CustomerName ?? ""} | {item.AnalysisStatus} | {item.FileSizeBytes} bytes").ToList();
             UploadedFilesSummary = lines.Any() ? string.Join(Environment.NewLine, lines) : "No uploaded files yet.";
         }
         catch (Exception ex)
@@ -1605,6 +1928,28 @@ public partial class MainViewModel : ViewModelBase
             ConnectionReason = ex.Message;
             LastChecked = DateTime.Now.ToString("HH:mm:ss");
         }
+    }
+
+    private void ApplyStoredFilesFilter()
+    {
+        var query = MyFilesSearchText?.Trim() ?? string.Empty;
+        var items = string.IsNullOrWhiteSpace(query)
+            ? _allStoredFiles
+            : _allStoredFiles.Where(item =>
+                item.OriginalFileName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || (item.UserProvidedVin?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.DetectedVin?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.RegistrationNumber?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.CustomerName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.DetectedFormat?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.EisType?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.McuType?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.AnalysisStatus?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+
+        var selectedId = SelectedStoredFile?.Id;
+        StoredFiles = new ObservableCollection<StoredFileListItemViewModel>(items);
+        SelectedStoredFile = StoredFiles.FirstOrDefault(item => item.Id == selectedId) ?? StoredFiles.FirstOrDefault();
+        UpdateStoredFileCommandStates();
     }
 
     private bool CanOpenDetails()
@@ -1706,6 +2051,7 @@ public partial class MainViewModel : ViewModelBase
     {
         SelectedFileName = details.OriginalFileName;
         SelectedFileBytes = bytes ?? SelectedFileBytes;
+        CustomerName = details.CustomerName ?? string.Empty;
         SelectedFileSize = bytes?.Length ?? details.FileSizeBytes;
         SelectedFileSha256 = details.Sha256;
         RawHexText = bytes is null ? "No raw dump available." : BuildRawHexText(bytes);
@@ -1799,6 +2145,7 @@ public partial class MainViewModel : ViewModelBase
             UserProvidedVin = item.UserProvidedVin;
             DetectedVin = item.DetectedVin;
             RegistrationNumber = item.RegistrationNumber;
+            CustomerName = item.CustomerName;
             DetectedFormat = item.DetectedFormat;
             EisType = item.EisType;
             McuType = item.McuType;
@@ -1819,6 +2166,7 @@ public partial class MainViewModel : ViewModelBase
         public string? UserProvidedVin { get; }
         public string? DetectedVin { get; }
         public string? RegistrationNumber { get; }
+        public string? CustomerName { get; }
         public string DetectedFormat { get; }
         public string? EisType { get; }
         public string? McuType { get; }

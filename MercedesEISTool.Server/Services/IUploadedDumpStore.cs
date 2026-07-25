@@ -5,7 +5,7 @@ namespace MercedesEISTool.Server.Services;
 
 public interface IUploadedDumpStore
 {
-    Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown);
+    Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null);
     Task<List<UploadedDumpRecord>> ListAsync(ICurrentUser? currentUser = null, string? search = null, int page = 1, int pageSize = 50);
     Task<StoredFileAnalysisSnapshot?> GetLatestAnalysisAsync(Guid storedFileId);
     Task<StoredFileAnalysisSnapshot?> AnalyzeAndStoreAsync(Guid storedFileId, IEisAnalysisService analysisService);
@@ -28,6 +28,7 @@ public class UploadedDumpRecord
     public string StoredFilePath { get; set; } = string.Empty;
     public string VehicleIdentifier { get; set; } = string.Empty;
     public string RegistrationNumber { get; set; } = string.Empty;
+    public string? CustomerName { get; set; }
     public string Operation { get; set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public long SizeBytes { get; set; }

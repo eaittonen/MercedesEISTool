@@ -45,6 +45,7 @@ public sealed class AdminUserListItemDto
     public string OrganizationName { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
     public bool IsEnabled { get; set; }
+    public bool MustChangePassword { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? LastLoginAtUtc { get; set; }
 }
@@ -135,6 +136,16 @@ public sealed class ForcePasswordChangeRequestDto
     public bool RequirePasswordChange { get; set; }
 }
 
+public sealed class StorageDiagnosticsResponseDto
+{
+    public string StorageRoot { get; set; } = string.Empty;
+    public string DatabasePath { get; set; } = string.Empty;
+    public string Environment { get; set; } = string.Empty;
+    public string TimestampUtc { get; set; } = string.Empty;
+    public bool IsWritable { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
 public sealed class SensitiveFieldDto
 {
     public string Name { get; set; } = string.Empty;
@@ -184,6 +195,7 @@ public sealed class StoredFileListItemDto
     public string? UserProvidedVin { get; set; }
     public string? DetectedVin { get; set; }
     public string? RegistrationNumber { get; set; }
+    public string? CustomerName { get; set; }
     public string DetectedFormat { get; set; } = "Unknown";
     public string? EisType { get; set; }
     public string? McuType { get; set; }
@@ -220,6 +232,7 @@ public sealed class StoredFileDetailsDto
     public string? DetectedVin { get; set; }
     public string VinStatus { get; set; } = "NotMapped";
     public string? RegistrationNumber { get; set; }
+    public string? CustomerName { get; set; }
     public string DetectedFormat { get; set; } = "Unknown";
     public string? EisType { get; set; }
     public string EisTypeStatus { get; set; } = "NotMapped";
@@ -294,6 +307,7 @@ public class UploadDumpRequest
     public string FileName { get; set; } = string.Empty;
     public string VehicleIdentifier { get; set; } = string.Empty;
     public string RegistrationNumber { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
 }
 
 public class UploadDumpResponse
@@ -301,6 +315,7 @@ public class UploadDumpResponse
     public string FileName { get; set; } = string.Empty;
     public string Status { get; set; } = "Uploaded";
     public string Sha256 { get; set; } = string.Empty;
+    public string? CustomerName { get; set; }
     public long FileSizeBytes { get; set; }
     public Guid UploadId { get; set; }
     public string? DetectedVin { get; set; }
@@ -320,6 +335,7 @@ public class UploadedDumpSummary
     public string VinStatus { get; set; } = "NotPresent";
     public string? UserProvidedVin { get; set; }
     public string? UserProvidedRegistrationNumber { get; set; }
+    public string? CustomerName { get; set; }
 }
 
 public class UploadedDumpListResponse

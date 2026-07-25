@@ -13,11 +13,16 @@ public interface IMercedesEisApiClient
     Task<OrganizationListResponseDto> GetOrganizationsAsync(CancellationToken cancellationToken = default);
     Task<OrganizationDetailDto> CreateOrganizationAsync(CreateOrganizationRequestDto request, CancellationToken cancellationToken = default);
     Task<OrganizationDetailDto> UpdateOrganizationAsync(string organizationId, UpdateOrganizationRequestDto request, CancellationToken cancellationToken = default);
+    Task<AdminUserActionResponseDto> DeleteOrganizationAsync(string organizationId, CancellationToken cancellationToken = default);
     Task<AdminUserActionResponseDto> CreateUserAsync(CreateOrUpdateUserRequestDto request, CancellationToken cancellationToken = default);
     Task<AdminUserActionResponseDto> UpdateUserAsync(string userId, CreateOrUpdateUserRequestDto request, CancellationToken cancellationToken = default);
+    Task<AdminUserActionResponseDto> DeleteUserAsync(string userId, CancellationToken cancellationToken = default);
+    Task<AdminUserActionResponseDto> ResetUserPasswordAsync(string userId, ResetPasswordRequestDto request, CancellationToken cancellationToken = default);
+    Task<AdminUserActionResponseDto> SetUserPasswordChangeRequirementAsync(string userId, ForcePasswordChangeRequestDto request, CancellationToken cancellationToken = default);
+    Task<StorageDiagnosticsResponseDto> GetStorageDiagnosticsAsync(CancellationToken cancellationToken = default);
     void SetAccessToken(string? accessToken);
     Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default);
-    Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string? userProvidedVin, string? userProvidedRegistrationNumber, bool vehicleIdentifierConfirmed, CancellationToken cancellationToken = default);
+    Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string? userProvidedVin, string? userProvidedRegistrationNumber, bool vehicleIdentifierConfirmed, string? customerName, CancellationToken cancellationToken = default);
     Task<UploadedDumpListResponse> GetUploadedDumpsAsync(CancellationToken cancellationToken = default);
     Task<StoredFileListResponse> GetStoredFilesAsync(string? search = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);
     Task<StoredFileDetailsDto> GetStoredFileDetailsAsync(Guid storedFileId, CancellationToken cancellationToken = default);
