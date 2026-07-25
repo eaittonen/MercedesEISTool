@@ -84,6 +84,20 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<OrganizationListResponseDto>(cancellationToken: cancellationToken) ?? new OrganizationListResponseDto();
     }
 
+    public async Task<List<OrganizationOptionDto>> GetOrganizationOptionsAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("/api/admin/organizations/options", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<List<OrganizationOptionDto>>(cancellationToken: cancellationToken) ?? new List<OrganizationOptionDto>();
+    }
+
+    public async Task<List<RoleOptionDto>> GetRoleOptionsAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("/api/admin/roles", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<List<RoleOptionDto>>(cancellationToken: cancellationToken) ?? new List<RoleOptionDto>();
+    }
+
     public async Task<OrganizationDetailDto> CreateOrganizationAsync(CreateOrganizationRequestDto request, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsJsonAsync("/api/admin/organizations", request, cancellationToken);

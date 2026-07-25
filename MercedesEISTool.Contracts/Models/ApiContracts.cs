@@ -123,7 +123,33 @@ public sealed class CreateOrUpdateUserRequestDto
     public string OrganizationId { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
     public bool IsEnabled { get; set; } = true;
+    public bool MustChangePassword { get; set; }
 }
+
+public sealed record CreateUserRequest(
+    string Email,
+    string DisplayName,
+    string Password,
+    string OrganizationId,
+    IReadOnlyList<string> Roles,
+    bool IsEnabled,
+    bool MustChangePassword);
+
+public sealed record UpdateUserRequest(
+    string Email,
+    string DisplayName,
+    string OrganizationId,
+    IReadOnlyList<string> Roles,
+    bool IsEnabled,
+    bool MustChangePassword);
+
+public sealed record OrganizationOptionDto(
+    string Id,
+    string Name);
+
+public sealed record RoleOptionDto(
+    string Name,
+    bool CanAssign);
 
 public sealed class ResetPasswordRequestDto
 {

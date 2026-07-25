@@ -11,6 +11,8 @@ public interface IMercedesEisApiClient
     Task<AdminUserActionResponseDto> DisableUserAsync(string userId, CancellationToken cancellationToken = default);
     Task<AdminUserActionResponseDto> EnableUserAsync(string userId, CancellationToken cancellationToken = default);
     Task<OrganizationListResponseDto> GetOrganizationsAsync(CancellationToken cancellationToken = default);
+    Task<List<OrganizationOptionDto>> GetOrganizationOptionsAsync(CancellationToken cancellationToken = default);
+    Task<List<RoleOptionDto>> GetRoleOptionsAsync(CancellationToken cancellationToken = default);
     Task<OrganizationDetailDto> CreateOrganizationAsync(CreateOrganizationRequestDto request, CancellationToken cancellationToken = default);
     Task<OrganizationDetailDto> UpdateOrganizationAsync(string organizationId, UpdateOrganizationRequestDto request, CancellationToken cancellationToken = default);
     Task<AdminUserActionResponseDto> DeleteOrganizationAsync(string organizationId, CancellationToken cancellationToken = default);

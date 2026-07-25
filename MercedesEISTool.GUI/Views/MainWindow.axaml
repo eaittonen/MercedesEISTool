@@ -16,6 +16,7 @@
 
     <Window.Resources>
         <converters:StringJoinConverter x:Key="StringJoinConverter" />
+        <converters:BoolToCreateSaveConverter x:Key="BoolToCreateSaveConverter" />
     </Window.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="16">
@@ -234,9 +235,12 @@
                             <TextBlock Text="{Binding CurrentUserDisplay}" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Refresh" Command="{Binding RefreshAdminUsersCommand}" />
-                                <Button Content="Save organization" Command="{Binding CreateOrUpdateOrganizationCommand}" />
-                                <Button Content="Delete organization" Command="{Binding DeleteSelectedOrganizationCommand}" />
-                                <Button Content="Save user" Command="{Binding CreateOrUpdateUserCommand}" />
+                                <Button Content="Save" Command="{Binding CreateOrUpdateOrganizationCommand}" />
+                                <Button Content="Delete" Command="{Binding DeleteSelectedOrganizationCommand}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="+ New organization" Command="{Binding StartCreatingOrganizationCommand}" />
+                                <Button Content="+ New user" Command="{Binding StartCreatingUserCommand}" />
                                 <Button Content="Delete user" Command="{Binding DeleteSelectedUserCommand}" />
                                 <Button Content="Disable user" Command="{Binding DisableSelectedAdminUserCommand}" />
                                 <Button Content="Enable user" Command="{Binding EnableSelectedAdminUserCommand}" />
@@ -265,13 +269,20 @@
                                     </ListBox>
 
                                     <TextBlock Text="Organization details" FontWeight="SemiBold" />
-                                    <TextBox Text="{Binding OrganizationName}" Watermark="Name" />
-                                    <TextBox Text="{Binding OrganizationContactEmail}" Watermark="Contact email" />
-                                    <TextBox Text="{Binding OrganizationCountry}" Watermark="Country" />
-                                    <TextBox Text="{Binding OrganizationLicenseType}" Watermark="License type" />
-                                    <TextBox Text="{Binding OrganizationMaxUsers}" Watermark="Max users" />
-                                    <TextBox Text="{Binding OrganizationLicenseExpiration}" Watermark="License expiration (yyyy-MM-dd)" />
+                                    <TextBlock Text="Name" />
+                                    <TextBox Text="{Binding OrganizationName}" />
+                                    <TextBlock Text="Contact email" />
+                                    <TextBox Text="{Binding OrganizationContactEmail}" />
+                                    <TextBlock Text="Country" />
+                                    <TextBox Text="{Binding OrganizationCountry}" />
+                                    <TextBlock Text="License type" />
+                                    <TextBox Text="{Binding OrganizationLicenseType}" />
+                                    <TextBlock Text="Max users" />
+                                    <TextBox Text="{Binding OrganizationMaxUsers}" />
+                                    <TextBlock Text="License expiration" />
+                                    <TextBox Text="{Binding OrganizationLicenseExpiration}" />
                                     <CheckBox Content="Active" IsChecked="{Binding OrganizationIsActive}" />
+                                    <Button Content="{Binding IsCreatingOrganization, Converter={StaticResource BoolToCreateSaveConverter}}" Command="{Binding CreateOrUpdateOrganizationCommand}" IsEnabled="{Binding !IsSubmittingAdminAction}" />
                                 </StackPanel>
                             </ScrollViewer>
                         </Border>
@@ -297,13 +308,25 @@
                                     </ListBox>
 
                                     <TextBlock Text="User details" FontWeight="SemiBold" />
-                                    <TextBox Text="{Binding AdminUserEmail}" Watermark="Email" />
-                                    <TextBox Text="{Binding AdminUserDisplayName}" Watermark="Display name" />
-                                    <TextBox Text="{Binding AdminUserPassword}" Watermark="Password" />
-                                    <TextBox Text="{Binding AdminUserOrganizationId}" Watermark="Organization ID" />
-                                    <TextBox Text="{Binding AdminUserRoles}" Watermark="Roles (comma separated)" />
+                                    <TextBlock Text="Email" />
+                                    <TextBox Text="{Binding AdminUserEmail}" />
+                                    <TextBlock Text="Display name" />
+                                    <TextBox Text="{Binding AdminUserDisplayName}" />
+                                    <TextBlock Text="Password" />
+                                    <TextBox Text="{Binding AdminUserPassword}" PasswordChar="*" />
+                                    <TextBlock Text="Organization" />
+                                    <ComboBox ItemsSource="{Binding OrganizationOptions}" SelectedItem="{Binding SelectedOrganizationOption}" DisplayMemberBinding="{Binding Name}" />
+                                    <TextBlock Text="Roles" />
+                                    <ItemsControl ItemsSource="{Binding RoleOptions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Name}" IsChecked="{Binding CanAssign}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                     <CheckBox Content="Enabled" IsChecked="{Binding AdminUserIsEnabled}" />
                                     <CheckBox Content="Force password change on next sign-in" IsChecked="{Binding AdminUserForcePasswordChange}" />
+                                    <Button Content="{Binding IsCreatingUser, Converter={StaticResource BoolToCreateSaveConverter}}" Command="{Binding CreateOrUpdateUserCommand}" IsEnabled="{Binding !IsSubmittingAdminAction}" />
                                 </StackPanel>
                             </ScrollViewer>
                         </Border>

@@ -61,7 +61,16 @@ public partial class MainViewModel : ViewModelBase
     private ObservableCollection<OrganizationSummaryDto> _organizations = new();
 
     [ObservableProperty]
+    private ObservableCollection<OrganizationOptionDto> _organizationOptions = new();
+
+    [ObservableProperty]
+    private ObservableCollection<RoleOptionDto> _roleOptions = new();
+
+    [ObservableProperty]
     private OrganizationSummaryDto? _selectedOrganization;
+
+    [ObservableProperty]
+    private OrganizationOptionDto? _selectedOrganizationOption;
 
     [ObservableProperty]
     private AdminUserListItemDto? _selectedAdminUser;
@@ -103,7 +112,7 @@ public partial class MainViewModel : ViewModelBase
     private string _adminUserOrganizationId = string.Empty;
 
     [ObservableProperty]
-    private string _adminUserRoles = string.Empty;
+    private ObservableCollection<string> _selectedAdminUserRoles = new();
 
     [ObservableProperty]
     private bool _adminUserIsEnabled = true;
@@ -113,6 +122,15 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isAdminFormEditing;
+
+    [ObservableProperty]
+    private bool _isCreatingOrganization;
+
+    [ObservableProperty]
+    private bool _isCreatingUser;
+
+    [ObservableProperty]
+    private bool _isSubmittingAdminAction;
 
     [ObservableProperty]
     private string _selectedFileName = "No file selected";
@@ -425,6 +443,14 @@ public partial class MainViewModel : ViewModelBase
         OrganizationLicenseExpiration = value.LicenseExpirationUtc?.ToString("yyyy-MM-dd") ?? string.Empty;
     }
 
+    partial void OnSelectedOrganizationOptionChanged(OrganizationOptionDto? value)
+    {
+        if (value is not null)
+        {
+            AdminUserOrganizationId = value.Id;
+        }
+    }
+
     partial void OnSelectedAdminUserChanged(AdminUserListItemDto? value)
     {
         if (value is null)
@@ -433,10 +459,11 @@ public partial class MainViewModel : ViewModelBase
             AdminUserDisplayName = string.Empty;
             AdminUserPassword = string.Empty;
             AdminUserOrganizationId = string.Empty;
-            AdminUserRoles = string.Empty;
+            SelectedAdminUserRoles = new ObservableCollection<string>();
             AdminUserIsEnabled = true;
             AdminUserForcePasswordChange = false;
             IsAdminFormEditing = false;
+            IsCreatingUser = false;
             return;
         }
 
@@ -444,10 +471,15 @@ public partial class MainViewModel : ViewModelBase
         AdminUserDisplayName = value.DisplayName;
         AdminUserPassword = string.Empty;
         AdminUserOrganizationId = value.OrganizationId ?? string.Empty;
-        AdminUserRoles = string.Join(", ", value.Roles);
+        SelectedAdminUserRoles = new ObservableCollection<string>(value.Roles ?? []);
         AdminUserIsEnabled = value.IsEnabled;
         AdminUserForcePasswordChange = value.MustChangePassword;
         IsAdminFormEditing = true;
+        IsCreatingUser = false;
+        if (OrganizationOptions.FirstOrDefault(item => item.Id == value.OrganizationId) is { } organizationOption)
+        {
+            SelectedOrganizationOption = organizationOption;
+        }
     }
 
     public ObservableCollection<string> SupportedFormats { get; } = new() { "VVDI MB Tool", "CGDI MB" };
@@ -467,6 +499,7 @@ public partial class MainViewModel : ViewModelBase
             {
                 await LoadAdminUsersAsync();
                 await LoadOrganizationsAsync();
+                await LoadRoleOptionsAsync();
             }
         }
         catch (Exception ex)
@@ -490,6 +523,7 @@ public partial class MainViewModel : ViewModelBase
         {
             await LoadAdminUsersAsync();
             await LoadOrganizationsAsync();
+            await LoadRoleOptionsAsync();
         }
         catch (Exception ex)
         {
@@ -501,14 +535,27 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateOrUpdateOrganization()
     {
-        if (!IsAdministrator)
+        if (!IsAdministrator || IsSubmittingAdminAction)
         {
             return;
         }
 
         try
         {
-            if (SelectedOrganization is null)
+            IsSubmittingAdminAction = true;
+            if (string.IsNullOrWhiteSpace(OrganizationName))
+            {
+                AdminStatus = "Organization name is required.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(OrganizationContactEmail))
+            {
+                AdminStatus = "Contact email is required.";
+                return;
+            }
+
+            if (IsCreatingOrganization || SelectedOrganization is null)
             {
                 var request = new CreateOrganizationRequestDto
                 {
@@ -541,48 +588,85 @@ public partial class MainViewModel : ViewModelBase
                 AdminStatus = "Organization updated.";
             }
 
+            ResetOrganizationForm();
             await LoadOrganizationsAsync();
         }
         catch (Exception ex)
         {
             AdminStatus = $"Unable to save organization. {ex.Message}";
         }
+        finally
+        {
+            IsSubmittingAdminAction = false;
+        }
     }
 
     [RelayCommand]
     private async Task DeleteSelectedOrganization()
     {
-        if (!IsAdministrator || SelectedOrganization is null)
+        if (!IsAdministrator || SelectedOrganization is null || IsSubmittingAdminAction)
         {
             return;
         }
 
         try
         {
+            IsSubmittingAdminAction = true;
             await _apiClient.DeleteOrganizationAsync(SelectedOrganization.Id);
             AdminStatus = "Organization deleted.";
+            ResetOrganizationForm();
             await LoadOrganizationsAsync();
         }
         catch (Exception ex)
         {
             AdminStatus = $"Unable to delete organization. {ex.Message}";
         }
+        finally
+        {
+            IsSubmittingAdminAction = false;
+        }
     }
 
     [RelayCommand]
     private async Task CreateOrUpdateUser()
     {
-        if (!IsAdministrator)
+        if (!IsAdministrator || IsSubmittingAdminAction)
         {
             return;
         }
 
         try
         {
-            var roles = AdminUserRoles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(item => !string.IsNullOrWhiteSpace(item)).ToList();
-            if (roles.Count == 0)
+            IsSubmittingAdminAction = true;
+            if (string.IsNullOrWhiteSpace(AdminUserEmail))
             {
-                roles.Add("ReadOnly");
+                AdminStatus = "Email is required.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(AdminUserDisplayName))
+            {
+                AdminStatus = "Display name is required.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(AdminUserOrganizationId))
+            {
+                AdminStatus = "Select an organization.";
+                return;
+            }
+
+            if (SelectedAdminUserRoles.Count == 0)
+            {
+                AdminStatus = "Select at least one role.";
+                return;
+            }
+
+            var roles = SelectedAdminUserRoles.ToList();
+            if (IsCreatingUser && string.IsNullOrWhiteSpace(AdminUserPassword))
+            {
+                AdminStatus = "Password is required when creating a user.";
+                return;
             }
 
             var request = new CreateOrUpdateUserRequestDto
@@ -590,54 +674,66 @@ public partial class MainViewModel : ViewModelBase
                 Email = AdminUserEmail,
                 DisplayName = AdminUserDisplayName,
                 Password = AdminUserPassword,
-                OrganizationId = !string.IsNullOrWhiteSpace(AdminUserOrganizationId) ? AdminUserOrganizationId : (SelectedOrganization?.Id ?? string.Empty),
+                OrganizationId = AdminUserOrganizationId,
                 Roles = roles,
-                IsEnabled = AdminUserIsEnabled
+                IsEnabled = AdminUserIsEnabled,
+                MustChangePassword = AdminUserForcePasswordChange
             };
 
-            if (SelectedAdminUser is null)
+            if (IsCreatingUser)
             {
                 await _apiClient.CreateUserAsync(request);
                 AdminStatus = "User created.";
             }
             else
             {
-                await _apiClient.UpdateUserAsync(SelectedAdminUser.Id, request);
+                await _apiClient.UpdateUserAsync(SelectedAdminUser?.Id ?? string.Empty, request);
                 AdminStatus = "User updated.";
             }
 
+            ResetUserForm();
             await LoadAdminUsersAsync();
         }
         catch (Exception ex)
         {
             AdminStatus = $"Unable to save user. {ex.Message}";
         }
+        finally
+        {
+            IsSubmittingAdminAction = false;
+        }
     }
 
     [RelayCommand]
     private async Task DeleteSelectedUser()
     {
-        if (!IsAdministrator || SelectedAdminUser is null)
+        if (!IsAdministrator || SelectedAdminUser is null || IsSubmittingAdminAction)
         {
             return;
         }
 
         try
         {
+            IsSubmittingAdminAction = true;
             await _apiClient.DeleteUserAsync(SelectedAdminUser.Id);
             AdminStatus = "User deleted.";
+            ResetUserForm();
             await LoadAdminUsersAsync();
         }
         catch (Exception ex)
         {
             AdminStatus = $"Unable to delete user. {ex.Message}";
         }
+        finally
+        {
+            IsSubmittingAdminAction = false;
+        }
     }
 
     [RelayCommand]
     private async Task ResetSelectedUserPassword()
     {
-        if (!IsAdministrator || SelectedAdminUser is null)
+        if (!IsAdministrator || SelectedAdminUser is null || IsSubmittingAdminAction)
         {
             return;
         }
@@ -650,6 +746,7 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
+            IsSubmittingAdminAction = true;
             var response = await _apiClient.ResetUserPasswordAsync(SelectedAdminUser.Id, new ResetPasswordRequestDto
             {
                 NewPassword = AdminUserPassword,
@@ -661,6 +758,10 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             AdminStatus = $"Unable to reset password. {ex.Message}";
+        }
+        finally
+        {
+            IsSubmittingAdminAction = false;
         }
     }
 
@@ -778,6 +879,7 @@ public partial class MainViewModel : ViewModelBase
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Organizations = new ObservableCollection<OrganizationSummaryDto>(items);
+                OrganizationOptions = new ObservableCollection<OrganizationOptionDto>(items.Select(item => new OrganizationOptionDto(item.Id, item.Name)));
                 if (SelectedOrganization is not null)
                 {
                     var currentSelection = items.FirstOrDefault(item => item.Id == SelectedOrganization.Id);
@@ -791,6 +893,11 @@ public partial class MainViewModel : ViewModelBase
                 {
                     SelectedOrganization = null;
                 }
+
+                if (SelectedOrganizationOption is null && OrganizationOptions.Any())
+                {
+                    SelectedOrganizationOption = OrganizationOptions.FirstOrDefault(option => option.Id == (SelectedOrganization?.Id ?? string.Empty)) ?? OrganizationOptions.First();
+                }
             });
         }
         catch (Exception ex)
@@ -798,6 +905,85 @@ public partial class MainViewModel : ViewModelBase
             Debug.WriteLine($"Organizations load failed: {ex}");
             AdminStatus = $"Unable to load organizations. {ex.Message}";
         }
+    }
+
+    private async Task LoadRoleOptionsAsync()
+    {
+        try
+        {
+            var options = await _apiClient.GetRoleOptionsAsync();
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                RoleOptions = new ObservableCollection<RoleOptionDto>(options);
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Role options load failed: {ex}");
+            AdminStatus = $"Unable to load role options. {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void StartCreatingOrganization()
+    {
+        IsCreatingOrganization = true;
+        SelectedOrganization = null;
+        OrganizationName = string.Empty;
+        OrganizationContactEmail = string.Empty;
+        OrganizationCountry = string.Empty;
+        OrganizationIsActive = true;
+        OrganizationLicenseType = "Standard";
+        OrganizationMaxUsers = "4";
+        OrganizationLicenseExpiration = string.Empty;
+    }
+
+    [RelayCommand]
+    private void StartCreatingUser()
+    {
+        IsCreatingUser = true;
+        IsAdminFormEditing = false;
+        AdminUserEmail = string.Empty;
+        AdminUserDisplayName = string.Empty;
+        AdminUserPassword = string.Empty;
+        AdminUserIsEnabled = true;
+        AdminUserForcePasswordChange = false;
+        SelectedAdminUserRoles = new ObservableCollection<string>();
+        if (SelectedOrganizationOption is null && OrganizationOptions.Any())
+        {
+            SelectedOrganizationOption = OrganizationOptions.FirstOrDefault(option => option.Id == (SelectedOrganization?.Id ?? string.Empty)) ?? OrganizationOptions.First();
+        }
+        AdminUserOrganizationId = SelectedOrganizationOption?.Id ?? string.Empty;
+        if (SelectedOrganizationOption is not null)
+        {
+            SelectedOrganizationOption = OrganizationOptions.FirstOrDefault(option => option.Id == SelectedOrganizationOption.Id) ?? SelectedOrganizationOption;
+        }
+    }
+
+    private void ResetOrganizationForm()
+    {
+        IsCreatingOrganization = false;
+        SelectedOrganization = null;
+        OrganizationName = string.Empty;
+        OrganizationContactEmail = string.Empty;
+        OrganizationCountry = string.Empty;
+        OrganizationIsActive = true;
+        OrganizationLicenseType = "Standard";
+        OrganizationMaxUsers = "4";
+        OrganizationLicenseExpiration = string.Empty;
+    }
+
+    private void ResetUserForm()
+    {
+        IsCreatingUser = false;
+        IsAdminFormEditing = false;
+        AdminUserEmail = string.Empty;
+        AdminUserDisplayName = string.Empty;
+        AdminUserPassword = string.Empty;
+        AdminUserOrganizationId = string.Empty;
+        SelectedAdminUserRoles = new ObservableCollection<string>();
+        AdminUserIsEnabled = true;
+        AdminUserForcePasswordChange = false;
     }
 
     [RelayCommand]

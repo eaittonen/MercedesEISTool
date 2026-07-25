@@ -300,6 +300,49 @@ app.MapGet("/api/admin/organizations", async Task<IResult> (UserManager<Applicat
     return Results.Ok(response);
 });
 
+app.MapGet("/api/admin/organizations/options", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var organizations = await dbContext.Organizations
+        .OrderBy(organization => organization.Name)
+        .Select(organization => new OrganizationOptionDto(organization.Id, organization.Name))
+        .ToListAsync();
+
+    return Results.Ok(organizations);
+});
+
+app.MapGet("/api/admin/roles", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var roleNames = new[] { "SystemAdministrator", "CompanyAdministrator", "Administrator", "Technician", "Research", "ReadOnly", "User" };
+    var roleOptions = roleNames.Select(name => new RoleOptionDto(name, currentRoles.Contains("SystemAdministrator", StringComparer.OrdinalIgnoreCase) || !name.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase))).ToList();
+    return Results.Ok(roleOptions);
+});
+
 app.MapPost("/api/admin/organizations", async Task<IResult> (CreateOrganizationRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
     var currentUser = await GetCurrentUserAsync(userManager, httpContext);
@@ -517,8 +560,9 @@ app.MapPost("/api/admin/users/{userId}/enable", async Task<IResult> (string user
     });
 });
 
-app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, ILoggerFactory loggerFactory, HttpContext httpContext) =>
 {
+    var logger = loggerFactory.CreateLogger("MercedesEISTool.Server");
     var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
@@ -542,21 +586,55 @@ app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDt
         return Results.Json(new ApiErrorResponse { Message = "Company administrators cannot assign system administrator roles.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
-    if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+    if (string.IsNullOrWhiteSpace(request.Email))
     {
-        return Results.BadRequest(new ApiErrorResponse { Message = "Email and password are required.", ErrorCode = "invalid_request" });
+        return Results.BadRequest(new ApiErrorResponse { Message = "Email is required.", ErrorCode = "invalid_request" });
     }
 
-    var organization = await dbContext.Organizations.FirstOrDefaultAsync(candidate => candidate.Id == request.OrganizationId);
+    if (string.IsNullOrWhiteSpace(request.DisplayName))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Display name is required.", ErrorCode = "invalid_request" });
+    }
+
+    if (string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Password is required when creating a user.", ErrorCode = "invalid_request" });
+    }
+
+    if (string.IsNullOrWhiteSpace(request.OrganizationId))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Select an organization.", ErrorCode = "invalid_request" });
+    }
+
+    var normalizedRoles = request.Roles?
+        .Where(role => !string.IsNullOrWhiteSpace(role))
+        .Select(role => role.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList() ?? new List<string>();
+
+    if (normalizedRoles.Count == 0)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Select at least one role.", ErrorCode = "invalid_request" });
+    }
+
+    var allowedRoles = new[] { "SystemAdministrator", "CompanyAdministrator", "Administrator", "Technician", "Research", "ReadOnly", "User" };
+    var invalidRoles = normalizedRoles.Where(role => !allowedRoles.Contains(role, StringComparer.OrdinalIgnoreCase)).ToList();
+    if (invalidRoles.Count > 0)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "One or more roles are not allowed.", ErrorCode = "invalid_request" });
+    }
+
+    var organization = await dbContext.Organizations.SingleOrDefaultAsync(candidate => candidate.Id == request.OrganizationId);
     if (organization is null)
     {
+        logger.LogWarning("user_save_failed reason=organization_not_found organization_id={OrganizationId}", request.OrganizationId);
         return Results.NotFound(new ApiErrorResponse { Message = "Organization was not found.", ErrorCode = "not_found" });
     }
 
     var existingUser = await userManager.FindByEmailAsync(request.Email);
     if (existingUser is not null)
     {
-        return Results.Conflict(new ApiErrorResponse { Message = "A user with that email already exists.", ErrorCode = "already_exists" });
+        return Results.Conflict(new ApiErrorResponse { Message = "Email is already in use.", ErrorCode = "already_exists" });
     }
 
     var user = new ApplicationUser
@@ -567,7 +645,8 @@ app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDt
         IsEnabled = request.IsEnabled,
         EmailConfirmed = true,
         OrganizationId = organization.Id,
-        CreatedAtUtc = DateTimeOffset.UtcNow
+        CreatedAtUtc = DateTimeOffset.UtcNow,
+        MustChangePassword = request.MustChangePassword
     };
 
     var result = await userManager.CreateAsync(user, request.Password);
@@ -576,7 +655,7 @@ app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDt
         return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", result.Errors.Select(error => error.Description)), ErrorCode = "create_failed" });
     }
 
-    foreach (var role in request.Roles.Distinct(StringComparer.OrdinalIgnoreCase))
+    foreach (var role in normalizedRoles)
     {
         await userManager.AddToRoleAsync(user, role);
     }
@@ -589,8 +668,9 @@ app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDt
     });
 });
 
-app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, ILoggerFactory loggerFactory, HttpContext httpContext) =>
 {
+    var logger = loggerFactory.CreateLogger("MercedesEISTool.Server");
     var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
@@ -620,9 +700,43 @@ app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, Crea
         return Results.Json(new ApiErrorResponse { Message = "Company administrators cannot assign system administrator roles.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
-    var organization = await dbContext.Organizations.FirstOrDefaultAsync(candidate => candidate.Id == request.OrganizationId);
+    if (string.IsNullOrWhiteSpace(request.Email))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Email is required.", ErrorCode = "invalid_request" });
+    }
+
+    if (string.IsNullOrWhiteSpace(request.DisplayName))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Display name is required.", ErrorCode = "invalid_request" });
+    }
+
+    if (string.IsNullOrWhiteSpace(request.OrganizationId))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Select an organization.", ErrorCode = "invalid_request" });
+    }
+
+    var normalizedRoles = request.Roles?
+        .Where(role => !string.IsNullOrWhiteSpace(role))
+        .Select(role => role.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList() ?? new List<string>();
+
+    if (normalizedRoles.Count == 0)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Select at least one role.", ErrorCode = "invalid_request" });
+    }
+
+    var allowedRoles = new[] { "SystemAdministrator", "CompanyAdministrator", "Administrator", "Technician", "Research", "ReadOnly", "User" };
+    var invalidRoles = normalizedRoles.Where(role => !allowedRoles.Contains(role, StringComparer.OrdinalIgnoreCase)).ToList();
+    if (invalidRoles.Count > 0)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "One or more roles are not allowed.", ErrorCode = "invalid_request" });
+    }
+
+    var organization = await dbContext.Organizations.SingleOrDefaultAsync(candidate => candidate.Id == request.OrganizationId);
     if (organization is null)
     {
+        logger.LogWarning("user_save_failed reason=organization_not_found organization_id={OrganizationId}", request.OrganizationId);
         return Results.NotFound(new ApiErrorResponse { Message = "Organization was not found.", ErrorCode = "not_found" });
     }
 
@@ -631,6 +745,7 @@ app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, Crea
     user.UserName = request.Email;
     user.IsEnabled = request.IsEnabled;
     user.OrganizationId = organization.Id;
+    user.MustChangePassword = request.MustChangePassword;
 
     if (!string.IsNullOrWhiteSpace(request.Password))
     {
@@ -653,7 +768,7 @@ app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, Crea
         await userManager.RemoveFromRoleAsync(user, currentRole);
     }
 
-    foreach (var role in request.Roles.Distinct(StringComparer.OrdinalIgnoreCase))
+    foreach (var role in normalizedRoles)
     {
         await userManager.AddToRoleAsync(user, role);
     }

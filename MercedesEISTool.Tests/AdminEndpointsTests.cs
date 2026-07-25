@@ -74,6 +74,61 @@ public class AdminEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task Administrator_CanCreateUserUsingSelectedOrganizationId()
+    {
+        using var client = await CreateAuthenticatedClientAsync("admin@example.local", "development-only-password");
+
+        var organizationsResponse = await client.GetAsync("/api/admin/organizations");
+        Assert.Equal(HttpStatusCode.OK, organizationsResponse.StatusCode);
+        var organizationsPayload = await organizationsResponse.Content.ReadFromJsonAsync<OrganizationListResponseDto>();
+        var organization = Assert.Single(organizationsPayload!.Items);
+
+        var createRequest = new CreateOrUpdateUserRequestDto
+        {
+            Email = $"created-user-{Guid.NewGuid():N}@example.local",
+            DisplayName = "Created User",
+            Password = "password123",
+            OrganizationId = organization.Id,
+            Roles = new List<string> { "ReadOnly" },
+            IsEnabled = true,
+            MustChangePassword = false
+        };
+
+        var response = await client.PostAsJsonAsync("/api/admin/users", createRequest);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var usersResponse = await client.GetAsync("/api/admin/users");
+        Assert.Equal(HttpStatusCode.OK, usersResponse.StatusCode);
+        var usersPayload = await usersResponse.Content.ReadFromJsonAsync<AdminUserListResponseDto>();
+        Assert.Contains(usersPayload!.Items, item => item.Email == createRequest.Email);
+    }
+
+    [Fact]
+    public async Task Administrator_CanUpdateUserWithoutChangingOrganization()
+    {
+        using var client = await CreateAuthenticatedClientAsync("admin@example.local", "development-only-password");
+
+        var usersResponse = await client.GetAsync("/api/admin/users");
+        Assert.Equal(HttpStatusCode.OK, usersResponse.StatusCode);
+        var usersPayload = await usersResponse.Content.ReadFromJsonAsync<AdminUserListResponseDto>();
+        var user = Assert.Single(usersPayload!.Items.Where(item => item.Email == "user@example.local"));
+
+        var updateRequest = new CreateOrUpdateUserRequestDto
+        {
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            Password = string.Empty,
+            OrganizationId = user.OrganizationId ?? string.Empty,
+            Roles = user.Roles,
+            IsEnabled = user.IsEnabled,
+            MustChangePassword = user.MustChangePassword
+        };
+
+        var response = await client.PutAsJsonAsync($"/api/admin/users/{user.Id}", updateRequest);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Administrator_CanReadStorageDiagnostics()
     {
         using var client = await CreateAuthenticatedClientAsync("admin@example.local", "development-only-password");
