@@ -1,0 +1,8 @@
+{
+  "VVDI MB Tool": {
+    "VIN": { "offset": 144, "length": 17 }
+  },
+  "CGDI MB": {
+    "VIN": { "offset": 0, "length": 17 }
+  }
+}

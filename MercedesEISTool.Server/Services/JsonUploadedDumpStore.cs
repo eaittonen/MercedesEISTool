@@ -19,7 +19,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         Directory.CreateDirectory(_uploadsPath);
     }
 
-    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null)
+    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown)
     {
         if (string.IsNullOrWhiteSpace(vehicleIdentifier) && string.IsNullOrWhiteSpace(registrationNumber))
         {
@@ -33,7 +33,8 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
             RegistrationNumber = registrationNumber.Trim(),
             Operation = operation,
             SizeBytes = data.Length,
-            UploadedByUserId = currentUser?.UserId ?? "development"
+            UploadedByUserId = currentUser?.UserId ?? "development",
+            FileCategory = fileCategory
         };
 
         var fileNameSafe = SanitizeFileName(record.FileName);
@@ -119,6 +120,23 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         record.AnalysisHistory.Add(snapshot);
         await SaveRecordsAsync(records);
         return snapshot;
+    }
+
+    public async Task<CgmbKeyFileAnalysisDto?> AnalyzeAndStoreKeyFileAsync(Guid storedFileId, IKeyFileAnalysisService analysisService, ICurrentUser? currentUser = null)
+    {
+        var records = await LoadRecordsAsync();
+        var record = records.FirstOrDefault(item => item.Id == storedFileId);
+        if (record is null || !CanAccessRecord(record, currentUser))
+        {
+            return null;
+        }
+
+        var rawBytes = await File.ReadAllBytesAsync(record.StoredFilePath);
+        var analysis = analysisService.Analyze(rawBytes, record.FileName);
+        record.KeyFileAnalysis = analysis;
+        record.FileCategory = FileCategory.KeyFile;
+        await SaveRecordsAsync(records);
+        return analysis;
     }
 
     public async Task<byte[]> ReadStoredFileAsync(Guid storedFileId, ICurrentUser? currentUser = null)

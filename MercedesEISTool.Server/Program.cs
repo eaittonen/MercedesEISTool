@@ -15,6 +15,7 @@ builder.Services.AddSingleton<ILicenseService, DevelopmentLicenseService>();
 builder.Services.AddSingleton<ICurrentUser, DevelopmentCurrentUser>();
 builder.Services.AddSingleton<IUploadedDumpStore, JsonUploadedDumpStore>();
 builder.Services.AddSingleton<IEisAnalysisService, EisAnalysisService>();
+builder.Services.AddSingleton<IKeyFileAnalysisService, KeyFileAnalysisService>();
 builder.Services.AddAntiforgery();
 
 var app = builder.Build();
@@ -115,16 +116,11 @@ app.MapPost("/api/files/{storedFileId:guid}/reanalyze", async Task<IResult> (Gui
     return Results.Ok(BuildStoredFileDetails(await uploadedDumpStore.GetByIdAsync(storedFileId, currentUser)));
 });
 
-app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
+app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {
         return Results.BadRequest(new ApiErrorResponse { Message = "A dump file is required.", ErrorCode = "missing_file", RequestId = httpContext.TraceIdentifier });
-    }
-
-    if (!vehicleIdentifierConfirmed)
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = "Confirmation is required before upload.", ErrorCode = "confirmation_required", RequestId = httpContext.TraceIdentifier });
     }
 
     var license = licenseService.CheckFeature(FeatureName.AnalyzeDump);
@@ -138,10 +134,18 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
     var bytes = stream.ToArray();
     var sha = ComputeSha256(bytes);
 
-    if (bytes.Length != 256)
+    var keyFileAnalysis = keyFileAnalysisService.Analyze(bytes, file.FileName);
+    var isKeyFile = string.Equals(keyFileAnalysis.DetectedFormat, "CGMB key file", StringComparison.OrdinalIgnoreCase) && string.Equals(keyFileAnalysis.DetectionConfidence, "Verified", StringComparison.OrdinalIgnoreCase);
+
+    if (!isKeyFile && bytes.Length != 256)
     {
         loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=upload requestId={RequestId} success=false fileSize={FileSize} sha256={Sha256} reason=invalid_size", httpContext.TraceIdentifier, bytes.Length, sha);
-        return Results.BadRequest(new ApiErrorResponse { Message = "Mercedes EIS dumps must be exactly 256 bytes.", ErrorCode = "invalid_size", RequestId = httpContext.TraceIdentifier });
+        return Results.BadRequest(new ApiErrorResponse { Message = "Mercedes EIS dumps must be exactly 256 bytes, or a verified CGMB key file.", ErrorCode = "invalid_size", RequestId = httpContext.TraceIdentifier });
+    }
+
+    if (!vehicleIdentifierConfirmed && !isKeyFile)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Confirmation is required before upload.", ErrorCode = "confirmation_required", RequestId = httpContext.TraceIdentifier });
     }
 
     var workflow = new AnalysisWorkflowService();
@@ -160,11 +164,16 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
     UploadedDumpRecord savedUpload;
     try
     {
-        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, userProvidedVin ?? string.Empty, userProvidedRegistrationNumber ?? string.Empty, "upload", analysisService);
+        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, userProvidedVin ?? string.Empty, userProvidedRegistrationNumber ?? string.Empty, "upload", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump);
     }
     catch (ArgumentException ex)
     {
         return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "invalid_upload_metadata", RequestId = httpContext.TraceIdentifier });
+    }
+
+    if (isKeyFile)
+    {
+        await uploadedDumpStore.AnalyzeAndStoreKeyFileAsync(savedUpload.Id, keyFileAnalysisService, currentUser);
     }
 
     loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=upload requestId={RequestId} success=true fileSize={FileSize} sha256={Sha256}", httpContext.TraceIdentifier, bytes.Length, sha);
@@ -181,6 +190,53 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
         Message = validation.Message,
         AnalysisDetails = analysisDetails
     });
+}).DisableAntiforgery();
+
+app.MapPost("/api/key-files/analyze", async Task<IResult> (IFormFile? file, ILicenseService licenseService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
+{
+    if (file is null || file.Length == 0)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "A key file is required.", ErrorCode = "missing_file", RequestId = httpContext.TraceIdentifier });
+    }
+
+    if (file.Length > 1_048_576)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "The uploaded key file must be no larger than 1 MB.", ErrorCode = "file_too_large", RequestId = httpContext.TraceIdentifier });
+    }
+
+    var license = licenseService.CheckFeature(FeatureName.AnalyzeDump);
+    if (!license.IsGranted)
+    {
+        return Results.Forbid();
+    }
+
+    using var stream = new MemoryStream();
+    await file.CopyToAsync(stream, cancellationToken);
+    var bytes = stream.ToArray();
+    var result = keyFileAnalysisService.Analyze(bytes, file.FileName);
+    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=key-file-analyze requestId={RequestId} success=true fileSize={FileSize}", httpContext.TraceIdentifier, bytes.Length);
+    return Results.Ok(result);
+}).DisableAntiforgery();
+
+app.MapPost("/api/files/{storedFileId:guid}/analyze-key", async Task<IResult> (Guid storedFileId, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
+{
+    var license = licenseService.CheckFeature(FeatureName.AnalyzeDump, currentUser);
+    if (!license.IsGranted)
+    {
+        return Results.Forbid();
+    }
+
+    var record = await uploadedDumpStore.GetByIdAsync(storedFileId, currentUser);
+    if (record is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "Stored file was not found.", ErrorCode = "not_found", RequestId = httpContext.TraceIdentifier });
+    }
+
+    var bytes = await uploadedDumpStore.ReadStoredFileAsync(storedFileId, currentUser);
+    var result = keyFileAnalysisService.Analyze(bytes, record.FileName);
+    await uploadedDumpStore.AnalyzeAndStoreKeyFileAsync(storedFileId, keyFileAnalysisService, currentUser);
+    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=key-file-reanalyze requestId={RequestId} success=true storedFileId={StoredFileId}", httpContext.TraceIdentifier, storedFileId);
+    return Results.Ok(result);
 }).DisableAntiforgery();
 
 app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, ILicenseService licenseService, IEisAnalysisService analysisService, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>

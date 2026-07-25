@@ -1,4 +1,5 @@
 using MercedesEISTool.Core.Services;
+using MercedesEISTool.Server.Services;
 
 namespace MercedesEISTool.Tests;
 
@@ -278,6 +279,57 @@ public class EisDumpServiceTests
         Assert.False(result.IsValid);
     }
 
+    [Fact]
+    public void ParseCgmbKeyFile_RecognizesVerifiedFormatAndFields()
+    {
+        var service = new KeyFileAnalysisService();
+        var data = CreateCgmbKeyFile(0x00, new byte[] { 0x26, 0xCF, 0x28, 0xD4, 0x73, 0xD6, 0x90, 0x49 });
+
+        var result = service.Analyze(data, "CGMB_KEY_004CB2FC_1_51_used.bin");
+
+        Assert.Equal("CGMB key file", result.DetectedFormat);
+        Assert.Equal("Verified", result.DetectionConfidence);
+        Assert.Equal(0, result.KeyIndex);
+        Assert.Equal(1, result.SlotNumber);
+        Assert.Equal("5F C1 4A A7 A5 BF 71 E5", result.EisPassword);
+        Assert.Equal("00 4C B2 FC", result.Ssid);
+        Assert.Null(result.KeyPin);
+        Assert.Equal("NotMapped", result.KeyPinStatus);
+        Assert.Equal("NotMapped", result.KeyUsageState);
+        Assert.Equal("NotMapped", result.KeyDisabledState);
+        Assert.Equal("49 90 D6 73 D4 28 CF 26", result.KeySlotDisplayValue);
+    }
+
+    [Fact]
+    public void AssociateCgmbKeyFile_ToMatchingEisDump_UsesSlotAndSsid()
+    {
+        var service = new KeyFileAnalysisService();
+        var keyData = CreateCgmbKeyFile(0x01, new byte[] { 0xAF, 0x66, 0x54, 0x0E, 0x03, 0x13, 0x9B, 0x5C });
+        var eisData = new byte[256];
+        Array.Copy(new byte[] { 0xAF, 0x66, 0x54, 0x0E, 0x03, 0x13, 0x9B, 0x5C }, 0, eisData, 0x80 + 8, 8);
+        Array.Copy(new byte[] { 0x00, 0x4C, 0xB2, 0xFC }, 0, eisData, 0x80 + 0x0C, 4);
+
+        var result = service.AnalyzeAndAssociate(keyData, eisData, "CGMB_KEY_004CB2FC_2_51_used.bin");
+
+        Assert.Equal("ExactSlotMatch", result.AssociationStatus);
+        Assert.Equal(2, result.SlotNumber);
+        Assert.Equal("00 4C B2 FC", result.Ssid);
+    }
+
+    [Fact]
+    public void ParseCgmbKeyFile_RejectsInvalidLengthAndIndexRange()
+    {
+        var service = new KeyFileAnalysisService();
+        var shortData = new byte[159];
+        var invalidIndexData = CreateCgmbKeyFile(0x0A, new byte[] { 0x26, 0xCF, 0x28, 0xD4, 0x73, 0xD6, 0x90, 0x49 });
+
+        var shortResult = service.Analyze(shortData, "short.bin");
+        var invalidIndexResult = service.Analyze(invalidIndexData, "key.bin");
+
+        Assert.Equal("Invalid", shortResult.DetectionConfidence);
+        Assert.Equal("Invalid", invalidIndexResult.DetectionConfidence);
+    }
+
     private static byte[] CreateDumpData()
     {
         var data = new byte[256];
@@ -287,5 +339,27 @@ public class EisDumpServiceTests
         }
 
         return data;
+    }
+
+    private static byte[] CreateCgmbKeyFile(byte keyIndex, byte[] keySlotBytes)
+    {
+        var bytes = new byte[160];
+        bytes[0x00] = 0x01;
+        bytes[0x01] = 0x5F;
+        bytes[0x02] = 0xC1;
+        bytes[0x03] = 0x4A;
+        bytes[0x04] = 0xA7;
+        bytes[0x05] = 0xA5;
+        bytes[0x06] = 0xBF;
+        bytes[0x07] = 0x71;
+        bytes[0x08] = 0xE5;
+        bytes[0x09] = keyIndex;
+        bytes[0x0A] = 0x00;
+        bytes[0x0B] = 0x4C;
+        bytes[0x0C] = 0xB2;
+        bytes[0x0D] = 0xFC;
+        Array.Copy(keySlotBytes, 0, bytes, 0x73, keySlotBytes.Length);
+        Array.Copy(new byte[] { 0x00, 0x4C, 0xB2, 0xFC }, 0, bytes, 0x8C, 4);
+        return bytes;
     }
 }

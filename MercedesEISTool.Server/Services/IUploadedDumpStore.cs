@@ -5,12 +5,20 @@ namespace MercedesEISTool.Server.Services;
 
 public interface IUploadedDumpStore
 {
-    Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null);
+    Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown);
     Task<List<UploadedDumpRecord>> ListAsync(ICurrentUser? currentUser = null, string? search = null, int page = 1, int pageSize = 50);
     Task<StoredFileAnalysisSnapshot?> GetLatestAnalysisAsync(Guid storedFileId);
     Task<StoredFileAnalysisSnapshot?> AnalyzeAndStoreAsync(Guid storedFileId, IEisAnalysisService analysisService);
+    Task<CgmbKeyFileAnalysisDto?> AnalyzeAndStoreKeyFileAsync(Guid storedFileId, IKeyFileAnalysisService analysisService, ICurrentUser? currentUser = null);
     Task<byte[]> ReadStoredFileAsync(Guid storedFileId, ICurrentUser? currentUser = null);
     Task<UploadedDumpRecord?> GetByIdAsync(Guid storedFileId, ICurrentUser? currentUser = null);
+}
+
+public enum FileCategory
+{
+    Unknown,
+    EisDump,
+    KeyFile
 }
 
 public class UploadedDumpRecord
@@ -24,8 +32,10 @@ public class UploadedDumpRecord
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public long SizeBytes { get; set; }
     public string UploadedByUserId { get; set; } = "development";
+    public FileCategory FileCategory { get; set; } = FileCategory.Unknown;
     public StoredFileAnalysisSnapshot? LatestAnalysis { get; set; }
     public List<StoredFileAnalysisSnapshot> AnalysisHistory { get; set; } = new();
+    public CgmbKeyFileAnalysisDto? KeyFileAnalysis { get; set; }
 }
 
 public class StoredFileAnalysisSnapshot
