@@ -6,7 +6,6 @@ using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MercedesEISTool.ApiClient;
-using MercedesEISTool.GUI.Configuration;
 using MercedesEISTool.GUI.ViewModels;
 using MercedesEISTool.GUI.Views;
 
@@ -24,7 +23,7 @@ public partial class App : Application
         var configuration = new ConfigurationBuilder().Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
-        services.AddSingleton(_ =>
+        services.AddSingleton<IMercedesEisApiClient>(_ =>
             new MercedesEisApiClient(new System.Net.Http.HttpClient
             {
                 BaseAddress = new Uri("https://tool.mestariverkko.fi"),
