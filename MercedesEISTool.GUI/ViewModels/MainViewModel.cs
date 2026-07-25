@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -360,9 +361,10 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"Load current user failed: {ex}");
             CurrentUserDisplay = "Not signed in";
             IsAdministrator = false;
-            AdminStatus = ex.Message;
+            AdminStatus = $"Unable to load current user. {ex.Message}";
         }
     }
 
@@ -374,7 +376,15 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        await LoadAdminUsersAsync();
+        try
+        {
+            await LoadAdminUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Administration refresh failed: {ex}");
+            AdminStatus = $"Unable to refresh administrator users. {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -388,12 +398,13 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var response = await _apiClient.DisableUserAsync(SelectedAdminUser.Id);
-            AdminStatus = response.Message;
+            AdminStatus = response?.Message ?? "User status updated.";
             await LoadAdminUsersAsync();
         }
         catch (Exception ex)
         {
-            AdminStatus = ex.Message;
+            Debug.WriteLine($"Administration disable failed: {ex}");
+            AdminStatus = $"Unable to disable user. {ex.Message}";
         }
     }
 
@@ -408,12 +419,13 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var response = await _apiClient.EnableUserAsync(SelectedAdminUser.Id);
-            AdminStatus = response.Message;
+            AdminStatus = response?.Message ?? "User status updated.";
             await LoadAdminUsersAsync();
         }
         catch (Exception ex)
         {
-            AdminStatus = ex.Message;
+            Debug.WriteLine($"Administration enable failed: {ex}");
+            AdminStatus = $"Unable to enable user. {ex.Message}";
         }
     }
 
@@ -422,12 +434,21 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var response = await _apiClient.GetAdminUsersAsync();
-            AdminUsers = new ObservableCollection<AdminUserListItemDto>(response.Items.OrderBy(item => item.Email, StringComparer.OrdinalIgnoreCase));
-            AdminStatus = string.Empty;
+            var items = response?.Items?
+                .Where(item => item is not null)
+                .OrderBy(item => item.Email, StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<AdminUserListItemDto>();
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                AdminUsers = new ObservableCollection<AdminUserListItemDto>(items);
+                AdminStatus = string.Empty;
+            });
         }
         catch (Exception ex)
         {
-            AdminStatus = ex.Message;
+            Debug.WriteLine($"Administration load failed: {ex}");
+            AdminStatus = $"Unable to load administrator users. {ex.Message}";
         }
     }
 
