@@ -3,6 +3,7 @@
         xmlns:vm="using:MercedesEISTool.GUI.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="using:MercedesEISTool.GUI.Converters"
         mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
         x:Class="MercedesEISTool.GUI.Views.MainWindow"
         x:DataType="vm:MainViewModel"
@@ -12,6 +13,10 @@
     <Design.DataContext>
         <vm:MainViewModel />
     </Design.DataContext>
+
+    <Window.Resources>
+        <converters:StringJoinConverter x:Key="StringJoinConverter" />
+    </Window.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="16">
         <Border Grid.Row="0" Padding="0,0,0,10">
