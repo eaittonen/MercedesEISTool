@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
@@ -20,7 +21,6 @@ public partial class MainWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         PositionChanged += OnPositionChanged;
         SizeChanged += OnSizeChanged;
-        StateChanged += OnStateChanged;
         LoadWindowState();
     }
 
@@ -104,11 +104,6 @@ public partial class MainWindow : Window
     }
 
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        SaveWindowState();
-    }
-
-    private void OnStateChanged(object? sender, EventArgs e)
     {
         SaveWindowState();
     }
