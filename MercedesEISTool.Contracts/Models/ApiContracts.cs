@@ -10,6 +10,32 @@ public enum FieldValueStatus
     AnalysisFailed
 }
 
+public sealed class LoginRequestDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public sealed class AuthResponseDto
+{
+    public string AccessToken { get; set; } = string.Empty;
+    public string RefreshToken { get; set; } = string.Empty;
+    public DateTimeOffset AccessTokenExpiresAtUtc { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public List<string> Roles { get; set; } = new();
+}
+
+public sealed class CurrentUserResponseDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public List<string> Roles { get; set; } = new();
+    public bool IsAdministrator { get; set; }
+}
+
 public sealed class SensitiveFieldDto
 {
     public string Name { get; set; } = string.Empty;

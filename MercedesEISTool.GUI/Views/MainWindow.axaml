@@ -48,20 +48,20 @@
                                 <TextBlock Text="{Binding UploadSummary}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
-                        <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="VIN" />
+                        <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="VIN" VerticalAlignment="Center" />
                             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Vin}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="EIS type" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="EIS type" VerticalAlignment="Center" />
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EisType}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Source format" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Source format" VerticalAlignment="Center" />
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DetectedFormat}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Target format" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Target format" VerticalAlignment="Center" />
                             <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding SupportedFormats}" SelectedItem="{Binding SelectedTargetFormat}" Width="180" />
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Vehicle information" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Vehicle information" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <Border Grid.Row="4" Grid.Column="1" Padding="8" CornerRadius="4" Background="#303030">
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="VIN" />
@@ -75,29 +75,49 @@
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="MCU type" />
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="MCU type" VerticalAlignment="Center" />
                             <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Mcu}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Key count" />
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Key count" VerticalAlignment="Center" />
                             <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding KeyCount}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="7" Grid.Column="0" Text="EIS password" />
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="EIS password" VerticalAlignment="Center" />
                             <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding EisPassword}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="8" Grid.Column="0" Text="SSID" />
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="SSID" VerticalAlignment="Center" />
                             <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Ssid}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Server" />
-                            <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding ServerStatus}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Server" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding ServerStatus}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Reason" />
-                            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding ConnectionReason}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="10" Grid.Column="0" Text="Reason" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding ConnectionReason}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="10" Grid.Column="0" Text="URL" />
-                            <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding ConnectionUrl}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="11" Grid.Column="0" Text="URL" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding ConnectionUrl}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="11" Grid.Column="0" Text="Last checked" />
-                            <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding LastChecked}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="12" Grid.Column="0" Text="Last checked" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding LastChecked}" IsReadOnly="True" />
+
+                            <Border Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" Padding="0,8,0,0">
+                                <Border Padding="8" CornerRadius="4" Background="#303030">
+                                    <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="EIS State" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Initialized" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding InitializedDisplay}" />
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Personalized" />
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PersonalizedDisplay}" />
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="TP cleared" />
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TpClearedDisplay}" />
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Activated" />
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ActivatedDisplay}" />
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Dealer EIS" />
+                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding DealerEisDisplay}" />
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="FBS4" />
+                                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Fbs4Display}" />
+                                    </Grid>
+                                </Border>
+                            </Border>
                         </Grid>
                     </StackPanel>
                 </Border>

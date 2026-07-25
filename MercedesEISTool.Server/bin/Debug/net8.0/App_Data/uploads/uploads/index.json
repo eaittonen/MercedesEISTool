@@ -464,5 +464,114 @@
       }
     ],
     "KeyFileAnalysis": null
+  },
+  {
+    "Id": "f6d430cf-27d5-4822-ab39-3ff9b132f2b1",
+    "FileName": "WDD2042081F164458_EE_2026_03_14_20_57_23.bin",
+    "StoredFilePath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Server\\bin\\Debug\\net8.0\\App_Data\\uploads\\uploads\\f6d430cf27d54822ab393ff9b132f2b1-WDD2042081F164458_EE_2026_03_14_20_57_23.bin",
+    "VehicleIdentifier": "WDD2042081F164458",
+    "RegistrationNumber": "",
+    "Operation": "upload",
+    "CreatedAtUtc": "2026-07-25T13:06:36.7787964+00:00",
+    "SizeBytes": 256,
+    "UploadedByUserId": "development",
+    "FileCategory": 1,
+    "LatestAnalysis": {
+      "Id": "41840f91-76fe-4298-b2bc-aea19f73019e",
+      "StoredFileId": "f6d430cf-27d5-4822-ab39-3ff9b132f2b1",
+      "ParserVersion": "1.2.0",
+      "DetectedFormat": "CGDI MB",
+      "DetectedVin": "WDD2042081F164458",
+      "VinStatus": "Present",
+      "EisType": null,
+      "EisTypeStatus": 2,
+      "McuType": null,
+      "McuTypeStatus": 2,
+      "KeyCount": null,
+      "KeyCountStatus": 2,
+      "EisPassword": {
+        "Name": "EIS password",
+        "Value": "A0 54 96 D5 14 09 7F B2",
+        "Status": 0,
+        "SourceDescription": "Verified CGDI mapping",
+        "SourceOffset": 56,
+        "Length": 8,
+        "Confidence": "Verified"
+      },
+      "Ssid": {
+        "Name": "SSID",
+        "Value": "E0 7C A5 D6",
+        "Status": 0,
+        "SourceDescription": "Verified CGDI mapping",
+        "SourceOffset": 40,
+        "Length": 4,
+        "Confidence": "Verified"
+      },
+      "Keys": [],
+      "AdditionalFields": [
+        {
+          "Name": "FileName",
+          "Value": "WDD2042081F164458_EE_2026_03_14_20_57_23.bin",
+          "Status": 0,
+          "SourceDescription": null,
+          "SourceOffset": null,
+          "Length": null,
+          "Confidence": "Verified"
+        }
+      ],
+      "AnalyzedAtUtc": "2026-07-25T13:06:36.8229678+00:00",
+      "AnalysisSucceeded": true,
+      "FailureMessage": null
+    },
+    "AnalysisHistory": [
+      {
+        "Id": "41840f91-76fe-4298-b2bc-aea19f73019e",
+        "StoredFileId": "f6d430cf-27d5-4822-ab39-3ff9b132f2b1",
+        "ParserVersion": "1.2.0",
+        "DetectedFormat": "CGDI MB",
+        "DetectedVin": "WDD2042081F164458",
+        "VinStatus": "Present",
+        "EisType": null,
+        "EisTypeStatus": 2,
+        "McuType": null,
+        "McuTypeStatus": 2,
+        "KeyCount": null,
+        "KeyCountStatus": 2,
+        "EisPassword": {
+          "Name": "EIS password",
+          "Value": "A0 54 96 D5 14 09 7F B2",
+          "Status": 0,
+          "SourceDescription": "Verified CGDI mapping",
+          "SourceOffset": 56,
+          "Length": 8,
+          "Confidence": "Verified"
+        },
+        "Ssid": {
+          "Name": "SSID",
+          "Value": "E0 7C A5 D6",
+          "Status": 0,
+          "SourceDescription": "Verified CGDI mapping",
+          "SourceOffset": 40,
+          "Length": 4,
+          "Confidence": "Verified"
+        },
+        "Keys": [],
+        "AdditionalFields": [
+          {
+            "Name": "FileName",
+            "Value": "WDD2042081F164458_EE_2026_03_14_20_57_23.bin",
+            "Status": 0,
+            "SourceDescription": null,
+            "SourceOffset": null,
+            "Length": null,
+            "Confidence": "Verified"
+          }
+        ],
+        "AnalyzedAtUtc": "2026-07-25T13:06:36.8229678+00:00",
+        "AnalysisSucceeded": true,
+        "FailureMessage": null
+      }
+    ],
+    "KeyFileAnalysis": null
   }
 ]

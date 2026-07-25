@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using MercedesEISTool.Contracts.Models;
 
@@ -13,11 +14,40 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         _httpClient = httpClient;
     }
 
+    public void SetAccessToken(string? accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+            return;
+        }
+
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    }
+
     public async Task<HealthResponse> GetHealthAsync(CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.GetAsync("/api/health", cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<HealthResponse>(cancellationToken: cancellationToken) ?? new HealthResponse();
+    }
+
+    public async Task<AuthResponseDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("/api/auth/login", new LoginRequestDto
+        {
+            Email = email,
+            Password = password
+        }, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AuthResponseDto>(cancellationToken: cancellationToken) ?? new AuthResponseDto();
+    }
+
+    public async Task<CurrentUserResponseDto> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("/api/auth/me", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<CurrentUserResponseDto>(cancellationToken: cancellationToken) ?? new CurrentUserResponseDto();
     }
 
     public async Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)

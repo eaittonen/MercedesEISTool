@@ -94,6 +94,24 @@ public partial class MainViewModel : ViewModelBase
     private string _ssid = "Not mapped";
 
     [ObservableProperty]
+    private bool? _initialized;
+
+    [ObservableProperty]
+    private bool? _personalized;
+
+    [ObservableProperty]
+    private bool? _tpCleared;
+
+    [ObservableProperty]
+    private bool? _activated;
+
+    [ObservableProperty]
+    private bool? _dealerEis;
+
+    [ObservableProperty]
+    private bool? _fbs4;
+
+    [ObservableProperty]
     private ObservableCollection<KeySlotDto> _keySlots = new();
 
     [ObservableProperty]
@@ -244,9 +262,9 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _canSave = false;
 
-    public MainViewModel()
+    public MainViewModel(IMercedesEisApiClient? apiClient = null)
     {
-        _apiClient = CreateApiClient(ApiBaseUrl);
+        _apiClient = apiClient ?? CreateApiClient(ApiBaseUrl);
         ConnectionUrl = ApiBaseUrl;
         _ = RefreshServerStatusAsync();
     }
@@ -359,6 +377,9 @@ public partial class MainViewModel : ViewModelBase
             EisType = details?.EisType ?? "Not mapped";
             Mcu = details?.McuType ?? "Not mapped";
             KeyCount = details?.KeyCount?.ToString() ?? "Not mapped";
+            EisPassword = string.IsNullOrWhiteSpace(details?.EisPassword?.Value) ? "Not mapped" : details.EisPassword.Value;
+            Ssid = string.IsNullOrWhiteSpace(details?.Ssid?.Value) ? "Not mapped" : details.Ssid.Value;
+            ResetEisStateDisplay();
             RawHexText = BuildRawHexText(bytes);
             AnalysisSummary = response.Message;
             UploadSummary = string.Empty;
@@ -426,6 +447,9 @@ public partial class MainViewModel : ViewModelBase
             if (details is not null)
             {
                 UploadSummary += $"{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}; Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
+                EisPassword = string.IsNullOrWhiteSpace(details.EisPassword?.Value) ? "Not mapped" : details.EisPassword.Value;
+                Ssid = string.IsNullOrWhiteSpace(details.Ssid?.Value) ? "Not mapped" : details.Ssid.Value;
+                ResetEisStateDisplay();
             }
             Status = response.Status;
             await RefreshUploadedFilesAsync();
@@ -596,7 +620,7 @@ public partial class MainViewModel : ViewModelBase
         Status = $"Compare B set to {SelectedStoredFile.OriginalFileName}";
     }
 
-    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    [RelayCommand(CanExecute = nameof(CanCopyVinValue))]
     private async Task CopyVin()
     {
         if (SelectedStoredFile is null)
@@ -607,7 +631,7 @@ public partial class MainViewModel : ViewModelBase
         await CopyValueAsync(SelectedStoredFile.UserProvidedVin ?? SelectedStoredFile.DetectedVin, $"VIN copied for {SelectedStoredFile.OriginalFileName}");
     }
 
-    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    [RelayCommand(CanExecute = nameof(CanCopyRegistrationValue))]
     private async Task CopyRegistration()
     {
         if (SelectedStoredFile is null)
@@ -618,7 +642,7 @@ public partial class MainViewModel : ViewModelBase
         await CopyValueAsync(SelectedStoredFile.RegistrationNumber, $"Registration copied for {SelectedStoredFile.OriginalFileName}");
     }
 
-    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    [RelayCommand(CanExecute = nameof(CanCopyEisPasswordValue))]
     private async Task CopyEisPassword()
     {
         if (SelectedStoredFile is null)
@@ -629,7 +653,7 @@ public partial class MainViewModel : ViewModelBase
         await CopyValueAsync(SelectedStoredFile.EisPassword, $"EIS password copied for {SelectedStoredFile.OriginalFileName}");
     }
 
-    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    [RelayCommand(CanExecute = nameof(CanCopySsidValue))]
     private async Task CopySsid()
     {
         if (SelectedStoredFile is null)
@@ -1456,6 +1480,26 @@ public partial class MainViewModel : ViewModelBase
         return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool CanCopyVinValue()
+    {
+        return CanCopyStoredFileValue() && !string.IsNullOrWhiteSpace(SelectedStoredFile?.UserProvidedVin ?? SelectedStoredFile?.DetectedVin);
+    }
+
+    private bool CanCopyRegistrationValue()
+    {
+        return CanCopyStoredFileValue() && !string.IsNullOrWhiteSpace(SelectedStoredFile?.RegistrationNumber);
+    }
+
+    private bool CanCopyEisPasswordValue()
+    {
+        return CanCopyStoredFileValue() && !string.IsNullOrWhiteSpace(SelectedStoredFile?.EisPassword);
+    }
+
+    private bool CanCopySsidValue()
+    {
+        return CanCopyStoredFileValue() && !string.IsNullOrWhiteSpace(SelectedStoredFile?.Ssid);
+    }
+
     private async Task CopyValueAsync(string? value, string successMessage)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -1517,7 +1561,35 @@ public partial class MainViewModel : ViewModelBase
         EisPassword = string.IsNullOrWhiteSpace(details.EisPassword) ? "Not mapped" : details.EisPassword;
         Ssid = string.IsNullOrWhiteSpace(details.Ssid) ? "Not mapped" : details.Ssid;
         KeySlots = new ObservableCollection<KeySlotDto>(details.Keys);
+        ResetEisStateDisplay();
         AnalysisSummary = $"Loaded {details.OriginalFileName} from server.";
+    }
+
+    public string InitializedDisplay => FormatTriState(Initialized);
+    public string PersonalizedDisplay => FormatTriState(Personalized);
+    public string TpClearedDisplay => FormatTriState(TpCleared);
+    public string ActivatedDisplay => FormatTriState(Activated);
+    public string DealerEisDisplay => FormatTriState(DealerEis);
+    public string Fbs4Display => FormatTriState(Fbs4);
+
+    private void ResetEisStateDisplay()
+    {
+        Initialized = null;
+        Personalized = null;
+        TpCleared = null;
+        Activated = null;
+        DealerEis = null;
+        Fbs4 = null;
+    }
+
+    private static string FormatTriState(bool? value)
+    {
+        return value switch
+        {
+            true => "✔",
+            false => "✖",
+            _ => "—"
+        };
     }
 
     private static string DisplayValue(string? value)

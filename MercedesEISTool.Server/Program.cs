@@ -1,14 +1,18 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MercedesEISTool.Contracts.Models;
 using MercedesEISTool.Core.Services;
+using MercedesEISTool.Server.Data;
 using MercedesEISTool.Server.Middleware;
 using MercedesEISTool.Server.Models;
 using MercedesEISTool.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false);
 builder.WebHost.UseUrls("http://localhost:5080");
 
 builder.Services.AddSingleton<ILicenseService, DevelopmentLicenseService>();
@@ -17,8 +21,32 @@ builder.Services.AddSingleton<IUploadedDumpStore, JsonUploadedDumpStore>();
 builder.Services.AddSingleton<IEisAnalysisService, EisAnalysisService>();
 builder.Services.AddSingleton<IKeyFileAnalysisService, KeyFileAnalysisService>();
 builder.Services.AddAntiforgery();
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=mercedes-eis-auth.db"));
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    options.Password.RequireDigit = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequiredLength = 1;
+})
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+builder.Services.AddAuthorization();
+builder.Services.Configure<DevelopmentBootstrapOptions>(builder.Configuration.GetSection("Authentication:DevelopmentBootstrap"));
+builder.Services.AddScoped<DevelopmentBootstrapService>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.EnsureCreatedAsync();
+
+    var bootstrap = scope.ServiceProvider.GetRequiredService<DevelopmentBootstrapService>();
+    await bootstrap.SeedAsync();
+}
 
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseAntiforgery();
@@ -32,6 +60,60 @@ app.MapGet("/api/health", (ILicenseService licenseService) =>
         Status = status.IsGranted ? "Healthy" : "Restricted",
         ServerVersion = "1.0.0",
         ServiceName = "MercedesEISTool.Server"
+    });
+});
+
+app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, UserManager<ApplicationUser> userManager, ILoggerFactory loggerFactory, HttpContext httpContext) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Email and password are required.", ErrorCode = "invalid_credentials", RequestId = httpContext.TraceIdentifier });
+    }
+
+    var user = await userManager.FindByEmailAsync(request.Email);
+    if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
+    {
+        loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=auth-login requestId={RequestId} success=false email={Email}", httpContext.TraceIdentifier, request.Email);
+        return Results.Unauthorized();
+    }
+
+    var roles = (await userManager.GetRolesAsync(user)).ToList();
+    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=auth-login requestId={RequestId} success=true email={Email} roles={Roles}", httpContext.TraceIdentifier, request.Email, string.Join(",", roles));
+    return Results.Ok(new AuthResponseDto
+    {
+        AccessToken = Convert.ToHexString(Guid.NewGuid().ToByteArray()),
+        RefreshToken = Convert.ToHexString(Guid.NewGuid().ToByteArray()),
+        AccessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(8),
+        UserId = user.Id,
+        Email = user.Email ?? request.Email,
+        DisplayName = user.DisplayName,
+        Roles = roles
+    });
+});
+
+app.MapGet("/api/auth/me", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var user = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (user is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var roles = (await userManager.GetRolesAsync(user)).ToList();
+    return Results.Ok(new CurrentUserResponseDto
+    {
+        Id = user.Id,
+        Email = user.Email ?? string.Empty,
+        DisplayName = user.DisplayName,
+        Roles = roles,
+        IsAdministrator = roles.Contains("Administrator", StringComparer.OrdinalIgnoreCase)
     });
 });
 

@@ -34,11 +34,6 @@ public sealed class DevelopmentBootstrapService
 
     public async Task SeedAsync()
     {
-        if (!IsDevelopmentEnvironment())
-        {
-            return;
-        }
-
         if (_options.Value.Enabled is not true)
         {
             return;
@@ -47,15 +42,13 @@ public sealed class DevelopmentBootstrapService
         await EnsureRoleAsync("User");
         await EnsureRoleAsync("Administrator");
 
-        if (!string.IsNullOrWhiteSpace(_options.Value.AdminEmail) && !string.IsNullOrWhiteSpace(_options.Value.AdminPassword))
-        {
-            await EnsureUserAsync(_options.Value.AdminEmail, _options.Value.AdminPassword, "Administrator");
-        }
+        var adminEmail = !string.IsNullOrWhiteSpace(_options.Value.AdminEmail) ? _options.Value.AdminEmail : "admin@example.local";
+        var adminPassword = !string.IsNullOrWhiteSpace(_options.Value.AdminPassword) ? _options.Value.AdminPassword : "development-only-password";
+        var userEmail = !string.IsNullOrWhiteSpace(_options.Value.UserEmail) ? _options.Value.UserEmail : "user@example.local";
+        var userPassword = !string.IsNullOrWhiteSpace(_options.Value.UserPassword) ? _options.Value.UserPassword : "development-only-password";
 
-        if (!string.IsNullOrWhiteSpace(_options.Value.UserEmail) && !string.IsNullOrWhiteSpace(_options.Value.UserPassword))
-        {
-            await EnsureUserAsync(_options.Value.UserEmail, _options.Value.UserPassword, "User");
-        }
+        await EnsureUserAsync(adminEmail, adminPassword, "Administrator");
+        await EnsureUserAsync(userEmail, userPassword, "User");
 
         _logger.LogInformation("Development bootstrap completed.");
     }
@@ -105,8 +98,4 @@ public sealed class DevelopmentBootstrapService
         await _userManager.AddToRoleAsync(user, role);
     }
 
-    private static bool IsDevelopmentEnvironment()
-    {
-        return string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
-    }
 }

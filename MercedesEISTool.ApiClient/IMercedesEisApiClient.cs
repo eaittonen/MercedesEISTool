@@ -5,6 +5,9 @@ namespace MercedesEISTool.ApiClient;
 public interface IMercedesEisApiClient
 {
     Task<HealthResponse> GetHealthAsync(CancellationToken cancellationToken = default);
+    Task<AuthResponseDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<CurrentUserResponseDto> GetCurrentUserAsync(CancellationToken cancellationToken = default);
+    void SetAccessToken(string? accessToken);
     Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default);
     Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string? userProvidedVin, string? userProvidedRegistrationNumber, bool vehicleIdentifierConfirmed, CancellationToken cancellationToken = default);
     Task<UploadedDumpListResponse> GetUploadedDumpsAsync(CancellationToken cancellationToken = default);
