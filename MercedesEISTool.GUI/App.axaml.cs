@@ -21,19 +21,15 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        var configuration = BuildConfiguration();
+        var configuration = new ConfigurationBuilder().Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
-        services.AddOptions<ApiOptions>().Bind(configuration.GetSection(ApiOptions.SectionName));
-        services.AddSingleton(sp =>
-        {
-            var options = sp.GetRequiredService<IConfiguration>().GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new ApiOptions();
-            return new MercedesEisApiClient(new System.Net.Http.HttpClient
+        services.AddSingleton(_ =>
+            new MercedesEisApiClient(new System.Net.Http.HttpClient
             {
-                BaseAddress = new Uri(options.BaseUrl),
+                BaseAddress = new Uri("https://tool.mestariverkko.fi"),
                 Timeout = TimeSpan.FromSeconds(5)
-            });
-        });
+            }));
 
         Services = services.BuildServiceProvider();
 

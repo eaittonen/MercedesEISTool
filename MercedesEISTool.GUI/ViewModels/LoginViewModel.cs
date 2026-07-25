@@ -1,6 +1,8 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -8,21 +10,28 @@ using Microsoft.Extensions.Configuration;
 using MercedesEISTool.ApiClient;
 using MercedesEISTool.Contracts.Models;
 using MercedesEISTool.GUI;
-using MercedesEISTool.GUI.Configuration;
 
 namespace MercedesEISTool.GUI.ViewModels;
 
 public partial class LoginViewModel : ObservableObject
 {
+    private const string ProductionBaseUrl = "https://tool.mestariverkko.fi";
+    private const string QaBaseUrl = "https://qa.tool.mestariverkko.fi";
+    private static readonly string SettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "MercedesEISTool",
+        "login-settings.json");
+
     private readonly IConfiguration? _configuration;
-    private readonly EnvironmentSettings _environmentSettings;
     private IMercedesEisApiClient _apiClient;
 
     public LoginViewModel(IConfiguration? configuration = null)
     {
         _configuration = configuration;
-        _environmentSettings = EnvironmentSettings.Load();
-        SelectedEnvironment = _environmentSettings.SelectedEnvironment;
+        var storedEnvironment = LoadSelectedEnvironment();
+        SelectedEnvironment = storedEnvironment;
+        SelectedServerDisplay = GetBaseUrl(storedEnvironment);
+        _apiClient = CreateApiClient(GetBaseUrl(storedEnvironment));
     }
 
     [ObservableProperty]
@@ -41,27 +50,23 @@ public partial class LoginViewModel : ObservableObject
     private ObservableCollection<string> _availableEnvironments = new() { "Production", "QA" };
 
     [ObservableProperty]
-    private string _selectedServerDisplay = "https://tool.mestariverkko.fi";
+    private string _selectedServerDisplay = ProductionBaseUrl;
 
     partial void OnSelectedEnvironmentChanged(string value)
     {
-        var options = GetOptionsForEnvironment(value);
-        SelectedServerDisplay = options.BaseUrl;
-        _apiClient = CreateApiClient(options.BaseUrl);
-        _environmentSettings.SelectedEnvironment = value;
-        _environmentSettings.Save();
+        SelectedServerDisplay = GetBaseUrl(value);
+        _apiClient = CreateApiClient(SelectedServerDisplay);
+        SaveSelectedEnvironment(value);
     }
 
-    private ApiOptions GetOptionsForEnvironment(string environmentName)
-    {
-        var section = _configuration?.GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new ApiOptions();
-        var environmentSettings = _configuration?.GetSection("Environments").GetSection(environmentName).Get<ApiOptions>() ?? new ApiOptions();
-        return string.IsNullOrWhiteSpace(environmentSettings.BaseUrl) ? section : environmentSettings;
-    }
+    private string GetBaseUrl(string environmentName)
+        => string.Equals(environmentName, "QA", StringComparison.OrdinalIgnoreCase)
+            ? QaBaseUrl
+            : ProductionBaseUrl;
 
     private IMercedesEisApiClient CreateApiClient(string? baseUrl = null)
     {
-        var selectedBaseUrl = baseUrl ?? GetOptionsForEnvironment(_selectedEnvironment).BaseUrl;
+        var selectedBaseUrl = baseUrl ?? GetBaseUrl(_selectedEnvironment);
         return new MercedesEisApiClient(new HttpClient
         {
             BaseAddress = new Uri(selectedBaseUrl),
@@ -69,12 +74,46 @@ public partial class LoginViewModel : ObservableObject
         });
     }
 
+    private string LoadSelectedEnvironment()
+    {
+        if (!File.Exists(SettingsPath))
+        {
+            return "Production";
+        }
+
+        try
+        {
+            var json = File.ReadAllText(SettingsPath);
+            var settings = JsonSerializer.Deserialize<LoginSettings>(json);
+            return string.Equals(settings?.SelectedEnvironment, "QA", StringComparison.OrdinalIgnoreCase)
+                ? "QA"
+                : "Production";
+        }
+        catch
+        {
+            return "Production";
+        }
+    }
+
+    private void SaveSelectedEnvironment(string environmentName)
+    {
+        var directory = Path.GetDirectoryName(SettingsPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var settings = new LoginSettings { SelectedEnvironment = environmentName };
+        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    [RelayCommand]
     private async Task Login()
     {
         try
         {
             Status = "Signing in...";
-            _apiClient = CreateApiClient(GetOptionsForEnvironment(_selectedEnvironment).BaseUrl);
+            _apiClient = CreateApiClient(GetBaseUrl(_selectedEnvironment));
             var response = await _apiClient.LoginAsync(Email, Password);
             _apiClient.SetAccessToken(response.AccessToken);
             Status = $"Signed in as {response.DisplayName}";
@@ -87,5 +126,10 @@ public partial class LoginViewModel : ObservableObject
         {
             Status = ex.Message;
         }
+    }
+
+    private sealed class LoginSettings
+    {
+        public string SelectedEnvironment { get; set; } = "Production";
     }
 }

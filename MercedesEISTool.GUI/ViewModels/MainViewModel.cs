@@ -281,8 +281,7 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel(IMercedesEisApiClient? apiClient = null, IConfiguration? configuration = null)
     {
-        var options = configuration?.GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new ApiOptions();
-        ApiBaseUrl = options.BaseUrl;
+        ApiBaseUrl = "https://tool.mestariverkko.fi";
         _apiClient = apiClient ?? CreateApiClient(ApiBaseUrl);
         ConnectionUrl = ApiBaseUrl;
         _ = RefreshServerStatusAsync();
