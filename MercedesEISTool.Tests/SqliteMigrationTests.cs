@@ -123,6 +123,75 @@ public class SqliteMigrationTests
         }
     }
 
+    [Fact]
+    public void Migration_HandlesMissingNewerColumns_ForPartialLegacyDatabase()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"partial-{Guid.NewGuid():N}.sqlite");
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={dbPath}");
+            connection.Open();
+
+            using var createCommand = connection.CreateCommand();
+            createCommand.CommandText = @"
+                CREATE TABLE AspNetUsers (
+                    Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers PRIMARY KEY,
+                    UserName TEXT NULL,
+                    NormalizedUserName TEXT NULL,
+                    Email TEXT NULL,
+                    NormalizedEmail TEXT NULL,
+                    EmailConfirmed INTEGER NOT NULL,
+                    PasswordHash TEXT NULL,
+                    SecurityStamp TEXT NULL,
+                    ConcurrencyStamp TEXT NULL,
+                    PhoneNumber TEXT NULL,
+                    PhoneNumberConfirmed INTEGER NOT NULL,
+                    TwoFactorEnabled INTEGER NOT NULL,
+                    LockoutEnd TEXT NULL,
+                    LockoutEnabled INTEGER NOT NULL,
+                    AccessFailedCount INTEGER NOT NULL
+                );
+
+                INSERT INTO AspNetUsers (
+                    Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
+                    PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed,
+                    TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount)
+                VALUES (
+                    'user-2', 'partial-user', 'PARTIAL-USER', 'partial@example.com', 'PARTIAL@EXAMPLE.COM', 1,
+                    'hashed-password-2', 'security-stamp-2', 'concurrency-stamp-2', '+111111111', 1,
+                    0, NULL, 1, 0);
+            ";
+            createCommand.ExecuteNonQuery();
+
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseSqlite(connection)
+                .Options;
+
+            using (var context = new ApplicationDbContext(options))
+            {
+                context.Database.Migrate();
+            }
+
+            using (var context = new ApplicationDbContext(options))
+            {
+                var columns = GetTableColumns(context, "AspNetUsers");
+                Assert.Contains("OrganizationId", columns);
+                var user = context.Users.Single(u => u.Id == "user-2");
+                Assert.Equal("partial-user", user.UserName);
+                Assert.Equal("hashed-password-2", user.PasswordHash);
+                Assert.NotNull(user.OrganizationId);
+                Assert.Equal("default-org", user.OrganizationId);
+            }
+        }
+        finally
+        {
+            if (File.Exists(dbPath))
+            {
+                File.Delete(dbPath);
+            }
+        }
+    }
+
     private static List<string> GetTableColumns(DbContext context, string tableName)
     {
         var connection = context.Database.GetDbConnection();
