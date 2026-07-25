@@ -9,14 +9,39 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
 {
     private readonly string _rootPath;
     private readonly string _indexPath;
-    private readonly string _uploadsPath;
 
     public JsonUploadedDumpStore(string? rootPath = null)
     {
-        _rootPath = string.IsNullOrWhiteSpace(rootPath) ? Path.Combine(AppContext.BaseDirectory, "App_Data", "uploads") : rootPath;
-        _uploadsPath = Path.Combine(_rootPath, "uploads");
-        _indexPath = Path.Combine(_uploadsPath, "index.json");
-        Directory.CreateDirectory(_uploadsPath);
+        _rootPath = ResolveStorageRoot(rootPath);
+        _indexPath = Path.Combine(_rootPath, "index.json");
+        Directory.CreateDirectory(_rootPath);
+        MigrateLegacyStorageIfNeeded();
+    }
+
+    public static string ResolveStorageRoot(string? rootPath = null)
+    {
+        var configuredRoot = rootPath
+            ?? Environment.GetEnvironmentVariable("MERCEDES_EIS_UPLOAD_ROOT")
+            ?? Environment.GetEnvironmentVariable("UPLOAD_STORAGE_ROOT");
+
+        if (!string.IsNullOrWhiteSpace(configuredRoot))
+        {
+            var trimmed = configuredRoot.Trim();
+            if (trimmed.EndsWith("uploads", StringComparison.OrdinalIgnoreCase) || trimmed.EndsWith("uploads/", StringComparison.OrdinalIgnoreCase) || trimmed.EndsWith("uploads\\", StringComparison.OrdinalIgnoreCase))
+            {
+                return Path.GetFullPath(trimmed);
+            }
+
+            return Path.GetFullPath(Path.Combine(trimmed, "uploads"));
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+            return Path.GetFullPath(Path.Combine(appDataRoot, "MercedesEISTool", "uploads"));
+        }
+
+        return Path.GetFullPath(Path.Combine("/var/lib", "mercedes-eis-tool", "uploads"));
     }
 
     public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown)
@@ -38,7 +63,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         };
 
         var fileNameSafe = SanitizeFileName(record.FileName);
-        var storedFilePath = Path.Combine(_uploadsPath, $"{record.Id:N}-{fileNameSafe}");
+        var storedFilePath = Path.Combine(_rootPath, $"{record.Id:N}-{fileNameSafe}");
         await File.WriteAllBytesAsync(storedFilePath, data);
 
         record.StoredFilePath = storedFilePath;
@@ -182,9 +207,64 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
 
     private async Task SaveRecordsAsync(List<UploadedDumpRecord> records)
     {
-        Directory.CreateDirectory(_uploadsPath);
+        Directory.CreateDirectory(_rootPath);
         await using var stream = File.Create(_indexPath);
         await JsonSerializer.SerializeAsync(stream, records, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private void MigrateLegacyStorageIfNeeded()
+    {
+        var legacyRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "App_Data", "uploads"));
+        if (string.Equals(_rootPath, legacyRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var legacyIndexPath = Path.Combine(legacyRoot, "index.json");
+        if (!File.Exists(legacyIndexPath) && !Directory.Exists(legacyRoot))
+        {
+            return;
+        }
+
+        if (File.Exists(_indexPath) || Directory.EnumerateFiles(_rootPath).Any())
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(_rootPath);
+            if (!File.Exists(legacyIndexPath))
+            {
+                return;
+            }
+
+            using var stream = File.OpenRead(legacyIndexPath);
+            var records = JsonSerializer.Deserialize<List<UploadedDumpRecord>>(stream) ?? new List<UploadedDumpRecord>();
+            foreach (var record in records)
+            {
+                if (string.IsNullOrWhiteSpace(record.StoredFilePath))
+                {
+                    continue;
+                }
+
+                var sourcePath = record.StoredFilePath;
+                if (!File.Exists(sourcePath))
+                {
+                    continue;
+                }
+
+                var destinationPath = Path.Combine(_rootPath, Path.GetFileName(sourcePath));
+                File.Copy(sourcePath, destinationPath, overwrite: true);
+                record.StoredFilePath = destinationPath;
+            }
+
+            File.WriteAllText(_indexPath, JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch
+        {
+            // Best-effort migration. The next startup will retry if the directory is still empty.
+        }
     }
 
     private static string SanitizeFileName(string fileName)

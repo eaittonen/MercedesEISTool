@@ -41,6 +41,8 @@ public sealed class AdminUserListItemDto
     public string Id { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+    public string? OrganizationId { get; set; }
+    public string OrganizationName { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
     public bool IsEnabled { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -120,6 +122,17 @@ public sealed class CreateOrUpdateUserRequestDto
     public string OrganizationId { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
     public bool IsEnabled { get; set; } = true;
+}
+
+public sealed class ResetPasswordRequestDto
+{
+    public string NewPassword { get; set; } = string.Empty;
+    public bool ForcePasswordChange { get; set; }
+}
+
+public sealed class ForcePasswordChangeRequestDto
+{
+    public bool RequirePasswordChange { get; set; }
 }
 
 public sealed class SensitiveFieldDto

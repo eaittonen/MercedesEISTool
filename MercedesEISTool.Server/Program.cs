@@ -117,7 +117,7 @@ using (var scope = app.Services.CreateScope())
         throw;
     }
 
-    var uploadStorageRoot = Path.Combine(app.Environment.ContentRootPath, "App_Data", "uploads");
+    var uploadStorageRoot = JsonUploadedDumpStore.ResolveStorageRoot();
     try
     {
         Directory.CreateDirectory(uploadStorageRoot);
@@ -255,6 +255,8 @@ app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser>
             Id = user.Id,
             Email = user.Email ?? string.Empty,
             DisplayName = user.DisplayName,
+            OrganizationId = user.OrganizationId,
+            OrganizationName = user.Organization?.Name ?? string.Empty,
             Roles = roles,
             IsEnabled = user.IsEnabled,
             CreatedAtUtc = user.CreatedAtUtc,
@@ -366,6 +368,44 @@ app.MapPost("/api/admin/organizations", async Task<IResult> (CreateOrganizationR
         MaxUsers = organization.MaxUsers,
         UserCount = 0
     });
+});
+
+app.MapDelete("/api/admin/organizations/{organizationId}", async Task<IResult> (string organizationId, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Contains("SystemAdministrator", StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var organization = await dbContext.Organizations.Include(organization => organization.Users).FirstOrDefaultAsync(candidate => candidate.Id == organizationId);
+    if (organization is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "Organization was not found.", ErrorCode = "not_found" });
+    }
+
+    if (organization.Users.Any())
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Organizations with assigned users cannot be deleted.", ErrorCode = "invalid_operation" });
+    }
+
+    dbContext.Organizations.Remove(organization);
+    await dbContext.SaveChangesAsync();
+
+    return Results.Ok(new ApiErrorResponse { Message = "Organization deleted.", ErrorCode = "ok" });
 });
 
 app.MapPut("/api/admin/organizations/{organizationId}", async Task<IResult> (string organizationId, UpdateOrganizationRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
@@ -533,6 +573,16 @@ app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDt
         return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)) && !string.Equals(request.OrganizationId, currentUser.OrganizationId, StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You can only create users in your own organization.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)) && request.Roles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "Company administrators cannot assign system administrator roles.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
     if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
     {
         return Results.BadRequest(new ApiErrorResponse { Message = "Email and password are required.", ErrorCode = "invalid_request" });
@@ -608,6 +658,16 @@ app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, Crea
         return Results.NotFound(new ApiErrorResponse { Message = "User was not found.", ErrorCode = "not_found" });
     }
 
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)) && !string.Equals(user.OrganizationId, currentUser.OrganizationId, StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You can only manage users in your own organization.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)) && request.Roles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "Company administrators cannot assign system administrator roles.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
     var organization = await dbContext.Organizations.FirstOrDefaultAsync(candidate => candidate.Id == request.OrganizationId);
     if (organization is null)
     {
@@ -651,6 +711,155 @@ app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, Crea
         UserId = user.Id,
         IsEnabled = user.IsEnabled,
         Message = "User updated."
+    });
+});
+
+app.MapDelete("/api/admin/users/{userId}", async Task<IResult> (string userId, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var targetUser = await userManager.FindByIdAsync(userId);
+    if (targetUser is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "User was not found.", ErrorCode = "not_found" });
+    }
+
+    if (targetUser.Id == currentUser.Id)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Administrators cannot delete their own account.", ErrorCode = "invalid_operation" });
+    }
+
+    var targetRoles = (await userManager.GetRolesAsync(targetUser)).ToList();
+    if (targetRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)) && currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "Company administrators cannot delete system administrators.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var deleteResult = await userManager.DeleteAsync(targetUser);
+    if (!deleteResult.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", deleteResult.Errors.Select(error => error.Description)), ErrorCode = "delete_failed" });
+    }
+
+    return Results.Ok(new AdminUserActionResponseDto
+    {
+        UserId = targetUser.Id,
+        IsEnabled = false,
+        Message = "User deleted."
+    });
+});
+
+app.MapPost("/api/admin/users/{userId}/reset-password", async Task<IResult> (string userId, ResetPasswordRequestDto request, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    if (string.IsNullOrWhiteSpace(request.NewPassword))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "A new password is required.", ErrorCode = "invalid_request" });
+    }
+
+    var targetUser = await userManager.FindByIdAsync(userId);
+    if (targetUser is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "User was not found.", ErrorCode = "not_found" });
+    }
+
+    var passwordToken = await userManager.RemovePasswordAsync(targetUser);
+    if (!passwordToken.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", passwordToken.Errors.Select(error => error.Description)), ErrorCode = "password_update_failed" });
+    }
+
+    var addPasswordResult = await userManager.AddPasswordAsync(targetUser, request.NewPassword);
+    if (!addPasswordResult.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", addPasswordResult.Errors.Select(error => error.Description)), ErrorCode = "password_update_failed" });
+    }
+
+    targetUser.MustChangePassword = request.ForcePasswordChange;
+    await userManager.UpdateAsync(targetUser);
+
+    return Results.Ok(new AdminUserActionResponseDto
+    {
+        UserId = targetUser.Id,
+        IsEnabled = targetUser.IsEnabled,
+        Message = request.ForcePasswordChange ? "Password reset and password change required." : "Password reset."
+    });
+});
+
+app.MapPost("/api/admin/users/{userId}/force-password-change", async Task<IResult> (string userId, ForcePasswordChangeRequestDto request, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var targetUser = await userManager.FindByIdAsync(userId);
+    if (targetUser is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "User was not found.", ErrorCode = "not_found" });
+    }
+
+    targetUser.MustChangePassword = request.RequirePasswordChange;
+    var result = await userManager.UpdateAsync(targetUser);
+    if (!result.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", result.Errors.Select(error => error.Description)), ErrorCode = "update_failed" });
+    }
+
+    return Results.Ok(new AdminUserActionResponseDto
+    {
+        UserId = targetUser.Id,
+        IsEnabled = targetUser.IsEnabled,
+        Message = request.RequirePasswordChange ? "Password change required on next sign-in." : "Password change requirement cleared."
     });
 });
 
