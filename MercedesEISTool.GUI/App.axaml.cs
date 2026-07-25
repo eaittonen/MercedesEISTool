@@ -30,7 +30,7 @@ public partial class App : Application
                 Timeout = TimeSpan.FromSeconds(5)
             }));
 
-        Services = services.BuildServiceProvider();
+        ((Avalonia.Application)this).Services = services.BuildServiceProvider();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -48,7 +48,7 @@ public partial class App : Application
         }
 
         var loginWindow = desktop.MainWindow;
-        var configuration = (Application as App)?.Services?.GetRequiredService<IConfiguration>();
+        var configuration = (this as App)?.Services?.GetRequiredService<IConfiguration>();
         var mainWindow = new MainWindow
         {
             DataContext = new MainViewModel(apiClient, configuration)
