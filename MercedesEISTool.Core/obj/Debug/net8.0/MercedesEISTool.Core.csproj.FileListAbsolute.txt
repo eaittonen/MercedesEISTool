@@ -10,3 +10,4 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Core\obj\Deb
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Core\obj\Debug\net8.0\MercedesEISTool.Core.pdb
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Core\obj\Debug\net8.0\ref\MercedesEISTool.Core.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Core\bin\Debug\net8.0\Configuration\FieldMaps.json
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Core\obj\Debug\net8.0\MercedesEISTool.Core.sourcelink.json

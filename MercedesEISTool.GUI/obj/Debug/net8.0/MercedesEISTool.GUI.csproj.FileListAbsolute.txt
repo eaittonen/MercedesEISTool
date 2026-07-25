@@ -94,3 +94,4 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debu
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\MercedesEISTool.GUI.pdb
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\MercedesEISTool.GUI.genruntimeconfig.cache
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\ref\MercedesEISTool.GUI.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\MercedesEISTool.GUI.sourcelink.json

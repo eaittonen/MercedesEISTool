@@ -17,18 +17,19 @@ namespace MercedesEISTool.GUI.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly EisDumpService _service = new();
+    private readonly BinaryLoader _binaryLoader = new();
 
     [ObservableProperty]
-    private string _vin = string.Empty;
+    private string _vin = "Unknown";
 
     [ObservableProperty]
-    private string _eisType = string.Empty;
+    private string _eisType = "Unknown";
 
     [ObservableProperty]
-    private string _format = string.Empty;
+    private string _detectedFormat = "Unknown";
 
     [ObservableProperty]
-    private string _mcu = string.Empty;
+    private string _mcu = "Unknown";
 
     [ObservableProperty]
     private string _keyCount = "0";
@@ -38,6 +39,15 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _selectedTargetFormat = "CGDI MB";
+
+    [ObservableProperty]
+    private string _rawHexText = string.Empty;
+
+    [ObservableProperty]
+    private bool _canConvert = false;
+
+    [ObservableProperty]
+    private bool _canSave = false;
 
     public ObservableCollection<string> SupportedFormats { get; } = new() { "VVDI MB Tool", "CGDI MB" };
 
@@ -63,82 +73,72 @@ public partial class MainViewModel : ViewModelBase
         }
 
         var path = file.Path.LocalPath;
-        // TODO: route BIN loading through BinaryLoader once the integration point is ready.
-        var bytes = File.ReadAllBytes(path);
-        var validation = _service.ValidateDump(bytes);
-        if (!validation.IsValid)
+        try
         {
-            Status = validation.Message;
-            return;
-        }
+            var bytes = _binaryLoader.LoadBinFile(path);
+            var validation = _service.ValidateDump(bytes);
+            if (!validation.IsValid)
+            {
+                Status = validation.Message;
+                return;
+            }
 
-        var dump = _service.ParseDump(bytes);
-        ApplyDump(dump);
-        Status = $"Loaded {Path.GetFileName(path)}";
+            var dump = _service.ParseDump(bytes);
+            ApplyDump(dump);
+            Status = $"Loaded {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            Status = ex.Message;
+        }
     }
 
     [RelayCommand]
     private void ConvertDump()
     {
-        if (string.IsNullOrWhiteSpace(Vin))
-        {
-            Status = "Open a dump first.";
-            return;
-        }
-
-        var dump = new EisDump
-        {
-            RawData = Array.Empty<byte>(),
-            VIN = Vin,
-            Format = Format,
-            EisType = EisType,
-            MCU = Mcu,
-            SSID = string.Empty,
-            Keys = new List<KeyInfo>()
-        };
-
-        var converted = _service.ConvertDump(dump, SelectedTargetFormat);
-        ApplyDump(converted);
-        Status = $"Converted to {SelectedTargetFormat}";
+        Status = "Conversion is not implemented yet.";
     }
 
     [RelayCommand]
-    private async Task SaveDump()
+    private Task SaveDump()
     {
-        if (string.IsNullOrWhiteSpace(Vin))
-        {
-            Status = "Nothing to save.";
-            return;
-        }
-
-        var window = (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as Window;
-        if (window is null)
-        {
-            return;
-        }
-
-        var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Save Mercedes EIS dump",
-            SuggestedFileName = "dump.bin"
-        });
-
-        if (file is null)
-        {
-            return;
-        }
-
-        var path = file.Path.LocalPath;
-        File.WriteAllBytes(path, new byte[256]);
-        Status = $"Saved {Path.GetFileName(path)}";
+        Status = "Saving is disabled until conversion is implemented.";
+        return Task.CompletedTask;
     }
 
     private void ApplyDump(EisDump dump)
     {
-        Vin = dump.VIN;
-        EisType = dump.EisType;
-        Format = dump.Format;
-        Mcu = dump.MCU;
-        KeyCount = dump.Keys.Count.ToString();
+        Vin = DisplayValue(dump.VIN);
+        EisType = DisplayValue(dump.EisType);
+        DetectedFormat = DisplayValue(dump.Format);
+        Mcu = DisplayValue(dump.MCU);
+        KeyCount = dump.Keys.Count > 0 ? dump.Keys.Count.ToString() : "0";
+        RawHexText = BuildRawHexText(dump.RawData);
+        CanConvert = false;
+        CanSave = false;
+    }
+
+    private static string DisplayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Unknown" : value;
+    }
+
+    private static string BuildRawHexText(byte[] data)
+    {
+        if (data is null || data.Length != 256)
+        {
+            return "No raw dump available.";
+        }
+
+        var lines = new List<string>();
+        for (var offset = 0; offset < data.Length; offset += 16)
+        {
+            var chunk = data.Skip(offset).Take(16).ToArray();
+            var hex = string.Join(" ", chunk.Select(b => b.ToString("X2")));
+            var ascii = new string(chunk.Select(b => b >= 0x20 && b < 0x7F ? (char)b : '.').ToArray());
+            lines.Add($"{offset:D4}  {hex.PadRight(47)} {ascii}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
     }
 }

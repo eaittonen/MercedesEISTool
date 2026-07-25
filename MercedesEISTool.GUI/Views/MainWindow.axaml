@@ -16,32 +16,43 @@
     <Grid RowDefinitions="Auto,*,Auto" Margin="16">
         <StackPanel Orientation="Horizontal" Spacing="12">
             <Button Content="Open BIN" Command="{Binding OpenDumpCommand}" />
-            <ComboBox ItemsSource="{Binding SupportedFormats}" SelectedItem="{Binding SelectedTargetFormat}" Width="180" />
-            <Button Content="Convert" Command="{Binding ConvertDumpCommand}" />
-            <Button Content="Save" Command="{Binding SaveDumpCommand}" />
+            <Button Content="Convert" Command="{Binding ConvertDumpCommand}" IsEnabled="{Binding CanConvert}" />
+            <Button Content="Save" Command="{Binding SaveDumpCommand}" IsEnabled="{Binding CanSave}" />
         </StackPanel>
 
-        <Border Grid.Row="1" Margin="0,12,0,0" Padding="12" CornerRadius="6" Background="#202020">
-            <StackPanel Spacing="10">
-                <TextBlock Text="Detected dump information" FontSize="18" FontWeight="SemiBold" />
-                <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="VIN" />
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Vin}" />
+        <TabControl Grid.Row="1" Margin="0,12,0,0">
+            <TabItem Header="Details">
+                <Border Padding="12" CornerRadius="6" Background="#202020">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Detected dump information" FontSize="18" FontWeight="SemiBold" />
+                        <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="VIN" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Vin}" IsReadOnly="True" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="EIS type" />
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EisType}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="EIS type" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EisType}" IsReadOnly="True" />
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Format" />
-                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Format}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Source format" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DetectedFormat}" IsReadOnly="True" />
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="MCU type" />
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Mcu}" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Target format" />
+                            <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding SupportedFormats}" SelectedItem="{Binding SelectedTargetFormat}" Width="180" />
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Key count" />
-                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding KeyCount}" />
-                </Grid>
-            </StackPanel>
-        </Border>
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="MCU type" />
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Mcu}" IsReadOnly="True" />
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Key count" />
+                            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding KeyCount}" IsReadOnly="True" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </TabItem>
+            <TabItem Header="Raw Hex">
+                <Border Padding="12" CornerRadius="6" Background="#202020">
+                    <TextBox Text="{Binding RawHexText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="300" />
+                </Border>
+            </TabItem>
+        </TabControl>
 
         <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,8,0,0" />
     </Grid>

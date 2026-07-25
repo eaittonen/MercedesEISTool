@@ -12,9 +12,77 @@ public class EisDumpService
     {
         var configPath = ResolveConfigPath();
         var json = File.ReadAllText(configPath);
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        _fieldMaps = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, FieldDefinition>>>(json, options)
-            ?? new Dictionary<string, Dictionary<string, FieldDefinition>>();
+        _fieldMaps = LoadFieldMaps(json);
+    }
+
+    private static Dictionary<string, Dictionary<string, FieldDefinition>> LoadFieldMaps(string json)
+    {
+        var result = new Dictionary<string, Dictionary<string, FieldDefinition>>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return result;
+        }
+
+        using var document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            return result;
+        }
+
+        foreach (var formatProperty in document.RootElement.EnumerateObject())
+        {
+            if (formatProperty.Value.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var fieldMap = new Dictionary<string, FieldDefinition>(StringComparer.OrdinalIgnoreCase);
+            foreach (var fieldProperty in formatProperty.Value.EnumerateObject())
+            {
+                if (fieldProperty.Value.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var definition = new FieldDefinition();
+                if (TryReadInt(fieldProperty.Value, "offset", out var offset))
+                {
+                    definition.Offset = offset;
+                }
+
+                if (TryReadInt(fieldProperty.Value, "length", out var length))
+                {
+                    definition.Length = length;
+                }
+
+                fieldMap[fieldProperty.Name] = definition;
+            }
+
+            result[formatProperty.Name] = fieldMap;
+        }
+
+        return result;
+    }
+
+    private static bool TryReadInt(JsonElement element, string propertyName, out int value)
+    {
+        value = 0;
+        if (element.TryGetProperty(propertyName, out var child))
+        {
+            if (child.ValueKind == JsonValueKind.Number && child.TryGetInt32(out var parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            if (child.ValueKind == JsonValueKind.String && int.TryParse(child.GetString(), out parsed))
+            {
+                value = parsed;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string ResolveConfigPath()
@@ -71,9 +139,9 @@ public class EisDumpService
             RawData = (byte[])data.Clone(),
             Format = format,
             VIN = ReadMappedString(data, format, "VIN"),
-            EisType = "TODO",
+            EisType = string.Empty,
             MCU = ReadMappedString(data, format, "MCU"),
-            SSID = "TODO",
+            SSID = string.Empty,
             Keys = new List<KeyInfo>()
         };
 
@@ -108,18 +176,14 @@ public class EisDumpService
 
     public string DetectFormat(byte[] data)
     {
-        if (data.Length < 256)
+        if (data.Length != 256)
         {
             return "Unknown";
         }
 
-        var signature = Encoding.ASCII.GetString(data.Take(2).ToArray());
-        if (signature == "VV")
-        {
-            return "VVDI MB Tool";
-        }
-
-        return "CGDI MB";
+        return data.Length >= 2 && data[0] == (byte)'V' && data[1] == (byte)'V'
+            ? "VVDI MB Tool"
+            : "Unknown";
     }
 
     private string ReadMappedString(byte[] data, string format, string fieldName)
@@ -129,16 +193,27 @@ public class EisDumpService
             return string.Empty;
         }
 
-        var start = field.Offset;
-        var length = field.Length;
-        if (start + length > data.Length)
+        if (field.Offset < 0 || field.Length <= 0 || field.Offset + field.Length > data.Length)
         {
             return string.Empty;
         }
 
-        var bytes = data.Skip(start).Take(length).ToArray();
-        var text = Encoding.ASCII.GetString(bytes).TrimEnd('\0', ' ');
-        return text;
+        var bytes = data.Skip(field.Offset).Take(field.Length).ToArray();
+        return SafeDecodeAscii(bytes);
+    }
+
+    private static string SafeDecodeAscii(byte[] bytes)
+    {
+        try
+        {
+            var encoding = Encoding.GetEncoding("us-ascii", EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+            var text = encoding.GetString(bytes).Trim('\0', ' ', '\r', '\n', '\t');
+            return text.Length > 0 ? text : string.Empty;
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
     }
 
     public class FieldDefinition
