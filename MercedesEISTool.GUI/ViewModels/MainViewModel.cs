@@ -288,11 +288,12 @@ public partial class MainViewModel : ViewModelBase
             IsBusy = true;
             var bytes = LoadLocalFile(SelectedFilePath);
             var response = await _apiClient.AnalyzeDumpAsync(bytes, SelectedFileName);
+            var details = response.AnalysisDetails;
             Vin = DisplayValue(response.DetectedVin);
             DetectedFormat = DisplayValue(response.DetectedFormat);
-            EisType = DisplayValue(response.EisType);
-            Mcu = DisplayValue(response.McuType);
-            KeyCount = DisplayValue(response.KeyCount);
+            EisType = details?.EisType ?? "Not mapped";
+            Mcu = details?.McuType ?? "Not mapped";
+            KeyCount = details?.KeyCount?.ToString() ?? "Not mapped";
             RawHexText = BuildRawHexText(bytes);
             AnalysisSummary = response.Message;
             UploadSummary = string.Empty;
@@ -355,7 +356,12 @@ public partial class MainViewModel : ViewModelBase
             IsBusy = true;
             var bytes = LoadLocalFile(SelectedFilePath);
             var response = await _apiClient.UploadDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber, VinConfirmedByUser);
+            var details = response.AnalysisDetails;
             UploadSummary = $"Uploaded to server: {response.Status} | {response.Message}";
+            if (details is not null)
+            {
+                UploadSummary += $"{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}; Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
+            }
             Status = response.Status;
             await RefreshUploadedFilesAsync();
         }
@@ -1060,11 +1066,12 @@ public partial class MainViewModel : ViewModelBase
         {
             ServerStatus = "Connecting";
             var response = await _apiClient.AnalyzeDumpAsync(data, fileName);
+            var details = response.AnalysisDetails;
             Vin = DisplayValue(response.DetectedVin);
             DetectedFormat = DisplayValue(response.DetectedFormat);
-            EisType = DisplayValue(response.EisType);
-            Mcu = DisplayValue(response.McuType);
-            KeyCount = DisplayValue(response.KeyCount);
+            EisType = details?.EisType ?? "Not mapped";
+            Mcu = details?.McuType ?? "Not mapped";
+            KeyCount = details?.KeyCount?.ToString() ?? "Not mapped";
             RawHexText = BuildRawHexText(data);
             ServerStatus = "Connected";
             Status = response.Status;

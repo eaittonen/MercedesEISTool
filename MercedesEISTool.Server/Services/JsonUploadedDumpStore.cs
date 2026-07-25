@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MercedesEISTool.Contracts.Models;
 
 namespace MercedesEISTool.Server.Services;
 
@@ -16,7 +17,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         Directory.CreateDirectory(_uploadsPath);
     }
 
-    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation)
+    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null)
     {
         if (string.IsNullOrWhiteSpace(vehicleIdentifier) && string.IsNullOrWhiteSpace(registrationNumber))
         {
@@ -41,12 +42,63 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         var records = await LoadRecordsAsync();
         records.Add(record);
         await SaveRecordsAsync(records);
+
+        if (analysisService is not null)
+        {
+            await AnalyzeAndStoreAsync(record.Id, analysisService);
+        }
+
         return record;
     }
 
     public async Task<List<UploadedDumpRecord>> ListAsync()
     {
         return await LoadRecordsAsync();
+    }
+
+    public async Task<StoredFileAnalysisSnapshot?> GetLatestAnalysisAsync(Guid storedFileId)
+    {
+        var records = await LoadRecordsAsync();
+        var record = records.FirstOrDefault(item => item.Id == storedFileId);
+        return record?.LatestAnalysis;
+    }
+
+    public async Task<StoredFileAnalysisSnapshot?> AnalyzeAndStoreAsync(Guid storedFileId, IEisAnalysisService analysisService)
+    {
+        var records = await LoadRecordsAsync();
+        var record = records.FirstOrDefault(item => item.Id == storedFileId);
+        if (record is null)
+        {
+            return null;
+        }
+
+        var rawBytes = await File.ReadAllBytesAsync(record.StoredFilePath);
+        var analysis = analysisService.Analyze(rawBytes, record.FileName);
+        var snapshot = new StoredFileAnalysisSnapshot
+        {
+            StoredFileId = record.Id,
+            ParserVersion = analysis.ParserVersion,
+            DetectedFormat = analysis.DetectedFormat,
+            DetectedVin = analysis.DetectedVin,
+            VinStatus = analysis.VinStatus,
+            EisType = analysis.EisType,
+            EisTypeStatus = analysis.EisTypeStatus,
+            McuType = analysis.McuType,
+            McuTypeStatus = analysis.McuTypeStatus,
+            KeyCount = analysis.KeyCount,
+            KeyCountStatus = analysis.KeyCountStatus,
+            EisPassword = analysis.EisPassword,
+            Ssid = analysis.Ssid,
+            Keys = analysis.Keys,
+            AdditionalFields = analysis.AdditionalFields,
+            AnalyzedAtUtc = analysis.AnalyzedAtUtc,
+            AnalysisSucceeded = true
+        };
+
+        record.LatestAnalysis = snapshot;
+        record.AnalysisHistory.Add(snapshot);
+        await SaveRecordsAsync(records);
+        return snapshot;
     }
 
     private async Task<List<UploadedDumpRecord>> LoadRecordsAsync()

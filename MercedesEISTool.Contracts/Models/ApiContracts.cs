@@ -1,5 +1,56 @@
 namespace MercedesEISTool.Contracts.Models;
 
+public enum FieldValueStatus
+{
+    Present,
+    NotPresent,
+    NotMapped,
+    Invalid,
+    UnsupportedFormat,
+    AnalysisFailed
+}
+
+public sealed class SensitiveFieldDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Value { get; set; }
+    public FieldValueStatus Status { get; set; }
+    public string? SourceDescription { get; set; }
+    public int? SourceOffset { get; set; }
+    public int? Length { get; set; }
+    public string Confidence { get; set; } = "Unknown";
+}
+
+public sealed class KeySlotDto
+{
+    public int SlotNumber { get; set; }
+    public string Status { get; set; } = "Unknown";
+    public string? Password { get; set; }
+    public FieldValueStatus PasswordStatus { get; set; }
+    public string? Hash { get; set; }
+    public FieldValueStatus HashStatus { get; set; }
+    public string? Notes { get; set; }
+}
+
+public sealed class EisAnalysisDetailsDto
+{
+    public string DetectedFormat { get; set; } = "Unknown";
+    public string? DetectedVin { get; set; }
+    public string VinStatus { get; set; } = "NotMapped";
+    public string? EisType { get; set; }
+    public FieldValueStatus EisTypeStatus { get; set; }
+    public string? McuType { get; set; }
+    public FieldValueStatus McuTypeStatus { get; set; }
+    public int? KeyCount { get; set; }
+    public FieldValueStatus KeyCountStatus { get; set; }
+    public SensitiveFieldDto EisPassword { get; set; } = new();
+    public SensitiveFieldDto Ssid { get; set; } = new();
+    public List<KeySlotDto> Keys { get; set; } = new();
+    public List<SensitiveFieldDto> AdditionalFields { get; set; } = new();
+    public DateTimeOffset AnalyzedAtUtc { get; set; }
+    public string ParserVersion { get; set; } = string.Empty;
+}
+
 public class AnalyzeDumpRequest
 {
     public string FileName { get; set; } = string.Empty;
@@ -22,6 +73,7 @@ public class AnalyzeDumpResponse
     public bool AnalysisSucceeded { get; set; }
     public string Message { get; set; } = "Analyzed";
     public string Status { get; set; } = "Analyzed";
+    public EisAnalysisDetailsDto? AnalysisDetails { get; set; }
 }
 
 public class CompareDumpsRequest
@@ -57,6 +109,7 @@ public class UploadDumpResponse
     public string? DetectedVin { get; set; }
     public string VinStatus { get; set; } = "NotPresent";
     public string Message { get; set; } = string.Empty;
+    public EisAnalysisDetailsDto? AnalysisDetails { get; set; }
 }
 
 public class UploadedDumpSummary

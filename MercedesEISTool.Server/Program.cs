@@ -14,6 +14,7 @@ builder.WebHost.UseUrls("http://localhost:5080");
 builder.Services.AddSingleton<ILicenseService, DevelopmentLicenseService>();
 builder.Services.AddSingleton<ICurrentUser, DevelopmentCurrentUser>();
 builder.Services.AddSingleton<IUploadedDumpStore, JsonUploadedDumpStore>();
+builder.Services.AddSingleton<IEisAnalysisService, EisAnalysisService>();
 builder.Services.AddAntiforgery();
 
 var app = builder.Build();
@@ -53,7 +54,7 @@ app.MapGet("/api/uploads", async (IUploadedDumpStore uploadedDumpStore) =>
     });
 });
 
-app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
+app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {
@@ -98,7 +99,7 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
     UploadedDumpRecord savedUpload;
     try
     {
-        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, userProvidedVin ?? string.Empty, userProvidedRegistrationNumber ?? string.Empty, "upload");
+        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, userProvidedVin ?? string.Empty, userProvidedRegistrationNumber ?? string.Empty, "upload", analysisService);
     }
     catch (ArgumentException ex)
     {
@@ -106,6 +107,7 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
     }
 
     loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=upload requestId={RequestId} success=true fileSize={FileSize} sha256={Sha256}", httpContext.TraceIdentifier, bytes.Length, sha);
+    var analysisDetails = analysisService.Analyze(bytes, file.FileName);
     return Results.Ok(new UploadDumpResponse
     {
         FileName = file.FileName,
@@ -113,13 +115,14 @@ app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm
         Sha256 = sha,
         FileSizeBytes = bytes.Length,
         UploadId = savedUpload.Id,
-        DetectedVin = analysis.DetectedVin,
-        VinStatus = analysis.VinStatus.ToString(),
-        Message = validation.Message
+        DetectedVin = analysisDetails.DetectedVin,
+        VinStatus = analysisDetails.VinStatus,
+        Message = validation.Message,
+        AnalysisDetails = analysisDetails
     });
 }).DisableAntiforgery();
 
-app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, ILicenseService licenseService, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
+app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, ILicenseService licenseService, IEisAnalysisService analysisService, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {
@@ -150,21 +153,23 @@ app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, ILicense
 
     var workflow = new AnalysisWorkflowService();
     var analysis = workflow.Analyze(bytes, file.FileName);
+    var analysisDetails = analysisService.Analyze(bytes, file.FileName);
     var response = new AnalyzeDumpResponse
     {
         FileName = file.FileName,
         DetectedFormat = analysis.DetectedFormat,
-        DetectedVin = analysis.DetectedVin,
-        VinStatus = analysis.VinStatus.ToString(),
+        DetectedVin = analysisDetails.DetectedVin,
+        VinStatus = analysisDetails.VinStatus,
         VinSource = analysis.VinSource,
-        EisType = analysis.EisType,
-        McuType = analysis.McuType,
-        KeyCount = analysis.KeyCount,
+        EisType = analysisDetails.EisType ?? string.Empty,
+        McuType = analysisDetails.McuType ?? string.Empty,
+        KeyCount = analysisDetails.KeyCount?.ToString() ?? "NotMapped",
         Sha256 = sha,
         FileSizeBytes = bytes.Length,
         AnalysisSucceeded = analysis.AnalysisSucceeded,
         Message = analysis.Message,
-        Status = analysis.AnalysisSucceeded ? "Analyzed" : "Failed"
+        Status = analysis.AnalysisSucceeded ? "Analyzed" : "Failed",
+        AnalysisDetails = analysisDetails
     };
 
     loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=analyze requestId={RequestId} success=true fileSize={FileSize} sha256={Sha256}", httpContext.TraceIdentifier, bytes.Length, sha);
