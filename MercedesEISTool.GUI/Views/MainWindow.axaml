@@ -18,6 +18,9 @@
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                     <Button Content="Open BIN" Command="{Binding OpenDumpCommand}" />
+                    <Button Content="Analyze" Command="{Binding AnalyzeDumpCommand}" />
+                    <Button Content="Upload" Command="{Binding UploadDumpCommand}" />
+                    <Button Content="Refresh Files" Command="{Binding RefreshUploadedFilesCommand}" />
                     <Button Content="Convert" Command="{Binding ConvertDumpCommand}" IsEnabled="{Binding CanConvert}" />
                     <Button Content="Save" Command="{Binding SaveDumpCommand}" IsEnabled="{Binding CanSave}" />
                 </StackPanel>
@@ -37,7 +40,15 @@
                 <Border Padding="12" CornerRadius="6" Background="#202020">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Detected dump information" FontSize="18" FontWeight="SemiBold" />
-                        <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                        <Border Padding="8" CornerRadius="4" Background="#303030">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Workflow" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding SelectedFileName}" />
+                                <TextBlock Text="{Binding AnalysisSummary}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding UploadSummary}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="VIN" />
                             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Vin}" IsReadOnly="True" />
 
@@ -50,11 +61,23 @@
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Target format" />
                             <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding SupportedFormats}" SelectedItem="{Binding SelectedTargetFormat}" Width="180" />
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="MCU type" />
-                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Mcu}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Vehicle identifier" />
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding VehicleIdentifier}" />
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Key count" />
-                            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding KeyCount}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Registration number" />
+                            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding RegistrationNumber}" />
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="MCU type" />
+                            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Mcu}" IsReadOnly="True" />
+
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Key count" />
+                            <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding KeyCount}" IsReadOnly="True" />
+
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Vehicle identifier" />
+                            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding VehicleIdentifier}" />
+
+                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Registration number" />
+                            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding RegistrationNumber}" />
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -62,6 +85,14 @@
             <TabItem Header="Raw Hex">
                 <Border Padding="12" CornerRadius="6" Background="#202020">
                     <TextBox Text="{Binding RawHexText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="300" />
+                </Border>
+            </TabItem>
+            <TabItem Header="My Files">
+                <Border Padding="12" CornerRadius="6" Background="#202020">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Persisted uploads" FontSize="18" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding UploadedFilesSummary}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="260" />
+                    </StackPanel>
                 </Border>
             </TabItem>
             <TabItem Header="Compare">

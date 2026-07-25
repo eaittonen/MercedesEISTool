@@ -44,10 +44,31 @@ public partial class MainViewModel : ViewModelBase
     private string _serverStatus = "Connecting";
 
     [ObservableProperty]
+    private string _selectedFileName = "No file selected";
+
+    [ObservableProperty]
+    private string _selectedFilePath = string.Empty;
+
+    [ObservableProperty]
+    private string _analysisSummary = string.Empty;
+
+    [ObservableProperty]
+    private string _uploadSummary = string.Empty;
+
+    [ObservableProperty]
+    private string _uploadedFilesSummary = string.Empty;
+
+    [ObservableProperty]
     private string _apiBaseUrl = "http://localhost:5080";
 
     [ObservableProperty]
     private string _selectedTargetFormat = "CGDI MB";
+
+    [ObservableProperty]
+    private string _vehicleIdentifier = string.Empty;
+
+    [ObservableProperty]
+    private string _registrationNumber = string.Empty;
 
     [ObservableProperty]
     private string _rawHexText = string.Empty;
@@ -172,42 +193,106 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task OpenDump()
     {
-        var window = (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as Window;
-        if (window is null)
+        var result = await PickFileAsync("Open Mercedes EIS dump");
+        if (result is null)
         {
             return;
         }
 
-        var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-        {
-            Title = "Open Mercedes EIS dump",
-            AllowMultiple = false
-        });
-
-        var file = files.FirstOrDefault();
-        if (file is null)
-        {
-            return;
-        }
-
-        var path = file.Path.LocalPath;
         try
         {
-            var bytes = LoadLocalFile(path);
+            var bytes = LoadLocalFile(result.Value.Path);
             if (bytes.Length != 256)
             {
                 Status = "Expected a 256-byte dump.";
                 return;
             }
 
+            SelectedFileName = Path.GetFileName(result.Value.Path);
+            SelectedFilePath = result.Value.Path;
             RawHexText = BuildRawHexText(bytes);
-            await AnalyzeDumpAsync(bytes, Path.GetFileName(path));
-            Status = $"Loaded {Path.GetFileName(path)}";
+            AnalysisSummary = "File loaded locally. Use Analyze to send it to the server.";
+            UploadSummary = string.Empty;
+            Status = $"Loaded {SelectedFileName}";
         }
         catch (Exception ex)
         {
             Status = ex.Message;
         }
+    }
+
+    [RelayCommand]
+    private async Task AnalyzeDump()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedFilePath))
+        {
+            Status = "Open a dump file before analyzing it.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(VehicleIdentifier) || string.IsNullOrWhiteSpace(RegistrationNumber))
+        {
+            Status = "Provide a vehicle identifier and registration number before analyzing.";
+            return;
+        }
+
+        try
+        {
+            var bytes = LoadLocalFile(SelectedFilePath);
+            var response = await _apiClient.AnalyzeDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber);
+            Vin = DisplayValue(response.Vin);
+            DetectedFormat = DisplayValue(response.DetectedFormat);
+            EisType = "Unknown";
+            Mcu = "Unknown";
+            KeyCount = "0";
+            RawHexText = BuildRawHexText(bytes);
+            AnalysisSummary = $"Analyzed via server: {response.Status} | SHA256 {response.Sha256}";
+            UploadSummary = string.Empty;
+            Status = response.Status;
+            CanConvert = false;
+            CanSave = false;
+        }
+        catch (Exception ex)
+        {
+            AnalysisSummary = $"Analysis failed: {ex.Message}";
+            Status = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UploadDump()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedFilePath))
+        {
+            Status = "Open a dump file before uploading it.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(VehicleIdentifier) || string.IsNullOrWhiteSpace(RegistrationNumber))
+        {
+            Status = "Provide a vehicle identifier and registration number before uploading.";
+            return;
+        }
+
+        try
+        {
+            var bytes = LoadLocalFile(SelectedFilePath);
+            var response = await _apiClient.UploadDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber);
+            UploadSummary = $"Uploaded to server: {response.Status} | {response.StoredFilePath}";
+            Status = response.Status;
+            await RefreshUploadedFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            UploadSummary = $"Upload failed: {ex.Message}";
+            Status = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshUploadedFiles()
+    {
+        await RefreshUploadedFilesAsync();
     }
 
     [RelayCommand]
@@ -567,6 +652,14 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(VehicleIdentifier) || string.IsNullOrWhiteSpace(RegistrationNumber))
+        {
+            CompareText = "Provide a vehicle identifier and registration number before comparing.";
+            CompareSummary = "Provide a vehicle identifier and registration number before comparing.";
+            CompareOffsets = string.Empty;
+            return;
+        }
+
         CompareText = "Server unavailable. Analysis requires an active server connection.";
         CompareSummary = "Server unavailable. Analysis requires an active server connection.";
         CompareOffsets = string.Empty;
@@ -885,7 +978,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             ServerStatus = "Connecting";
-            var response = await _apiClient.AnalyzeDumpAsync(data, fileName);
+            var response = await _apiClient.AnalyzeDumpAsync(data, fileName, VehicleIdentifier, RegistrationNumber);
             Vin = DisplayValue(response.Vin);
             DetectedFormat = DisplayValue(response.DetectedFormat);
             EisType = "Unknown";
@@ -910,12 +1003,26 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    private async Task RefreshUploadedFilesAsync()
+    {
+        try
+        {
+            var response = await _apiClient.GetUploadedDumpsAsync();
+            var lines = response.Uploads.Select(upload => $"{upload.FileName} | {upload.VehicleIdentifier} | {upload.RegistrationNumber} | {upload.Operation} | {upload.SizeBytes} bytes").ToList();
+            UploadedFilesSummary = lines.Any() ? string.Join(Environment.NewLine, lines) : "No uploaded files yet.";
+        }
+        catch (Exception ex)
+        {
+            UploadedFilesSummary = $"Unable to load uploads: {ex.Message}";
+        }
+    }
+
     private async Task CompareDumpsAsync(byte[] left, byte[] right)
     {
         try
         {
             ServerStatus = "Connecting";
-            var response = await _apiClient.CompareDumpsAsync(left, right, "left.bin", "right.bin");
+            var response = await _apiClient.CompareDumpsAsync(left, right, "left.bin", "right.bin", VehicleIdentifier, RegistrationNumber);
             CompareText = $"Total differing bytes: {response.TotalDifferences}{Environment.NewLine}Offsets: {string.Join(", ", response.DifferingOffsets)}";
             CompareSummary = "Compared via server";
             CompareOffsets = $"Differing bytes: {response.TotalDifferences} | Offsets: {FormatOffsets(response.DifferingOffsets)}";

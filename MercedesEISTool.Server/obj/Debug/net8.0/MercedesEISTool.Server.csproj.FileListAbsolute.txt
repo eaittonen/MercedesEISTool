@@ -1,7 +1,6 @@
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\Configuration\FieldMaps.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\appsettings.Development.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\appsettings.json
-C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.exe
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.deps.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.runtimeconfig.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.dll
