@@ -129,6 +129,93 @@ public class AdminEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task CompanyAdministrator_OnlySeesPermittedOrganizationsAndUsers()
+    {
+        using var adminClient = await CreateAuthenticatedClientAsync("admin@example.local", "development-only-password");
+
+        var firstOrganizationResponse = await adminClient.PostAsJsonAsync("/api/admin/organizations", new CreateOrganizationRequestDto
+        {
+            Name = $"Company A {Guid.NewGuid():N}",
+            ContactEmail = "company-a@example.local",
+            Country = "Finland",
+            IsActive = true,
+            LicenseType = "Standard",
+            MaxUsers = 4
+        });
+        Assert.Equal(HttpStatusCode.OK, firstOrganizationResponse.StatusCode);
+        var firstOrganization = await firstOrganizationResponse.Content.ReadFromJsonAsync<OrganizationDetailDto>();
+        Assert.NotNull(firstOrganization);
+
+        var secondOrganizationResponse = await adminClient.PostAsJsonAsync("/api/admin/organizations", new CreateOrganizationRequestDto
+        {
+            Name = $"Company B {Guid.NewGuid():N}",
+            ContactEmail = "company-b@example.local",
+            Country = "Finland",
+            IsActive = true,
+            LicenseType = "Standard",
+            MaxUsers = 4
+        });
+        Assert.Equal(HttpStatusCode.OK, secondOrganizationResponse.StatusCode);
+        var secondOrganization = await secondOrganizationResponse.Content.ReadFromJsonAsync<OrganizationDetailDto>();
+        Assert.NotNull(secondOrganization);
+
+        var companyAdminEmail = $"company-admin-{Guid.NewGuid():N}@example.local";
+        var companyAdminCreationResponse = await adminClient.PostAsJsonAsync("/api/admin/users", new CreateOrUpdateUserRequestDto
+        {
+            Email = companyAdminEmail,
+            DisplayName = "Company Admin",
+            Password = "password123",
+            OrganizationId = firstOrganization.Id,
+            Roles = new List<string> { "CompanyAdministrator" },
+            IsEnabled = true,
+            MustChangePassword = false
+        });
+        Assert.Equal(HttpStatusCode.OK, companyAdminCreationResponse.StatusCode);
+
+        var permittedUserEmail = $"permitted-user-{Guid.NewGuid():N}@example.local";
+        var permittedUserCreationResponse = await adminClient.PostAsJsonAsync("/api/admin/users", new CreateOrUpdateUserRequestDto
+        {
+            Email = permittedUserEmail,
+            DisplayName = "Permitted User",
+            Password = "password123",
+            OrganizationId = firstOrganization.Id,
+            Roles = new List<string> { "ReadOnly" },
+            IsEnabled = true,
+            MustChangePassword = false
+        });
+        Assert.Equal(HttpStatusCode.OK, permittedUserCreationResponse.StatusCode);
+
+        var otherOrganizationUserEmail = $"other-org-user-{Guid.NewGuid():N}@example.local";
+        var otherOrganizationUserCreationResponse = await adminClient.PostAsJsonAsync("/api/admin/users", new CreateOrUpdateUserRequestDto
+        {
+            Email = otherOrganizationUserEmail,
+            DisplayName = "Other Org User",
+            Password = "password123",
+            OrganizationId = secondOrganization.Id,
+            Roles = new List<string> { "ReadOnly" },
+            IsEnabled = true,
+            MustChangePassword = false
+        });
+        Assert.Equal(HttpStatusCode.OK, otherOrganizationUserCreationResponse.StatusCode);
+
+        using var companyAdminClient = await CreateAuthenticatedClientAsync(companyAdminEmail, "password123");
+
+        var usersResponse = await companyAdminClient.GetAsync("/api/admin/users");
+        Assert.Equal(HttpStatusCode.OK, usersResponse.StatusCode);
+        var usersPayload = await usersResponse.Content.ReadFromJsonAsync<AdminUserListResponseDto>();
+        Assert.NotNull(usersPayload);
+        Assert.All(usersPayload.Items, item => Assert.Equal(firstOrganization.Id, item.OrganizationId));
+        Assert.DoesNotContain(usersPayload.Items, item => item.Email == otherOrganizationUserEmail);
+
+        var organizationsResponse = await companyAdminClient.GetAsync("/api/admin/organizations");
+        Assert.Equal(HttpStatusCode.OK, organizationsResponse.StatusCode);
+        var organizationsPayload = await organizationsResponse.Content.ReadFromJsonAsync<OrganizationListResponseDto>();
+        Assert.NotNull(organizationsPayload);
+        Assert.Single(organizationsPayload.Items);
+        Assert.Equal(firstOrganization.Id, organizationsPayload.Items[0].Id);
+    }
+
+    [Fact]
     public async Task Administrator_CanReadStorageDiagnostics()
     {
         using var client = await CreateAuthenticatedClientAsync("admin@example.local", "development-only-password");

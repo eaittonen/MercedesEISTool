@@ -234,8 +234,16 @@ app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser>
         return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
-    var users = await dbContext.Users
+    var usersQuery = dbContext.Users
         .Include(user => user.Organization)
+        .AsQueryable();
+
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        usersQuery = usersQuery.Where(user => user.OrganizationId == currentUser.OrganizationId);
+    }
+
+    var users = await usersQuery
         .OrderBy(user => user.Email)
         .ToListAsync();
 
@@ -276,8 +284,16 @@ app.MapGet("/api/admin/organizations", async Task<IResult> (UserManager<Applicat
         return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
-    var organizations = await dbContext.Organizations
+    var organizationsQuery = dbContext.Organizations
         .Include(organization => organization.Users)
+        .AsQueryable();
+
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        organizationsQuery = organizationsQuery.Where(organization => organization.Id == currentUser.OrganizationId);
+    }
+
+    var organizations = await organizationsQuery
         .OrderBy(organization => organization.Name)
         .ToListAsync();
 
@@ -315,7 +331,14 @@ app.MapGet("/api/admin/organizations/options", async Task<IResult> (UserManager<
         return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
-    var organizations = await dbContext.Organizations
+    var organizationsQuery = dbContext.Organizations.AsQueryable();
+
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)))
+    {
+        organizationsQuery = organizationsQuery.Where(organization => organization.Id == currentUser.OrganizationId);
+    }
+
+    var organizations = await organizationsQuery
         .OrderBy(organization => organization.Name)
         .Select(organization => new OrganizationOptionDto(organization.Id, organization.Name))
         .ToListAsync();

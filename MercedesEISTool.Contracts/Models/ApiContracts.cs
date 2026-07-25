@@ -149,6 +149,16 @@ public sealed record OrganizationOptionDto(
 
 public sealed class RoleOptionDto
 {
+    public RoleOptionDto()
+    {
+    }
+
+    public RoleOptionDto(string name, bool canAssign)
+    {
+        Name = name;
+        CanAssign = canAssign;
+    }
+
     public string Name { get; set; } = string.Empty;
     public bool CanAssign { get; set; }
 }
