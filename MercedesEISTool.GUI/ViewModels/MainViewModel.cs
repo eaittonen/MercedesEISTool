@@ -59,6 +59,15 @@ public partial class MainViewModel : ViewModelBase
     private string _uploadedFilesSummary = string.Empty;
 
     [ObservableProperty]
+    private ObservableCollection<StoredFileListItemViewModel> _storedFiles = new();
+
+    [ObservableProperty]
+    private StoredFileListItemViewModel? _selectedStoredFile;
+
+    [ObservableProperty]
+    private string _selectedStoredFileDisplay = "Selected: No file selected";
+
+    [ObservableProperty]
     private string _myFilesSearchText = string.Empty;
 
     [ObservableProperty]
@@ -66,6 +75,36 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private Guid? _selectedStoredFileId;
+
+    [ObservableProperty]
+    private Guid? _currentWorkspaceStoredFileId;
+
+    [ObservableProperty]
+    private bool _isLoadingStoredFile;
+
+    [ObservableProperty]
+    private string _vinStatus = "NotMapped";
+
+    [ObservableProperty]
+    private string _eisPassword = "Not mapped";
+
+    [ObservableProperty]
+    private string _ssid = "Not mapped";
+
+    [ObservableProperty]
+    private ObservableCollection<KeySlotDto> _keySlots = new();
+
+    [ObservableProperty]
+    private byte[]? _selectedFileBytes;
+
+    [ObservableProperty]
+    private long _selectedFileSize;
+
+    [ObservableProperty]
+    private string _selectedFileSha256 = string.Empty;
+
+    [ObservableProperty]
+    private int _selectedMainTabIndex;
 
     [ObservableProperty]
     private string _apiBaseUrl = "http://localhost:5080";
@@ -235,6 +274,7 @@ public partial class MainViewModel : ViewModelBase
     partial void OnServerStatusChanged(string value)
     {
         UpdateUploadAvailability();
+        UpdateStoredFileCommandStates();
     }
 
     partial void OnSelectedFileNameChanged(string value)
@@ -245,6 +285,20 @@ public partial class MainViewModel : ViewModelBase
     partial void OnIsBusyChanged(bool value)
     {
         UpdateUploadAvailability();
+        UpdateStoredFileCommandStates();
+    }
+
+    partial void OnSelectedStoredFileChanged(StoredFileListItemViewModel? value)
+    {
+        SelectedStoredFileId = value?.Id;
+        SelectedStoredFileDisplay = value is null ? "Selected: No file selected" : $"Selected: {value.OriginalFileName}";
+        MyFilesDetails = value is null ? string.Empty : $"Selected row: {value.OriginalFileName}";
+        UpdateStoredFileCommandStates();
+    }
+
+    partial void OnIsLoadingStoredFileChanged(bool value)
+    {
+        UpdateStoredFileCommandStates();
     }
 
     public ObservableCollection<string> SupportedFormats { get; } = new() { "VVDI MB Tool", "CGDI MB" };
@@ -397,23 +451,97 @@ public partial class MainViewModel : ViewModelBase
         await RefreshUploadedFilesAsync();
     }
 
-    [RelayCommand]
-    private async Task OpenStoredFile()
+    [RelayCommand(CanExecute = nameof(CanOpenDetails))]
+    private async Task OpenDetails()
     {
-        if (SelectedStoredFileId is null)
+        if (SelectedStoredFile is null)
         {
-            Status = "Select a stored file first.";
             return;
         }
 
         try
         {
-            var bytes = await _apiClient.DownloadStoredFileAsync(SelectedStoredFileId.Value);
-            var path = Path.Combine(AppContext.BaseDirectory, "DownloadedFiles", $"{SelectedStoredFileId.Value:N}.bin");
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            await File.WriteAllBytesAsync(path, bytes);
-            MyFilesDetails = $"Downloaded to {path}";
-            Status = "Stored file downloaded.";
+            var details = await _apiClient.GetStoredFileDetailsAsync(SelectedStoredFile.Id);
+            MyFilesDetails = $"File: {details.OriginalFileName}{Environment.NewLine}Format: {details.DetectedFormat}{Environment.NewLine}VIN: {details.DetectedVin ?? "Not mapped"}{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}{Environment.NewLine}MCU: {details.McuType ?? "Not mapped"}{Environment.NewLine}Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
+            PopulateWorkspaceFromDetails(details);
+            SelectedMainTabIndex = 0;
+            Status = $"Loaded details for {details.OriginalFileName}.";
+        }
+        catch (Exception ex)
+        {
+            MyFilesDetails = $"Details failed: {ex.Message}";
+            Status = ex.Message;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanLoadIntoWorkspace))]
+    private async Task LoadIntoWorkspace()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        try
+        {
+            IsLoadingStoredFile = true;
+            var bytes = await _apiClient.DownloadStoredFileAsync(SelectedStoredFile.Id);
+            var sha = ComputeSha256(bytes);
+            if (!string.Equals(sha, SelectedStoredFile.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Downloaded file SHA-256 did not match the stored metadata.");
+            }
+
+            var details = await _apiClient.GetStoredFileDetailsAsync(SelectedStoredFile.Id);
+            PopulateWorkspaceFromDetails(details, bytes);
+            CurrentWorkspaceStoredFileId = SelectedStoredFile.Id;
+            SelectedMainTabIndex = 0;
+            Status = $"Loaded {SelectedStoredFile.OriginalFileName} from server.";
+        }
+        catch (Exception ex)
+        {
+            Status = ex.Message;
+        }
+        finally
+        {
+            IsLoadingStoredFile = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDownloadOriginal))]
+    private async Task DownloadOriginal()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var bytes = await _apiClient.DownloadStoredFileAsync(SelectedStoredFile.Id);
+            var sha = ComputeSha256(bytes);
+            if (!string.Equals(sha, SelectedStoredFile.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Downloaded file SHA-256 did not match the stored metadata.");
+            }
+
+            var window = (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as Window;
+            var file = await window!.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save downloaded dump",
+                SuggestedFileName = SelectedStoredFile.OriginalFileName,
+                DefaultExtension = ".bin"
+            });
+
+            if (file is null)
+            {
+                Status = "Download cancelled.";
+                return;
+            }
+
+            await File.WriteAllBytesAsync(file.Path.LocalPath, bytes);
+            MyFilesDetails = $"Downloaded {SelectedStoredFile.OriginalFileName} to {file.Path.LocalPath}";
+            Status = $"Downloaded {SelectedStoredFile.OriginalFileName}.";
         }
         catch (Exception ex)
         {
@@ -422,18 +550,17 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanReanalyzeStoredFile))]
     private async Task ReanalyzeStoredFile()
     {
-        if (SelectedStoredFileId is null)
+        if (SelectedStoredFile is null)
         {
-            Status = "Select a stored file first.";
             return;
         }
 
         try
         {
-            var details = await _apiClient.ReanalyzeStoredFileAsync(SelectedStoredFileId.Value);
+            var details = await _apiClient.ReanalyzeStoredFileAsync(SelectedStoredFile.Id);
             MyFilesDetails = $"Reanalyzed: {details.DetectedFormat} | VIN: {details.DetectedVin ?? "Not mapped"}";
             Status = "Stored file reanalyzed.";
             await RefreshUploadedFilesAsync();
@@ -445,26 +572,92 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand]
-    private async Task ViewStoredFileDetails()
+    [RelayCommand(CanExecute = nameof(CanCompareStoredFile))]
+    private void SetCompareA()
     {
-        if (SelectedStoredFileId is null)
+        if (SelectedStoredFile is null)
         {
-            Status = "Select a stored file first.";
             return;
         }
 
-        try
+        Status = $"Compare A set to {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCompareStoredFile))]
+    private void SetCompareB()
+    {
+        if (SelectedStoredFile is null)
         {
-            var details = await _apiClient.GetStoredFileDetailsAsync(SelectedStoredFileId.Value);
-            MyFilesDetails = $"File: {details.OriginalFileName}{Environment.NewLine}Format: {details.DetectedFormat}{Environment.NewLine}VIN: {details.DetectedVin ?? "Not mapped"}{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}{Environment.NewLine}MCU: {details.McuType ?? "Not mapped"}{Environment.NewLine}Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
-            Status = "Stored file details loaded.";
+            return;
         }
-        catch (Exception ex)
+
+        Status = $"Compare B set to {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    private void CopyVin()
+    {
+        if (SelectedStoredFile is null)
         {
-            MyFilesDetails = $"Details failed: {ex.Message}";
-            Status = ex.Message;
+            return;
         }
+
+        Status = $"VIN copied for {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    private void CopyRegistration()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        Status = $"Registration copied for {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    private void CopyEisPassword()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        Status = $"EIS password copy requested for {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
+    private void CopySsid()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        Status = $"SSID copy requested for {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDeleteStoredFile))]
+    private void DeleteStoredFile()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        Status = $"Delete requested for {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRestoreStoredFile))]
+    private void RestoreStoredFile()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        Status = $"Restore requested for {SelectedStoredFile.OriginalFileName}";
     }
 
     [RelayCommand]
@@ -1181,12 +1374,11 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var response = await _apiClient.GetStoredFilesAsync(MyFilesSearchText, 1, 50);
+            var selectedItemId = SelectedStoredFile?.Id;
+            StoredFiles = new ObservableCollection<StoredFileListItemViewModel>(response.Items.Select(item => new StoredFileListItemViewModel(item)));
+            SelectedStoredFile = StoredFiles.FirstOrDefault(item => item.Id == selectedItemId) ?? StoredFiles.FirstOrDefault();
             var lines = response.Items.Select(item => $"{item.Id:N} | {item.OriginalFileName} | VIN={item.UserProvidedVin ?? item.DetectedVin ?? ""} | REG={item.RegistrationNumber ?? ""} | {item.AnalysisStatus} | {item.FileSizeBytes} bytes").ToList();
             UploadedFilesSummary = lines.Any() ? string.Join(Environment.NewLine, lines) : "No uploaded files yet.";
-            if (response.Items.Count > 0)
-            {
-                SelectedStoredFileId = response.Items[0].Id;
-            }
         }
         catch (Exception ex)
         {
@@ -1232,6 +1424,81 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    private bool CanOpenDetails()
+    {
+        return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanLoadIntoWorkspace()
+    {
+        return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanDownloadOriginal()
+    {
+        return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanReanalyzeStoredFile()
+    {
+        return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanCompareStoredFile()
+    {
+        return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanCopyStoredFileValue()
+    {
+        return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanDeleteStoredFile()
+    {
+        return SelectedStoredFile is not null && !SelectedStoredFile.IsDeleted && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanRestoreStoredFile()
+    {
+        return SelectedStoredFile is not null && SelectedStoredFile.IsDeleted && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void UpdateStoredFileCommandStates()
+    {
+        OpenDetailsCommand.NotifyCanExecuteChanged();
+        LoadIntoWorkspaceCommand.NotifyCanExecuteChanged();
+        DownloadOriginalCommand.NotifyCanExecuteChanged();
+        ReanalyzeStoredFileCommand.NotifyCanExecuteChanged();
+        SetCompareACommand.NotifyCanExecuteChanged();
+        SetCompareBCommand.NotifyCanExecuteChanged();
+        CopyVinCommand.NotifyCanExecuteChanged();
+        CopyRegistrationCommand.NotifyCanExecuteChanged();
+        CopyEisPasswordCommand.NotifyCanExecuteChanged();
+        CopySsidCommand.NotifyCanExecuteChanged();
+        DeleteStoredFileCommand.NotifyCanExecuteChanged();
+        RestoreStoredFileCommand.NotifyCanExecuteChanged();
+    }
+
+    private void PopulateWorkspaceFromDetails(StoredFileDetailsDto details, byte[]? bytes = null)
+    {
+        SelectedFileName = details.OriginalFileName;
+        SelectedFileBytes = bytes ?? SelectedFileBytes;
+        SelectedFileSize = bytes?.Length ?? details.FileSizeBytes;
+        SelectedFileSha256 = details.Sha256;
+        RawHexText = bytes is null ? "No raw dump available." : BuildRawHexText(bytes);
+        DetectedFormat = DisplayValue(details.DetectedFormat);
+        Vin = DisplayValue(details.DetectedVin);
+        VinStatus = details.VinStatus;
+        EisType = DisplayValue(details.EisType);
+        Mcu = DisplayValue(details.McuType);
+        KeyCount = details.KeyCount?.ToString() ?? "Not mapped";
+        EisPassword = details.EisPassword ?? "Not mapped";
+        Ssid = details.Ssid ?? "Not mapped";
+        KeySlots = new ObservableCollection<KeySlotDto>(details.Keys);
+        AnalysisSummary = $"Loaded {details.OriginalFileName} from server.";
+    }
+
     private static string DisplayValue(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "Unknown" : value;
@@ -1270,6 +1537,50 @@ public partial class MainViewModel : ViewModelBase
         };
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    public sealed class StoredFileListItemViewModel
+    {
+        public StoredFileListItemViewModel(StoredFileListItemDto item)
+        {
+            Id = item.Id;
+            OriginalFileName = item.OriginalFileName;
+            UploadedAtUtc = item.UploadedAtUtc;
+            UserProvidedVin = item.UserProvidedVin;
+            DetectedVin = item.DetectedVin;
+            RegistrationNumber = item.RegistrationNumber;
+            DetectedFormat = item.DetectedFormat;
+            EisType = item.EisType;
+            McuType = item.McuType;
+            KeyCount = item.KeyCount;
+            EisPassword = item.EisPassword;
+            Ssid = item.Ssid;
+            KeyPasswordsFound = item.KeyPasswordsFound;
+            AnalysisStatus = item.AnalysisStatus;
+            ParserVersion = item.ParserVersion;
+            FileSizeBytes = item.FileSizeBytes;
+            Sha256 = item.Sha256;
+            IsDeleted = item.IsDeleted;
+        }
+
+        public Guid Id { get; }
+        public string OriginalFileName { get; }
+        public DateTimeOffset UploadedAtUtc { get; }
+        public string? UserProvidedVin { get; }
+        public string? DetectedVin { get; }
+        public string? RegistrationNumber { get; }
+        public string DetectedFormat { get; }
+        public string? EisType { get; }
+        public string? McuType { get; }
+        public int? KeyCount { get; }
+        public string? EisPassword { get; }
+        public string? Ssid { get; }
+        public int KeyPasswordsFound { get; }
+        public string AnalysisStatus { get; }
+        public string ParserVersion { get; }
+        public long FileSizeBytes { get; }
+        public string Sha256 { get; }
+        public bool IsDeleted { get; }
     }
 
     private sealed class ResearchFolderAnalysis

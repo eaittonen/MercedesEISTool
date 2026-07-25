@@ -8,6 +8,7 @@
     "Operation": "upload",
     "CreatedAtUtc": "2026-07-25T11:02:27.6286017+00:00",
     "SizeBytes": 256,
+    "UploadedByUserId": "development",
     "LatestAnalysis": null,
     "AnalysisHistory": []
   },
@@ -20,6 +21,7 @@
     "Operation": "upload",
     "CreatedAtUtc": "2026-07-25T11:10:28.0012561+00:00",
     "SizeBytes": 256,
+    "UploadedByUserId": "development",
     "LatestAnalysis": null,
     "AnalysisHistory": []
   },
@@ -32,6 +34,7 @@
     "Operation": "upload",
     "CreatedAtUtc": "2026-07-25T11:19:03.5480993+00:00",
     "SizeBytes": 256,
+    "UploadedByUserId": "development",
     "LatestAnalysis": {
       "Id": "38b36aec-0b20-4d39-b371-76548f2f7667",
       "StoredFileId": "398dc491-ab1a-47a9-bbf2-34b5af2479aa",
@@ -124,6 +127,113 @@
           }
         ],
         "AnalyzedAtUtc": "2026-07-25T11:19:03.5787288+00:00",
+        "AnalysisSucceeded": true,
+        "FailureMessage": null
+      }
+    ]
+  },
+  {
+    "Id": "1f835d9b-5ee0-47ac-a70d-aa01e01b1a84",
+    "FileName": "w220 japsi s500",
+    "StoredFilePath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Server\\bin\\Debug\\net8.0\\App_Data\\uploads\\uploads\\1f835d9b5ee047aca70daa01e01b1a84-w220 japsi s500",
+    "VehicleIdentifier": "WDB2201751A385402",
+    "RegistrationNumber": "",
+    "Operation": "upload",
+    "CreatedAtUtc": "2026-07-25T11:38:46.201403+00:00",
+    "SizeBytes": 256,
+    "UploadedByUserId": "development",
+    "LatestAnalysis": {
+      "Id": "877b05bd-7483-4094-aefe-01ef519035a4",
+      "StoredFileId": "1f835d9b-5ee0-47ac-a70d-aa01e01b1a84",
+      "ParserVersion": "1.1.0",
+      "DetectedFormat": "VVDI MB Tool",
+      "DetectedVin": "WDB2201751A385402",
+      "VinStatus": "Present",
+      "EisType": null,
+      "EisTypeStatus": 2,
+      "McuType": null,
+      "McuTypeStatus": 2,
+      "KeyCount": null,
+      "KeyCountStatus": 2,
+      "EisPassword": {
+        "Name": "EIS password",
+        "Value": null,
+        "Status": 2,
+        "SourceDescription": null,
+        "SourceOffset": null,
+        "Length": null,
+        "Confidence": "Unknown"
+      },
+      "Ssid": {
+        "Name": "SSID",
+        "Value": null,
+        "Status": 2,
+        "SourceDescription": null,
+        "SourceOffset": null,
+        "Length": null,
+        "Confidence": "Unknown"
+      },
+      "Keys": [],
+      "AdditionalFields": [
+        {
+          "Name": "FileName",
+          "Value": "w220 japsi s500",
+          "Status": 0,
+          "SourceDescription": null,
+          "SourceOffset": null,
+          "Length": null,
+          "Confidence": "Verified"
+        }
+      ],
+      "AnalyzedAtUtc": "2026-07-25T11:38:46.2232683+00:00",
+      "AnalysisSucceeded": true,
+      "FailureMessage": null
+    },
+    "AnalysisHistory": [
+      {
+        "Id": "877b05bd-7483-4094-aefe-01ef519035a4",
+        "StoredFileId": "1f835d9b-5ee0-47ac-a70d-aa01e01b1a84",
+        "ParserVersion": "1.1.0",
+        "DetectedFormat": "VVDI MB Tool",
+        "DetectedVin": "WDB2201751A385402",
+        "VinStatus": "Present",
+        "EisType": null,
+        "EisTypeStatus": 2,
+        "McuType": null,
+        "McuTypeStatus": 2,
+        "KeyCount": null,
+        "KeyCountStatus": 2,
+        "EisPassword": {
+          "Name": "EIS password",
+          "Value": null,
+          "Status": 2,
+          "SourceDescription": null,
+          "SourceOffset": null,
+          "Length": null,
+          "Confidence": "Unknown"
+        },
+        "Ssid": {
+          "Name": "SSID",
+          "Value": null,
+          "Status": 2,
+          "SourceDescription": null,
+          "SourceOffset": null,
+          "Length": null,
+          "Confidence": "Unknown"
+        },
+        "Keys": [],
+        "AdditionalFields": [
+          {
+            "Name": "FileName",
+            "Value": "w220 japsi s500",
+            "Status": 0,
+            "SourceDescription": null,
+            "SourceOffset": null,
+            "Length": null,
+            "Confidence": "Verified"
+          }
+        ],
+        "AnalyzedAtUtc": "2026-07-25T11:38:46.2232683+00:00",
         "AnalysisSucceeded": true,
         "FailureMessage": null
       }

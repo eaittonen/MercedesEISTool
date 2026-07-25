@@ -103,20 +103,61 @@
             </TabItem>
             <TabItem Header="My Files">
                 <Border Padding="12" CornerRadius="6" Background="#202020">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Persisted uploads" FontSize="18" FontWeight="SemiBold" />
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto">
-                            <TextBox Grid.Column="0" Watermark="Search by file name or identifier" Text="{Binding MyFilesSearchText}" />
-                            <Button Grid.Column="1" Content="Search" Command="{Binding SearchMyFilesCommand}" />
-                            <Button Grid.Column="2" Content="Details" Command="{Binding ViewStoredFileDetailsCommand}" />
-                            <Button Grid.Column="3" Content="Download" Command="{Binding OpenStoredFileCommand}" />
-                            <Button Grid.Column="4" Content="Reanalyze" Command="{Binding ReanalyzeStoredFileCommand}" />
+                    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Persisted uploads" FontSize="18" FontWeight="SemiBold" />
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto">
+                                <TextBox Grid.Column="0" Watermark="Search by file name or identifier" Text="{Binding MyFilesSearchText}" />
+                                <Button Grid.Column="1" Content="Search" Command="{Binding SearchMyFilesCommand}" />
+                                <Button Grid.Column="2" Content="Details" Command="{Binding OpenDetailsCommand}" />
+                                <Button Grid.Column="3" Content="Load" Command="{Binding LoadIntoWorkspaceCommand}" />
+                                <Button Grid.Column="4" Content="Reanalyze" Command="{Binding ReanalyzeStoredFileCommand}" />
+                            </Grid>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="2*,1*" ColumnSpacing="12">
+                            <Border Padding="8" CornerRadius="4" Background="#303030">
+                                <ListBox ItemsSource="{Binding StoredFiles}" SelectedItem="{Binding SelectedStoredFile}" SelectionMode="Single" MinHeight="240">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="6" CornerRadius="4" Background="#383838">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="{Binding OriginalFileName}" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding AnalysisStatus}" Opacity="0.8" />
+                                                    <TextBlock Text="{Binding UploadedAtUtc, StringFormat='Uploaded {0:yyyy-MM-dd HH:mm}'}" Opacity="0.7" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <Border Padding="8" CornerRadius="4" Background="#303030">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Selection" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding SelectedStoredFileDisplay}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SelectedStoredFile.OriginalFileName}" Opacity="0.8" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Padding="8" CornerRadius="4" Background="#303030">
+                                    <StackPanel Spacing="6">
+                                        <Button Content="Download original" Command="{Binding DownloadOriginalCommand}" />
+                                        <Button Content="Set compare A" Command="{Binding SetCompareACommand}" />
+                                        <Button Content="Set compare B" Command="{Binding SetCompareBCommand}" />
+                                        <Button Content="Copy VIN" Command="{Binding CopyVinCommand}" />
+                                        <Button Content="Copy registration" Command="{Binding CopyRegistrationCommand}" />
+                                        <Button Content="Copy EIS password" Command="{Binding CopyEisPasswordCommand}" />
+                                        <Button Content="Copy SSID" Command="{Binding CopySsidCommand}" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
                         </Grid>
-                        <TextBox Text="{Binding UploadedFilesSummary}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="220" />
-                        <Border Padding="8" CornerRadius="4" Background="#303030">
+
+                        <Border Grid.Row="2" Margin="0,8,0,0" Padding="8" CornerRadius="4" Background="#303030">
                             <TextBox Text="{Binding MyFilesDetails}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" />
                         </Border>
-                    </StackPanel>
+                    </Grid>
                 </Border>
             </TabItem>
             <TabItem Header="Compare">
