@@ -9,7 +9,6 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debu
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\MercedesEISTool.GUI.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\refint\MercedesEISTool.GUI.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\obj\Debug\net8.0\MercedesEISTool.GUI.pdb
-C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\MercedesEISTool.GUI.exe
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\MercedesEISTool.GUI.deps.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\MercedesEISTool.GUI.runtimeconfig.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\MercedesEISTool.GUI.dll

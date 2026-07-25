@@ -81,8 +81,8 @@ app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, Use
     loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=auth-login requestId={RequestId} success=true email={Email} roles={Roles}", httpContext.TraceIdentifier, request.Email, string.Join(",", roles));
     return Results.Ok(new AuthResponseDto
     {
-        AccessToken = Convert.ToHexString(Guid.NewGuid().ToByteArray()),
-        RefreshToken = Convert.ToHexString(Guid.NewGuid().ToByteArray()),
+        AccessToken = user.Id,
+        RefreshToken = user.Id,
         AccessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(8),
         UserId = user.Id,
         Email = user.Email ?? request.Email,
@@ -114,6 +114,136 @@ app.MapGet("/api/auth/me", async Task<IResult> (UserManager<ApplicationUser> use
         DisplayName = user.DisplayName,
         Roles = roles,
         IsAdministrator = roles.Contains("Administrator", StringComparer.OrdinalIgnoreCase)
+    });
+});
+
+app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Contains("Administrator", StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var users = userManager.Users.ToList();
+    var items = new List<AdminUserListItemDto>();
+    foreach (var user in users)
+    {
+        var roles = (await userManager.GetRolesAsync(user)).ToList();
+        items.Add(new AdminUserListItemDto
+        {
+            Id = user.Id,
+            Email = user.Email ?? string.Empty,
+            DisplayName = user.DisplayName,
+            Roles = roles,
+            IsEnabled = user.IsEnabled,
+            CreatedAtUtc = user.CreatedAtUtc,
+            LastLoginAtUtc = user.LastLoginAtUtc
+        });
+    }
+
+    return Results.Ok(new AdminUserListResponseDto { Items = items.OrderBy(item => item.Email, StringComparer.OrdinalIgnoreCase).ToList() });
+});
+
+app.MapPost("/api/admin/users/{userId}/disable", async Task<IResult> (string userId, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Contains("Administrator", StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var targetUser = await userManager.FindByIdAsync(userId);
+    if (targetUser is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "User was not found.", ErrorCode = "not_found" });
+    }
+
+    if (targetUser.Id == currentUser.Id)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Administrators cannot disable their own account.", ErrorCode = "invalid_operation" });
+    }
+
+    targetUser.IsEnabled = false;
+    var result = await userManager.UpdateAsync(targetUser);
+    if (!result.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", result.Errors.Select(error => error.Description)), ErrorCode = "update_failed" });
+    }
+
+    return Results.Ok(new AdminUserActionResponseDto
+    {
+        UserId = targetUser.Id,
+        IsEnabled = targetUser.IsEnabled,
+        Message = "User disabled."
+    });
+});
+
+app.MapPost("/api/admin/users/{userId}/enable", async Task<IResult> (string userId, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Contains("Administrator", StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var targetUser = await userManager.FindByIdAsync(userId);
+    if (targetUser is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "User was not found.", ErrorCode = "not_found" });
+    }
+
+    targetUser.IsEnabled = true;
+    var result = await userManager.UpdateAsync(targetUser);
+    if (!result.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", result.Errors.Select(error => error.Description)), ErrorCode = "update_failed" });
+    }
+
+    return Results.Ok(new AdminUserActionResponseDto
+    {
+        UserId = targetUser.Id,
+        IsEnabled = targetUser.IsEnabled,
+        Message = "User enabled."
     });
 });
 

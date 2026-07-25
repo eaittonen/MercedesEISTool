@@ -46,6 +46,21 @@ public partial class MainViewModel : ViewModelBase
     private string _serverStatus = "Connecting";
 
     [ObservableProperty]
+    private string _currentUserDisplay = "Not signed in";
+
+    [ObservableProperty]
+    private bool _isAdministrator;
+
+    [ObservableProperty]
+    private ObservableCollection<AdminUserListItemDto> _adminUsers = new();
+
+    [ObservableProperty]
+    private AdminUserListItemDto? _selectedAdminUser;
+
+    [ObservableProperty]
+    private string _adminStatus = string.Empty;
+
+    [ObservableProperty]
     private string _selectedFileName = "No file selected";
 
     [ObservableProperty]
@@ -267,6 +282,7 @@ public partial class MainViewModel : ViewModelBase
         _apiClient = apiClient ?? CreateApiClient(ApiBaseUrl);
         ConnectionUrl = ApiBaseUrl;
         _ = RefreshServerStatusAsync();
+        _ = LoadCurrentUser();
     }
 
     partial void OnApiBaseUrlChanged(string value)
@@ -325,6 +341,92 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<string> ResearchSourceFiles { get; } = new() { "EIS dump", "Key file", "Compare dump" };
     public ObservableCollection<string> ResearchSearchModes { get; } = new() { "Exact", "Reversed", "BytePairSwapped", "FourByteWordReversed", "Xor" };
     public ObservableCollection<string> ResearchConfidenceValues { get; } = new() { "Unknown", "Suspected", "Probable", "Verified", "Low" };
+
+    [RelayCommand]
+    private async Task LoadCurrentUser()
+    {
+        try
+        {
+            var currentUser = await _apiClient.GetCurrentUserAsync();
+            CurrentUserDisplay = string.IsNullOrWhiteSpace(currentUser.DisplayName) ? currentUser.Email : currentUser.DisplayName;
+            IsAdministrator = currentUser.IsAdministrator;
+            if (IsAdministrator)
+            {
+                await LoadAdminUsersAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            CurrentUserDisplay = "Not signed in";
+            IsAdministrator = false;
+            AdminStatus = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshAdminUsers()
+    {
+        if (!IsAdministrator)
+        {
+            return;
+        }
+
+        await LoadAdminUsersAsync();
+    }
+
+    [RelayCommand]
+    private async Task DisableSelectedAdminUser()
+    {
+        if (!IsAdministrator || SelectedAdminUser is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _apiClient.DisableUserAsync(SelectedAdminUser.Id);
+            AdminStatus = response.Message;
+            await LoadAdminUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task EnableSelectedAdminUser()
+    {
+        if (!IsAdministrator || SelectedAdminUser is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _apiClient.EnableUserAsync(SelectedAdminUser.Id);
+            AdminStatus = response.Message;
+            await LoadAdminUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = ex.Message;
+        }
+    }
+
+    private async Task LoadAdminUsersAsync()
+    {
+        try
+        {
+            var response = await _apiClient.GetAdminUsersAsync();
+            AdminUsers = new ObservableCollection<AdminUserListItemDto>(response.Items.OrderBy(item => item.Email, StringComparer.OrdinalIgnoreCase));
+            AdminStatus = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            AdminStatus = ex.Message;
+        }
+    }
 
     [RelayCommand]
     private async Task OpenDump()

@@ -212,6 +212,40 @@
                     </StackPanel>
                 </Border>
             </TabItem>
+            <TabItem Header="Administration" IsVisible="{Binding IsAdministrator}">
+                <Border Padding="12" CornerRadius="6" Background="#202020">
+                    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Administrator tools" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="Signed in as" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding CurrentUserDisplay}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Refresh users" Command="{Binding RefreshAdminUsersCommand}" />
+                                <Button Content="Enable selected" Command="{Binding EnableSelectedAdminUserCommand}" />
+                                <Button Content="Disable selected" Command="{Binding DisableSelectedAdminUserCommand}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding AdminStatus}" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Margin="0,12,0,0" Padding="8" CornerRadius="4" Background="#303030">
+                            <ListBox ItemsSource="{Binding AdminUsers}" SelectedItem="{Binding SelectedAdminUser}" SelectionMode="Single" MinHeight="240">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="6" CornerRadius="4" Background="#383838">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="{Binding Email}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding DisplayName}" Opacity="0.8" />
+                                                <TextBlock Text="{Binding Roles, Converter={StaticResource StringJoinConverter}}" Opacity="0.7" />
+                                                <TextBlock Text="{Binding IsEnabled}" Opacity="0.7" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Grid>
+                </Border>
+            </TabItem>
             <TabItem Header="Research">
                 <Border Padding="12" CornerRadius="6" Background="#202020">
                     <ScrollViewer>

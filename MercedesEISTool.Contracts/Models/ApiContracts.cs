@@ -36,6 +36,29 @@ public sealed class CurrentUserResponseDto
     public bool IsAdministrator { get; set; }
 }
 
+public sealed class AdminUserListItemDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public List<string> Roles { get; set; } = new();
+    public bool IsEnabled { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset? LastLoginAtUtc { get; set; }
+}
+
+public sealed class AdminUserListResponseDto
+{
+    public List<AdminUserListItemDto> Items { get; set; } = new();
+}
+
+public sealed class AdminUserActionResponseDto
+{
+    public string UserId { get; set; } = string.Empty;
+    public bool IsEnabled { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
 public sealed class SensitiveFieldDto
 {
     public string Name { get; set; } = string.Empty;

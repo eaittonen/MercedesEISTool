@@ -50,6 +50,27 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<CurrentUserResponseDto>(cancellationToken: cancellationToken) ?? new CurrentUserResponseDto();
     }
 
+    public async Task<AdminUserListResponseDto> GetAdminUsersAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("/api/admin/users", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserListResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserListResponseDto();
+    }
+
+    public async Task<AdminUserActionResponseDto> DisableUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync($"/api/admin/users/{userId}/disable", content: null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
+    public async Task<AdminUserActionResponseDto> EnableUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync($"/api/admin/users/{userId}/enable", content: null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
     public async Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
