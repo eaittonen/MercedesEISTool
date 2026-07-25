@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MercedesEISTool.ApiClient;
 using MercedesEISTool.GUI.ViewModels;
 using MercedesEISTool.GUI.Views;
+using System.Runtime.ExceptionServices;
 
 namespace MercedesEISTool.GUI;
 
@@ -58,18 +59,7 @@ public partial class App : Application
 
             if (IsUpdateCheckEnabled(configuration))
             {
-                try
-                {
-                    var update = CheckForUpdates(configuration).GetAwaiter().GetResult();
-                    if (update is not null)
-                    {
-                        ShowUpdateDialog(update, configuration).GetAwaiter().GetResult();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Update check failed: {ex.Message}");
-                }
+                _ = RunUpdateCheckAsync(configuration);
             }
         }
 
@@ -125,6 +115,27 @@ public partial class App : Application
         }
 
         return release;
+    }
+
+    private static async Task RunUpdateCheckAsync(IConfiguration configuration)
+    {
+        try
+        {
+            var update = await CheckForUpdates(configuration);
+            if (update is null)
+            {
+                return;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await ShowUpdateDialog(update, configuration);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Update check failed: {ex.Message}");
+        }
     }
 
     private static Version? ParseVersion(string? value)
