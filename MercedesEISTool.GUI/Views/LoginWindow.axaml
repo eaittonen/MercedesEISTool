@@ -5,7 +5,7 @@
         x:DataType="vm:LoginViewModel"
         Title="Sign in"
         Width="420"
-        Height="260"
+        Height="320"
         CanResize="False">
   <Design.DataContext>
     <vm:LoginViewModel />
