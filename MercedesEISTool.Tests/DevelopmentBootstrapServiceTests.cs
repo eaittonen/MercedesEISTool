@@ -32,7 +32,7 @@ public class DevelopmentBootstrapServiceTests
     }
 
     [Fact]
-    public async Task SeedAsync_UpdatesExistingAdminPassword_WhenPasswordChanges()
+    public async Task SeedAsync_PreservesExistingUserPassword_WhenBootstrapOptionsChange()
     {
         var options = Options.Create(new DevelopmentBootstrapOptions
         {
@@ -64,7 +64,8 @@ public class DevelopmentBootstrapServiceTests
 
         var updatedUser = await userManager.FindByEmailAsync("admin@example.local");
         Assert.NotNull(updatedUser);
-        Assert.True(await userManager.CheckPasswordAsync(updatedUser!, "NewPassword123!"));
+        Assert.True(await userManager.CheckPasswordAsync(updatedUser!, "old-password"));
+        Assert.False(await userManager.CheckPasswordAsync(updatedUser!, "NewPassword123!"));
     }
 
     private static ApplicationDbContext CreateDbContext()

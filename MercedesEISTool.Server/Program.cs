@@ -12,6 +12,8 @@ using MercedesEISTool.Server.Data;
 using MercedesEISTool.Server.Middleware;
 using MercedesEISTool.Server.Models;
 using MercedesEISTool.Server.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +30,13 @@ if (string.IsNullOrWhiteSpace(configuredUrls))
 builder.WebHost.UseUrls(configuredUrls);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=mercedes-eis-auth.db";
+var environmentName = builder.Environment.EnvironmentName;
+var sqliteResolver = new SqliteDatabasePathResolver();
+var resolvedDatabasePath = sqliteResolver.Resolve(connectionString, builder.Environment.ContentRootPath, NullLogger.Instance);
+var effectiveConnectionString = new SqliteConnectionStringBuilder(connectionString)
+{
+    DataSource = resolvedDatabasePath
+}.ToString();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IUploadedDumpStore, JsonUploadedDumpStore>();
@@ -35,7 +44,7 @@ builder.Services.AddSingleton<IEisAnalysisService, EisAnalysisService>();
 builder.Services.AddSingleton<IKeyFileAnalysisService, KeyFileAnalysisService>();
 builder.Services.AddAntiforgery();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseSqlite(effectiveConnectionString));
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = false;
@@ -70,13 +79,58 @@ builder.Services.AddScoped<DevelopmentBootstrapService>();
 
 var app = builder.Build();
 
-var resolver = new SqliteDatabasePathResolver();
-var databasePath = resolver.Resolve(connectionString, app.Environment.ContentRootPath, app.Logger);
+var databasePath = effectiveConnectionString.Contains("Data Source=")
+    ? new SqliteConnectionStringBuilder(effectiveConnectionString).DataSource
+    : resolvedDatabasePath;
+
+app.Logger.LogInformation("startup self-test aspnetcore_environment={Environment}", environmentName);
+app.Logger.LogInformation("startup self-test database_connection_string={ConnectionString}", effectiveConnectionString);
+app.Logger.LogInformation("startup self-test database_file_path={DatabasePath}", databasePath);
+app.Logger.LogInformation("startup self-test application_version={ApplicationVersion}", typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown");
+app.Logger.LogInformation("startup self-test listening_urls={Urls}", string.Join(",", app.Urls));
 
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("MercedesEISTool.Server");
+
+    try
+    {
+        logger.LogInformation("startup self-test database_connection=testing");
+        await dbContext.Database.OpenConnectionAsync();
+        await dbContext.Database.CloseConnectionAsync();
+        logger.LogInformation("startup self-test database_connection=ok");
+
+        var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+        logger.LogInformation("startup self-test pending_migrations={PendingMigrationCount}", pendingMigrations.Count());
+
+        logger.LogInformation("startup self-test applying_migrations=true");
+        await dbContext.Database.MigrateAsync();
+        logger.LogInformation("startup self-test migrations=applied");
+
+        var schemaVersion = await dbContext.Database.SqlQueryRaw<string>("SELECT name FROM sqlite_master WHERE type='table' AND name='__EFMigrationsHistory'").ToListAsync();
+        logger.LogInformation("startup self-test schema_version={SchemaVersion}", schemaVersion.Count > 0 ? "present" : "missing");
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "startup self-test failed: {Message}", ex.Message);
+        throw;
+    }
+
+    var uploadStorageRoot = Path.Combine(app.Environment.ContentRootPath, "App_Data", "uploads");
+    try
+    {
+        Directory.CreateDirectory(uploadStorageRoot);
+        using var stream = File.Open(Path.Combine(uploadStorageRoot, ".write-test"), FileMode.Create, FileAccess.Write, FileShare.None);
+        stream.WriteByte(0);
+        File.Delete(Path.Combine(uploadStorageRoot, ".write-test"));
+        logger.LogInformation("startup self-test upload_storage=ok path={Path}", uploadStorageRoot);
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "startup self-test upload_storage_failed: {Message}", ex.Message);
+        throw;
+    }
 
     var bootstrap = scope.ServiceProvider.GetRequiredService<DevelopmentBootstrapService>();
     await bootstrap.SeedAsync();
@@ -86,9 +140,10 @@ app.UseForwardedHeaders();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseAntiforgery();
 
-app.MapGet("/api/health", (ILicenseService licenseService) =>
+app.MapGet("/api/health", (ILicenseService licenseService, ILoggerFactory loggerFactory) =>
 {
     var status = licenseService.CheckFeature(FeatureName.AnalyzeDump);
+    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("health-check status={Status}", status.IsGranted ? "Healthy" : "Restricted");
     return Results.Ok(new HealthResponse
     {
         IsHealthy = true,

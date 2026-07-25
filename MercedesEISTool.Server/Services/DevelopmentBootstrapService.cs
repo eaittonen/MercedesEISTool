@@ -87,7 +87,7 @@ public sealed class DevelopmentBootstrapService
             Country = "Finland",
             IsActive = true,
             LicenseType = "Standard",
-            MaxUsers = 10,
+            MaxUsers = 4,
             LicenseExpirationUtc = DateTimeOffset.UtcNow.AddYears(1)
         };
 
@@ -107,18 +107,14 @@ public sealed class DevelopmentBootstrapService
             existing.OrganizationId = organizationId;
             await _userManager.UpdateAsync(existing);
 
-            var passwordResult = await _userManager.RemovePasswordAsync(existing);
-            if (passwordResult.Succeeded)
+            var hasPassword = !string.IsNullOrWhiteSpace(existing.PasswordHash);
+            if (!hasPassword)
             {
                 var addPasswordResult = await _userManager.AddPasswordAsync(existing, password);
                 if (!addPasswordResult.Succeeded)
                 {
                     throw new InvalidOperationException(string.Join(", ", addPasswordResult.Errors.Select(error => error.Description)));
                 }
-            }
-            else
-            {
-                throw new InvalidOperationException(string.Join(", ", passwordResult.Errors.Select(error => error.Description)));
             }
 
             if (!await _userManager.IsInRoleAsync(existing, role))
