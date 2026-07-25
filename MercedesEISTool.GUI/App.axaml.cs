@@ -13,6 +13,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MercedesEISTool.ApiClient;
@@ -127,7 +128,7 @@ public partial class App : Application
                 return;
             }
 
-            await Dispatcher.UIThread.InvokeAsync(async () =>
+            await global::Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 await ShowUpdateDialog(update, configuration);
             });
