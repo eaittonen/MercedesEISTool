@@ -6,6 +6,7 @@ namespace MercedesEISTool.Core.Services;
 
 public class EisDumpService
 {
+    private const string VvdiSignature = "VVDIMBDATA";
     private readonly Dictionary<string, Dictionary<string, FieldDefinition>> _fieldMaps;
 
     public EisDumpService()
@@ -140,7 +141,7 @@ public class EisDumpService
             Format = format,
             VIN = ReadMappedString(data, format, "VIN"),
             EisType = string.Empty,
-            MCU = ReadMappedString(data, format, "MCU"),
+            MCU = string.Empty,
             SSID = string.Empty,
             Keys = new List<KeyInfo>()
         };
@@ -181,9 +182,71 @@ public class EisDumpService
             return "Unknown";
         }
 
-        return data.Length >= 2 && data[0] == (byte)'V' && data[1] == (byte)'V'
-            ? "VVDI MB Tool"
-            : "Unknown";
+        if (HasVvdiSignature(data))
+        {
+            return "VVDI MB Tool";
+        }
+
+        if (LooksLikeCgdiVin(data))
+        {
+            return "CGDI MB";
+        }
+
+        return "Unknown";
+    }
+
+    private static bool HasVvdiSignature(byte[] data)
+    {
+        if (data.Length < VvdiSignature.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < VvdiSignature.Length; i++)
+        {
+            if (data[i] != (byte)VvdiSignature[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool LooksLikeCgdiVin(byte[] data)
+    {
+        if (data.Length != 256)
+        {
+            return false;
+        }
+
+        var vin = Encoding.ASCII.GetString(data.Take(17).ToArray()).Trim('\0', ' ', '\r', '\n', '\t');
+        return vin.Length == 17 && IsValidVinCharacters(vin);
+    }
+
+    private static bool IsValidVinCharacters(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        foreach (var ch in value)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (ch is 'I' or 'O' or 'Q' or 'i' or 'o' or 'q')
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     private string ReadMappedString(byte[] data, string format, string fieldName)
@@ -198,8 +261,109 @@ public class EisDumpService
             return string.Empty;
         }
 
+        if (fieldName == "VIN")
+        {
+            var candidate = SafeDecodeAscii(data.Skip(field.Offset).Take(field.Length).ToArray());
+            return IsValidVinCharacters(candidate) ? candidate : string.Empty;
+        }
+
         var bytes = data.Skip(field.Offset).Take(field.Length).ToArray();
         return SafeDecodeAscii(bytes);
+    }
+
+    public DumpCompareResult CompareDumps(byte[] left, byte[] right)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+
+        if (left.Length != 256 || right.Length != 256)
+        {
+            throw new InvalidOperationException("Both dumps must be exactly 256 bytes.");
+        }
+
+        var rows = new List<DumpCompareRow>();
+        var differingOffsets = new List<int>();
+        var totalDifferences = 0;
+
+        for (var offset = 0; offset < 256; offset += 16)
+        {
+            var rowBytesLeft = left.Skip(offset).Take(16).ToArray();
+            var rowBytesRight = right.Skip(offset).Take(16).ToArray();
+            var differences = rowBytesLeft.Zip(rowBytesRight, (a, b) => a != b).Count(isDifferent => isDifferent);
+            totalDifferences += differences;
+            var rowHasDifferences = differences > 0;
+            if (rowHasDifferences)
+            {
+                for (var index = offset; index < offset + 16; index++)
+                {
+                    if (left[index] != right[index])
+                    {
+                        differingOffsets.Add(index);
+                    }
+                }
+            }
+
+            rows.Add(new DumpCompareRow
+            {
+                Offset = offset,
+                RowBytesLeft = rowBytesLeft,
+                RowBytesRight = rowBytesRight,
+                HasDifferences = rowHasDifferences
+            });
+        }
+
+        return new DumpCompareResult
+        {
+            Rows = rows,
+            TotalDifferences = totalDifferences,
+            DifferingOffsets = differingOffsets.Distinct().OrderBy(x => x).ToList()
+        };
+    }
+
+    public SequenceSearchResult SearchSequence(byte[] source, byte[] target, int startOffset, int length)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+
+        if (startOffset < 0 || startOffset >= source.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startOffset));
+        }
+
+        if (length < 1 || length > 32)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length));
+        }
+
+        if (startOffset + length > source.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startOffset));
+        }
+
+        var sequence = source.Skip(startOffset).Take(length).ToArray();
+        var exactMatches = new List<int>();
+        var reversedMatches = new List<int>();
+
+        for (var index = 0; index <= target.Length - length; index++)
+        {
+            var candidate = target.Skip(index).Take(length).ToArray();
+            if (candidate.SequenceEqual(sequence))
+            {
+                exactMatches.Add(index);
+            }
+
+            var reversed = candidate.Reverse().ToArray();
+            if (reversed.SequenceEqual(sequence))
+            {
+                reversedMatches.Add(index);
+            }
+        }
+
+        return new SequenceSearchResult
+        {
+            ExactMatches = exactMatches,
+            ReversedMatches = reversedMatches
+        };
     }
 
     private static string SafeDecodeAscii(byte[] bytes)
@@ -230,4 +394,25 @@ public class DumpValidationResult
 
     public static DumpValidationResult Valid() => new() { IsValid = true };
     public static DumpValidationResult Invalid(string message) => new() { IsValid = false, Message = message };
+}
+
+public class DumpCompareRow
+{
+    public int Offset { get; set; }
+    public byte[] RowBytesLeft { get; set; } = Array.Empty<byte>();
+    public byte[] RowBytesRight { get; set; } = Array.Empty<byte>();
+    public bool HasDifferences { get; set; }
+}
+
+public class DumpCompareResult
+{
+    public List<DumpCompareRow> Rows { get; set; } = new();
+    public int TotalDifferences { get; set; }
+    public List<int> DifferingOffsets { get; set; } = new();
+}
+
+public class SequenceSearchResult
+{
+    public List<int> ExactMatches { get; set; } = new();
+    public List<int> ReversedMatches { get; set; } = new();
 }

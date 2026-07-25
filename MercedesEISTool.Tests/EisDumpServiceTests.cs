@@ -10,35 +10,23 @@ public class EisDumpServiceTests
         var service = new EisDumpService();
         var data = CreateDumpData();
 
-        data[0] = (byte)'V';
-        data[1] = (byte)'V';
-        data[16] = (byte)'M';
-        data[17] = (byte)'C';
-        data[18] = (byte)'U';
-        data[19] = (byte)'1';
-        data[144] = (byte)'V';
-        data[145] = (byte)'I';
-        data[146] = (byte)'N';
-        data[147] = (byte)'1';
-        data[148] = (byte)'2';
-        data[149] = (byte)'3';
-        data[150] = (byte)'4';
-        data[151] = (byte)'5';
-        data[152] = (byte)'6';
-        data[153] = (byte)'7';
-        data[154] = (byte)'8';
-        data[155] = (byte)'9';
-        data[156] = (byte)'0';
-        data[157] = (byte)'1';
-        data[158] = (byte)'2';
-        data[159] = (byte)'3';
-        data[160] = (byte)'4';
+        var signature = "VVDIMBDATA";
+        for (var i = 0; i < signature.Length; i++)
+        {
+            data[i] = (byte)signature[i];
+        }
+
+        var vin = "ABC12345678901234";
+        for (var i = 0; i < vin.Length; i++)
+        {
+            data[0x90 + i] = (byte)vin[i];
+        }
 
         var dump = service.ParseDump(data);
 
         Assert.Equal("VVDI MB Tool", dump.Format);
-        Assert.Equal("VIN12345678901234", dump.VIN);
-        Assert.Equal("MCU1", dump.MCU);
+        Assert.Equal("ABC12345678901234", dump.VIN);
+        Assert.Equal(string.Empty, dump.MCU);
         Assert.Equal(string.Empty, dump.EisType);
         Assert.Equal(string.Empty, dump.SSID);
         Assert.Empty(dump.Keys);
@@ -107,8 +95,17 @@ public class EisDumpServiceTests
     {
         var service = new EisDumpService();
         var data = CreateDumpData();
-        data[0] = (byte)'V';
-        data[1] = (byte)'V';
+        var signature = "VVDIMBDATA";
+        for (var i = 0; i < signature.Length; i++)
+        {
+            data[i] = (byte)signature[i];
+        }
+
+        var vin = "ABC12345678901234";
+        for (var i = 0; i < vin.Length; i++)
+        {
+            data[0x90 + i] = (byte)vin[i];
+        }
 
         var dump = service.ParseDump(data);
         var converted = service.ConvertDump(dump, "CGDI MB");
@@ -118,6 +115,156 @@ public class EisDumpServiceTests
         Assert.Equal("VVDI MB Tool", dump.Format);
         Assert.Equal(data[10], converted.RawData[10]);
         Assert.Equal(data[200], converted.RawData[200]);
+    }
+
+    [Fact]
+    public void DetectFormat_RequiresFullVvdiSignature()
+    {
+        var service = new EisDumpService();
+        var data = CreateDumpData();
+        data[0] = (byte)'V';
+        data[1] = (byte)'V';
+
+        Assert.Equal("Unknown", service.DetectFormat(data));
+    }
+
+    [Fact]
+    public void Parse_DetectsVvdiSignatureAndVinAtOffset90()
+    {
+        var service = new EisDumpService();
+        var data = CreateDumpData();
+        var signature = "VVDIMBDATA";
+        for (var i = 0; i < signature.Length; i++)
+        {
+            data[i] = (byte)signature[i];
+        }
+
+        var vin = "ABC12345678901234";
+        for (var i = 0; i < vin.Length; i++)
+        {
+            data[0x90 + i] = (byte)vin[i];
+        }
+
+        var dump = service.ParseDump(data);
+
+        Assert.Equal("VVDI MB Tool", dump.Format);
+        Assert.Equal(vin, dump.VIN);
+    }
+
+    [Fact]
+    public void Parse_DetectsCgdiVinAtOffset0()
+    {
+        var service = new EisDumpService();
+        var data = CreateDumpData();
+        var vin = "ABC12345678901234";
+        for (var i = 0; i < vin.Length; i++)
+        {
+            data[i] = (byte)vin[i];
+        }
+
+        var dump = service.ParseDump(data);
+
+        Assert.Equal("CGDI MB", dump.Format);
+        Assert.Equal(vin, dump.VIN);
+    }
+
+    [Fact]
+    public void Parse_RejectsInvalidVinCharacters()
+    {
+        var service = new EisDumpService();
+        var data = CreateDumpData();
+        var invalidVin = "ABC12345678901Q345";
+        for (var i = 0; i < invalidVin.Length; i++)
+        {
+            data[i] = (byte)invalidVin[i];
+        }
+
+        var dump = service.ParseDump(data);
+
+        Assert.Equal("Unknown", dump.Format);
+        Assert.Equal(string.Empty, dump.VIN);
+    }
+
+    [Fact]
+    public void Parse_DetectsSourceFormatIndependentlyFromConversionTarget()
+    {
+        var service = new EisDumpService();
+        var data = CreateDumpData();
+        data[0] = (byte)'V';
+        data[1] = (byte)'V';
+        data[2] = (byte)'D';
+        data[3] = (byte)'I';
+        data[4] = (byte)'M';
+        data[5] = (byte)'B';
+        data[6] = (byte)'D';
+        data[7] = (byte)'A';
+        data[8] = (byte)'T';
+        data[9] = (byte)'A';
+
+        var dump = service.ParseDump(data);
+        var converted = service.ConvertDump(dump, "CGDI MB");
+
+        Assert.Equal("VVDI MB Tool", dump.Format);
+        Assert.Equal("CGDI MB", converted.Format);
+    }
+
+    [Fact]
+    public void CompareDumps_ReturnsByteByByteDiffs()
+    {
+        var service = new EisDumpService();
+        var left = CreateDumpData();
+        var right = CreateDumpData();
+        left[0] = 0xAA;
+        right[0] = 0xBB;
+        left[16] = 0x01;
+        right[16] = 0x02;
+
+        var result = service.CompareDumps(left, right);
+
+        Assert.Equal(2, result.TotalDifferences);
+        Assert.Contains(result.DifferingOffsets, offset => offset == 0);
+        Assert.Contains(result.DifferingOffsets, offset => offset == 16);
+        Assert.Contains(result.Rows, row => row.HasDifferences);
+    }
+
+    [Fact]
+    public void SearchSequence_FindsExactAndReversedMatches()
+    {
+        var service = new EisDumpService();
+        var source = new byte[] { 0x01, 0x02, 0x03 };
+        var target = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x03, 0x02, 0x01 };
+
+        var result = service.SearchSequence(source, target, 0, 3);
+
+        Assert.Equal(new[] { 0 }, result.ExactMatches);
+        Assert.Equal(new[] { 4 }, result.ReversedMatches);
+    }
+
+    [Fact]
+    public void SearchSequence_RejectsInvalidRange()
+    {
+        var service = new EisDumpService();
+        var source = new byte[] { 0x01, 0x02, 0x03 }; 
+        var target = new byte[] { 0x01, 0x02, 0x03 };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => service.SearchSequence(source, target, 2, 10));
+        Assert.Throws<ArgumentOutOfRangeException>(() => service.SearchSequence(source, target, 0, 0));
+    }
+
+    [Fact]
+    public void CompareAndSearch_DoNotModifyInputArrays()
+    {
+        var service = new EisDumpService();
+        var left = CreateDumpData();
+        var right = CreateDumpData();
+        var beforeLeft = (byte[])left.Clone();
+        var beforeRight = (byte[])right.Clone();
+
+        service.CompareDumps(left, right);
+        service.SearchSequence(left, right, 0, 2);
+
+        Assert.Equal(beforeLeft, left);
+        Assert.Equal(beforeRight, right);
     }
 
     [Fact]
