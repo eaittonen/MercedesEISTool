@@ -15,12 +15,14 @@ using System.Security.Cryptography;
 using System.Text;
 using MercedesEISTool.ApiClient;
 using MercedesEISTool.Contracts.Models;
+using MercedesEISTool.GUI.Services;
 
 namespace MercedesEISTool.GUI.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
     private IMercedesEisApiClient _apiClient;
+    private readonly IClipboardService _clipboardService = new AvaloniaClipboardService();
 
     [ObservableProperty]
     private string _vin = "Unknown";
@@ -462,7 +464,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var details = await _apiClient.GetStoredFileDetailsAsync(SelectedStoredFile.Id);
-            MyFilesDetails = $"File: {details.OriginalFileName}{Environment.NewLine}Format: {details.DetectedFormat}{Environment.NewLine}VIN: {details.DetectedVin ?? "Not mapped"}{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}{Environment.NewLine}MCU: {details.McuType ?? "Not mapped"}{Environment.NewLine}Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
+            MyFilesDetails = $"File: {details.OriginalFileName}{Environment.NewLine}Format: {details.DetectedFormat}{Environment.NewLine}VIN: {details.DetectedVin ?? "Not mapped"}{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}{Environment.NewLine}MCU: {details.McuType ?? "Not mapped"}{Environment.NewLine}Key count: {details.KeyCount?.ToString() ?? "Not mapped"}{Environment.NewLine}EIS password: {details.EisPassword ?? "Not mapped"}{Environment.NewLine}SSID: {details.Ssid ?? "Not mapped"}";
             PopulateWorkspaceFromDetails(details);
             SelectedMainTabIndex = 0;
             Status = $"Loaded details for {details.OriginalFileName}.";
@@ -595,47 +597,47 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
-    private void CopyVin()
+    private async Task CopyVin()
     {
         if (SelectedStoredFile is null)
         {
             return;
         }
 
-        Status = $"VIN copied for {SelectedStoredFile.OriginalFileName}";
+        await CopyValueAsync(SelectedStoredFile.UserProvidedVin ?? SelectedStoredFile.DetectedVin, $"VIN copied for {SelectedStoredFile.OriginalFileName}");
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
-    private void CopyRegistration()
+    private async Task CopyRegistration()
     {
         if (SelectedStoredFile is null)
         {
             return;
         }
 
-        Status = $"Registration copied for {SelectedStoredFile.OriginalFileName}";
+        await CopyValueAsync(SelectedStoredFile.RegistrationNumber, $"Registration copied for {SelectedStoredFile.OriginalFileName}");
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
-    private void CopyEisPassword()
+    private async Task CopyEisPassword()
     {
         if (SelectedStoredFile is null)
         {
             return;
         }
 
-        Status = $"EIS password copy requested for {SelectedStoredFile.OriginalFileName}";
+        await CopyValueAsync(SelectedStoredFile.EisPassword, $"EIS password copied for {SelectedStoredFile.OriginalFileName}");
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyStoredFileValue))]
-    private void CopySsid()
+    private async Task CopySsid()
     {
         if (SelectedStoredFile is null)
         {
             return;
         }
 
-        Status = $"SSID copy requested for {SelectedStoredFile.OriginalFileName}";
+        await CopyValueAsync(SelectedStoredFile.Ssid, $"SSID copied for {SelectedStoredFile.OriginalFileName}");
     }
 
     [RelayCommand(CanExecute = nameof(CanDeleteStoredFile))]
@@ -1454,6 +1456,25 @@ public partial class MainViewModel : ViewModelBase
         return SelectedStoredFile is not null && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
     }
 
+    private async Task CopyValueAsync(string? value, string successMessage)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            Status = "Nothing to copy.";
+            return;
+        }
+
+        try
+        {
+            await _clipboardService.SetTextAsync(value);
+            Status = successMessage;
+        }
+        catch (Exception ex)
+        {
+            Status = $"Clipboard unavailable: {ex.Message}";
+        }
+    }
+
     private bool CanDeleteStoredFile()
     {
         return SelectedStoredFile is not null && !SelectedStoredFile.IsDeleted && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
@@ -1493,8 +1514,8 @@ public partial class MainViewModel : ViewModelBase
         EisType = DisplayValue(details.EisType);
         Mcu = DisplayValue(details.McuType);
         KeyCount = details.KeyCount?.ToString() ?? "Not mapped";
-        EisPassword = details.EisPassword ?? "Not mapped";
-        Ssid = details.Ssid ?? "Not mapped";
+        EisPassword = string.IsNullOrWhiteSpace(details.EisPassword) ? "Not mapped" : details.EisPassword;
+        Ssid = string.IsNullOrWhiteSpace(details.Ssid) ? "Not mapped" : details.Ssid;
         KeySlots = new ObservableCollection<KeySlotDto>(details.Keys);
         AnalysisSummary = $"Loaded {details.OriginalFileName} from server.";
     }

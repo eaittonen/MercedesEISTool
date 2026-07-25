@@ -11,7 +11,7 @@ public interface IEisAnalysisService
 
 public sealed class EisAnalysisService : IEisAnalysisService
 {
-    private const string ParserVersionValue = "1.1.0";
+    private const string ParserVersionValue = "1.2.0";
     private readonly EisDumpService _dumpService = new();
 
     public EisAnalysisDetailsDto Analyze(byte[] data, string fileName)
@@ -54,8 +54,8 @@ public sealed class EisAnalysisService : IEisAnalysisService
         details.EisTypeStatus = FieldValueStatus.NotMapped;
         details.McuTypeStatus = FieldValueStatus.NotMapped;
         details.KeyCountStatus = FieldValueStatus.NotMapped;
-        details.EisPassword = CreateNotMappedField("EIS password");
-        details.Ssid = CreateNotMappedField("SSID");
+        details.EisPassword = CreateFieldForCgdiPassword(data);
+        details.Ssid = CreateFieldForCgdiSsid(data);
 
         if (string.Equals(details.DetectedFormat, "CGDI MB", StringComparison.OrdinalIgnoreCase))
         {
@@ -100,6 +100,94 @@ public sealed class EisAnalysisService : IEisAnalysisService
             Status = FieldValueStatus.NotMapped,
             Confidence = "Unknown"
         };
+    }
+
+    private static SensitiveFieldDto CreateFieldForCgdiPassword(byte[] data)
+    {
+        if (data.Length != 256)
+        {
+            return CreateInvalidField("EIS password", "Invalid", "UnsupportedFormat");
+        }
+
+        var bytes = ExtractByteSlice(data, 0x38, 8);
+        var status = DetermineSensitiveFieldStatus(bytes);
+        return new SensitiveFieldDto
+        {
+            Name = "EIS password",
+            Value = status == FieldValueStatus.Present ? ReverseAndFormatHex(bytes) : null,
+            Status = status,
+            SourceDescription = "Verified CGDI mapping",
+            SourceOffset = 0x38,
+            Length = 8,
+            Confidence = status == FieldValueStatus.Present ? "Verified" : "Unknown"
+        };
+    }
+
+    private static SensitiveFieldDto CreateFieldForCgdiSsid(byte[] data)
+    {
+        if (data.Length != 256)
+        {
+            return CreateInvalidField("SSID", "Invalid", "UnsupportedFormat");
+        }
+
+        var bytes = ExtractByteSlice(data, 0x28, 4);
+        var status = DetermineSensitiveFieldStatus(bytes);
+        return new SensitiveFieldDto
+        {
+            Name = "SSID",
+            Value = status == FieldValueStatus.Present ? ReverseAndFormatHex(bytes) : null,
+            Status = status,
+            SourceDescription = "Verified CGDI mapping",
+            SourceOffset = 0x28,
+            Length = 4,
+            Confidence = status == FieldValueStatus.Present ? "Verified" : "Unknown"
+        };
+    }
+
+    private static FieldValueStatus DetermineSensitiveFieldStatus(byte[] bytes)
+    {
+        if (bytes.Length == 0)
+        {
+            return FieldValueStatus.Invalid;
+        }
+
+        if (bytes.All(value => value == 0x00))
+        {
+            return FieldValueStatus.NotPresent;
+        }
+
+        if (bytes.All(value => value == 0xFF))
+        {
+            return FieldValueStatus.NotPresent;
+        }
+
+        return FieldValueStatus.Present;
+    }
+
+    private static SensitiveFieldDto CreateInvalidField(string name, string confidence, string status)
+    {
+        return new SensitiveFieldDto
+        {
+            Name = name,
+            Status = Enum.TryParse<FieldValueStatus>(status, out var parsed) ? parsed : FieldValueStatus.Invalid,
+            Confidence = confidence
+        };
+    }
+
+    private static string ReverseAndFormatHex(byte[] bytes)
+    {
+        var reversed = bytes.Reverse().ToArray();
+        return string.Join(" ", reversed.Select(value => value.ToString("X2")));
+    }
+
+    private static byte[] ExtractByteSlice(byte[] data, int offset, int length)
+    {
+        if (offset < 0 || offset + length > data.Length)
+        {
+            return Array.Empty<byte>();
+        }
+
+        return data.Skip(offset).Take(length).ToArray();
     }
 
     private static string DetermineVinStatus(string? vin)

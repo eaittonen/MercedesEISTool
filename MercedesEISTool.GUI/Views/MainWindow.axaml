@@ -81,17 +81,23 @@
                             <TextBlock Grid.Row="6" Grid.Column="0" Text="Key count" />
                             <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding KeyCount}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Server" />
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="EIS password" />
+                            <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding EisPassword}" IsReadOnly="True" />
+
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="SSID" />
+                            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Ssid}" IsReadOnly="True" />
+
+                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Server" />
                             <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding ServerStatus}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Reason" />
-                            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ConnectionReason}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Reason" />
+                            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding ConnectionReason}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="9" Grid.Column="0" Text="URL" />
-                            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding ConnectionUrl}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="10" Grid.Column="0" Text="URL" />
+                            <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding ConnectionUrl}" IsReadOnly="True" />
 
-                            <TextBlock Grid.Row="10" Grid.Column="0" Text="Last checked" />
-                            <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding LastChecked}" IsReadOnly="True" />
+                            <TextBlock Grid.Row="11" Grid.Column="0" Text="Last checked" />
+                            <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding LastChecked}" IsReadOnly="True" />
                         </Grid>
                     </StackPanel>
                 </Border>
