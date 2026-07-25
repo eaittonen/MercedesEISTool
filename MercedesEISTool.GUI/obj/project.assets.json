@@ -712,14 +712,27 @@
           }
         }
       },
-      "MercedesEISTool.Core/1.0.0": {
+      "MercedesEISTool.ApiClient/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "MercedesEISTool.Contracts": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/MercedesEISTool.ApiClient.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/MercedesEISTool.ApiClient.dll": {}
+        }
+      },
+      "MercedesEISTool.Contracts/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
         "compile": {
-          "bin/placeholder/MercedesEISTool.Core.dll": {}
+          "bin/placeholder/MercedesEISTool.Contracts.dll": {}
         },
         "runtime": {
-          "bin/placeholder/MercedesEISTool.Core.dll": {}
+          "bin/placeholder/MercedesEISTool.Contracts.dll": {}
         }
       }
     }
@@ -1719,10 +1732,15 @@
         "tmds.dbus.protocol.nuspec"
       ]
     },
-    "MercedesEISTool.Core/1.0.0": {
+    "MercedesEISTool.ApiClient/1.0.0": {
       "type": "project",
-      "path": "../MercedesEISTool.Core/MercedesEISTool.Core.csproj",
-      "msbuildProject": "../MercedesEISTool.Core/MercedesEISTool.Core.csproj"
+      "path": "../MercedesEISTool.ApiClient/MercedesEISTool.ApiClient.csproj",
+      "msbuildProject": "../MercedesEISTool.ApiClient/MercedesEISTool.ApiClient.csproj"
+    },
+    "MercedesEISTool.Contracts/1.0.0": {
+      "type": "project",
+      "path": "../MercedesEISTool.Contracts/MercedesEISTool.Contracts.csproj",
+      "msbuildProject": "../MercedesEISTool.Contracts/MercedesEISTool.Contracts.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -1733,7 +1751,8 @@
       "Avalonia.Themes.Fluent >= 12.1.0",
       "AvaloniaUI.DiagnosticsSupport >= 2.2.3",
       "CommunityToolkit.Mvvm >= 8.4.2",
-      "MercedesEISTool.Core >= 1.0.0"
+      "MercedesEISTool.ApiClient >= 1.0.0",
+      "MercedesEISTool.Contracts >= 1.0.0"
     ]
   },
   "packageFolders": {
@@ -1754,12 +1773,18 @@
       "originalTargetFrameworks": [
         "net8.0"
       ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Core\\MercedesEISTool.Core.csproj": {
-              "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Core\\MercedesEISTool.Core.csproj"
+            "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.ApiClient\\MercedesEISTool.ApiClient.csproj": {
+              "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.ApiClient\\MercedesEISTool.ApiClient.csproj"
+            },
+            "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Contracts\\MercedesEISTool.Contracts.csproj": {
+              "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Contracts\\MercedesEISTool.Contracts.csproj"
             }
           }
         }

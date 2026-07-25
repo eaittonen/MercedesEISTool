@@ -14,11 +14,23 @@
     </Design.DataContext>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="16">
-        <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button Content="Open BIN" Command="{Binding OpenDumpCommand}" />
-            <Button Content="Convert" Command="{Binding ConvertDumpCommand}" IsEnabled="{Binding CanConvert}" />
-            <Button Content="Save" Command="{Binding SaveDumpCommand}" IsEnabled="{Binding CanSave}" />
-        </StackPanel>
+        <Border Grid.Row="0" Padding="0,0,0,10">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Content="Open BIN" Command="{Binding OpenDumpCommand}" />
+                    <Button Content="Convert" Command="{Binding ConvertDumpCommand}" IsEnabled="{Binding CanConvert}" />
+                    <Button Content="Save" Command="{Binding SaveDumpCommand}" IsEnabled="{Binding CanSave}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Padding="6,2" CornerRadius="8" Background="#2f5f2f">
+                        <TextBlock Text="{Binding ServerStatus}" FontWeight="SemiBold" />
+                    </Border>
+                    <TextBox Text="{Binding ApiBaseUrl}" Width="220" />
+                    <TextBlock Text="Korpidiagnostics" Opacity="0.55" FontSize="16" FontWeight="SemiBold" IsHitTestVisible="False" />
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <TabControl Grid.Row="1" Margin="0,12,0,0">
             <TabItem Header="Details">
@@ -78,8 +90,98 @@
                     </StackPanel>
                 </Border>
             </TabItem>
+            <TabItem Header="Research">
+                <Border Padding="12" CornerRadius="6" Background="#202020">
+                    <ScrollViewer>
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Safe research workspace" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="Load one EIS dump, one optional key file, and one optional comparison dump. No conversion or binary editing is performed." TextWrapping="Wrap" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Load EIS dump" Command="{Binding LoadResearchDumpCommand}" />
+                                <Button Content="Load key file" Command="{Binding LoadResearchKeyFileCommand}" />
+                                <Button Content="Load compare dump" Command="{Binding LoadResearchCompareDumpCommand}" />
+                                <Button Content="Analyze Folder" Command="{Binding AnalyzeResearchFolderCommand}" />
+                            </StackPanel>
+
+                            <TextBlock Text="Research inputs" FontWeight="SemiBold" />
+                            <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="EIS dump" />
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ResearchEisPath}" IsReadOnly="True" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Key file" />
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ResearchKeyPath}" IsReadOnly="True" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Compare dump" />
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ResearchComparePath}" IsReadOnly="True" />
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Folder" />
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ResearchFolderPath}" IsReadOnly="True" />
+                            </Grid>
+
+                            <Border Padding="8" CornerRadius="4" Background="#303030">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Sequence search" FontWeight="SemiBold" />
+                                    <Grid ColumnDefinitions="150,150,120,*" RowDefinitions="Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Source file" />
+                                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding ResearchSourceFiles}" SelectedItem="{Binding ResearchSelectedSourceFile}" />
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Start offset" />
+                                        <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding ResearchStartOffset}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Length" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ResearchLength}" />
+                                        <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding ResearchSearchModes}" SelectedItem="{Binding ResearchSelectedMode}" />
+                                        <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding ResearchXorValue}" PlaceholderText="XOR" />
+                                        <Button Grid.Row="2" Grid.Column="3" Content="Search" Command="{Binding ResearchSearchCommand}" />
+                                    </Grid>
+                                    <TextBox Text="{Binding ResearchSearchResults}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="140" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Padding="8" CornerRadius="4" Background="#303030">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Annotations" FontWeight="SemiBold" />
+                                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" />
+                                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ResearchAnnotationName}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="File format" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ResearchAnnotationFileFormat}" />
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Offset" />
+                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ResearchAnnotationOffset}" />
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Length" />
+                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ResearchAnnotationLength}" />
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Byte order" />
+                                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ResearchAnnotationByteOrder}" />
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Notes" />
+                                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding ResearchAnnotationNotes}" />
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Confidence" />
+                                        <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{Binding ResearchConfidenceValues}" SelectedItem="{Binding ResearchSelectedConfidence}" />
+                                    </Grid>
+                                    <Button Content="Save annotation" Command="{Binding SaveResearchAnnotationCommand}" />
+                                    <Button Content="Export report" Command="{Binding ExportResearchReportCommand}" />
+                                    <TextBlock Text="Report path" FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding ResearchReportPath}" IsReadOnly="True" />
+                                    <TextBox Text="{Binding ResearchAnnotationsText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="140" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Padding="8" CornerRadius="4" Background="#303030">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Folder analysis" FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding ResearchFolderAnalysisText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="140" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
         </TabControl>
 
         <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,8,0,0" />
+
+        <TextBlock Grid.RowSpan="3"
+                   Text="Korpidiagnostics"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Opacity="0.08"
+                   FontSize="42"
+                   FontWeight="Bold"
+                   IsHitTestVisible="False" />
     </Grid>
 </Window>

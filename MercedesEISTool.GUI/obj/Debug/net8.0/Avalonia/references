@@ -24,7 +24,8 @@ C:\Users\Eetu Aittonen\.nuget\packages\avalonia.x11\12.1.0\lib\net8.0\Avalonia.X
 C:\Users\Eetu Aittonen\.nuget\packages\avaloniaui.diagnosticssupport\2.2.3\lib\net8.0\AvaloniaUI.DiagnosticsSupport.Avalonia.dll
 C:\Users\Eetu Aittonen\.nuget\packages\communitytoolkit.mvvm\8.4.2\lib\net8.0\CommunityToolkit.Mvvm.dll
 C:\Users\Eetu Aittonen\.nuget\packages\harfbuzzsharp\8.3.1.3\lib\net8.0\HarfBuzzSharp.dll
-C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Core\obj\Debug\net8.0\ref\MercedesEISTool.Core.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Debug\net8.0\ref\MercedesEISTool.ApiClient.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Debug\net8.0\ref\MercedesEISTool.Contracts.dll
 C:\Users\Eetu Aittonen\.nuget\packages\microcom.runtime\0.11.6\lib\net8.0\MicroCom.Runtime.dll
 C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.29\ref\net8.0\Microsoft.CSharp.dll
 C:\Users\Eetu Aittonen\.nuget\packages\microsoft.extensions.dependencyinjection.abstractions\8.0.0\lib\net8.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll

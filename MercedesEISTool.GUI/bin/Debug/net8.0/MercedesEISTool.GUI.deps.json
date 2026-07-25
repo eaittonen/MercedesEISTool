@@ -14,7 +14,8 @@
           "Avalonia.Themes.Fluent": "12.1.0",
           "AvaloniaUI.DiagnosticsSupport": "2.2.3",
           "CommunityToolkit.Mvvm": "8.4.2",
-          "MercedesEISTool.Core": "1.0.0"
+          "MercedesEISTool.ApiClient": "1.0.0",
+          "MercedesEISTool.Contracts": "1.0.0"
         },
         "runtime": {
           "MercedesEISTool.GUI.dll": {}
@@ -555,9 +556,20 @@
           }
         }
       },
-      "MercedesEISTool.Core/1.0.0": {
+      "MercedesEISTool.ApiClient/1.0.0": {
+        "dependencies": {
+          "MercedesEISTool.Contracts": "1.0.0"
+        },
         "runtime": {
-          "MercedesEISTool.Core.dll": {
+          "MercedesEISTool.ApiClient.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MercedesEISTool.Contracts/1.0.0": {
+        "runtime": {
+          "MercedesEISTool.Contracts.dll": {
             "assemblyVersion": "1.0.0",
             "fileVersion": "1.0.0.0"
           }
@@ -795,7 +807,12 @@
       "path": "tmds.dbus.protocol/0.94.1",
       "hashPath": "tmds.dbus.protocol.0.94.1.nupkg.sha512"
     },
-    "MercedesEISTool.Core/1.0.0": {
+    "MercedesEISTool.ApiClient/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MercedesEISTool.Contracts/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

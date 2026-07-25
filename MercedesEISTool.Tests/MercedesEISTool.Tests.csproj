@@ -22,6 +22,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MercedesEISTool.Core\MercedesEISTool.Core.csproj" />
+    <ProjectReference Include="..\MercedesEISTool.Contracts\MercedesEISTool.Contracts.csproj" />
+    <ProjectReference Include="..\MercedesEISTool.ApiClient\MercedesEISTool.ApiClient.csproj" />
+    <ProjectReference Include="..\MercedesEISTool.Server\MercedesEISTool.Server.csproj" />
   </ItemGroup>
 
 </Project>
