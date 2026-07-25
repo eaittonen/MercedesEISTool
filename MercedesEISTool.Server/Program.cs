@@ -106,9 +106,21 @@ app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, Use
     }
 
     var user = await userManager.FindByEmailAsync(request.Email);
-    if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
+    if (user is null)
     {
-        loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=auth-login requestId={RequestId} success=false email={Email}", httpContext.TraceIdentifier, request.Email);
+        loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=auth-login requestId={RequestId} success=false email={Email} reason=not_found", httpContext.TraceIdentifier, request.Email);
+        return Results.Json(new ApiErrorResponse { Message = "Invalid email or password.", ErrorCode = "invalid_credentials", RequestId = httpContext.TraceIdentifier }, statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    if (!user.IsEnabled)
+    {
+        loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=auth-login requestId={RequestId} success=false email={Email} reason=disabled", httpContext.TraceIdentifier, request.Email);
+        return Results.Json(new ApiErrorResponse { Message = "This account is disabled.", ErrorCode = "account_disabled", RequestId = httpContext.TraceIdentifier }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    if (!await userManager.CheckPasswordAsync(user, request.Password))
+    {
+        loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=auth-login requestId={RequestId} success=false email={Email} reason=bad_password", httpContext.TraceIdentifier, request.Email);
         return Results.Json(new ApiErrorResponse { Message = "Invalid email or password.", ErrorCode = "invalid_credentials", RequestId = httpContext.TraceIdentifier }, statusCode: StatusCodes.Status401Unauthorized);
     }
 
