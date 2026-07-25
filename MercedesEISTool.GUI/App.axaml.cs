@@ -1,13 +1,18 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MercedesEISTool.ApiClient;
@@ -110,9 +115,9 @@ public partial class App : Application
             return null;
         }
 
-        var release = await response.Content.ReadFromJsonAsync<GitHubRelease>(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var release = await response.Content.ReadFromJsonAsync<GitHubRelease>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? new GitHubRelease();
         var currentVersion = typeof(App).Assembly.GetName().Version;
-        var latestVersion = ParseVersion(release?.TagName);
+        var latestVersion = ParseVersion(release.TagName);
 
         if (currentVersion is null || latestVersion is null || latestVersion <= currentVersion)
         {
@@ -202,7 +207,7 @@ public partial class App : Application
         }
         else
         {
-            await window.ShowDialog();
+            window.Show();
         }
     }
 
