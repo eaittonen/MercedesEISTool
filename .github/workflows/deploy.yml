@@ -19,7 +19,6 @@ jobs:
     timeout-minutes: 60
 
     env:
-      DOTNET_VERSION: 8.0.x
       SOLUTION_PATH: MercedesEISTool.sln
       SERVER_PROJECT_PATH: MercedesEISTool.Server/MercedesEISTool.Server.csproj
       PUBLISH_DIR: publish
@@ -37,10 +36,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Verify dotnet SDK is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v dotnet >/dev/null 2>&1; then
+            echo "dotnet is not installed or not on PATH on the self-hosted runner." >&2
+            exit 1
+          fi
+          echo "which dotnet"
+          which dotnet
+          echo "dotnet --info"
+          dotnet --info
 
       - name: Restore solution
         shell: bash
@@ -52,14 +59,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dotnet build "$SOLUTION_PATH" -c Release --no-restore
+          dotnet build -c Release "$SOLUTION_PATH" --no-restore
 
       - name: Publish server for linux-x64
         shell: bash
         run: |
           set -euo pipefail
           rm -rf "$PUBLISH_DIR"
-          dotnet publish "$SERVER_PROJECT_PATH" -c Release -r linux-x64 --self-contained false -o "$PUBLISH_DIR"
+          dotnet publish "$SERVER_PROJECT_PATH" \
+            -c Release \
+            -r linux-x64 \
+            --self-contained false \
+            -o "$PUBLISH_DIR"
 
       - name: Prepare release directory
         shell: bash
@@ -83,7 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo systemctl restart "$SERVICE_NAME"
+          systemctl restart "$SERVICE_NAME"
 
       - name: Wait for service to be healthy
         shell: bash
