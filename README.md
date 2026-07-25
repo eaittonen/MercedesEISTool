@@ -1,14 +1,7 @@
 # MercedesEISTool
 
 ## Development run
-
-Terminal 1:
-
-```bash
-dotnet run --project MercedesEISTool.Server
-```
-
-Terminal 2:
+Terminal:
 
 ```bash
 dotnet run --project MercedesEISTool.GUI
