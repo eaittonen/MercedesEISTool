@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MercedesEISTool.Contracts.Models;
 using MercedesEISTool.Core.Services;
@@ -12,17 +15,15 @@ using MercedesEISTool.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false);
-builder.WebHost.UseUrls("http://localhost:5080");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=mercedes-eis-auth.db";
 
-builder.Services.AddSingleton<ILicenseService, DevelopmentLicenseService>();
-builder.Services.AddSingleton<ICurrentUser, DevelopmentCurrentUser>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IUploadedDumpStore, JsonUploadedDumpStore>();
 builder.Services.AddSingleton<IEisAnalysisService, EisAnalysisService>();
 builder.Services.AddSingleton<IKeyFileAnalysisService, KeyFileAnalysisService>();
 builder.Services.AddAntiforgery();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=mercedes-eis-auth.db"));
+    options.UseSqlite(connectionString));
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = false;
@@ -34,20 +35,52 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 builder.Services.AddAuthorization();
-builder.Services.Configure<DevelopmentBootstrapOptions>(builder.Configuration.GetSection("Authentication:DevelopmentBootstrap"));
-builder.Services.AddScoped<DevelopmentBootstrapService>();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<ILicenseService, DevelopmentLicenseService>();
+    builder.Services.AddSingleton<ICurrentUser, DevelopmentCurrentUser>();
+    builder.Services.Configure<DevelopmentBootstrapOptions>(builder.Configuration.GetSection("Authentication:DevelopmentBootstrap"));
+    builder.Services.AddScoped<DevelopmentBootstrapService>();
+}
+else
+{
+    builder.Services.AddSingleton<ILicenseService, ProductionLicenseService>();
+    builder.Services.AddSingleton<ICurrentUser, ProductionCurrentUser>();
+}
 
 var app = builder.Build();
+
+var sqliteBuilder = new SqliteConnectionStringBuilder(connectionString);
+if (!string.IsNullOrWhiteSpace(sqliteBuilder.DataSource))
+{
+    var fullDataSourcePath = Path.GetFullPath(sqliteBuilder.DataSource);
+    var directory = Path.GetDirectoryName(fullDataSourcePath);
+    if (!string.IsNullOrWhiteSpace(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+}
 
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await dbContext.Database.EnsureCreatedAsync();
 
-    var bootstrap = scope.ServiceProvider.GetRequiredService<DevelopmentBootstrapService>();
-    await bootstrap.SeedAsync();
+    if (builder.Environment.IsDevelopment())
+    {
+        var bootstrap = scope.ServiceProvider.GetRequiredService<DevelopmentBootstrapService>();
+        await bootstrap.SeedAsync();
+    }
 }
 
+app.UseForwardedHeaders();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseAntiforgery();
 
