@@ -38,7 +38,7 @@ public class DevelopmentBootstrapServiceTests
             new IdentityErrorDescriber(),
             NullLogger<RoleManager<IdentityRole>>.Instance);
 
-        var service = new DevelopmentBootstrapService(userManager, roleManager, options, NullLogger<DevelopmentBootstrapService>.Instance);
+        var service = new DevelopmentBootstrapService(userManager, roleManager, dbContext, options, NullLogger<DevelopmentBootstrapService>.Instance);
 
         await service.SeedAsync();
 
@@ -46,6 +46,6 @@ public class DevelopmentBootstrapServiceTests
         Assert.NotNull(createdUser);
         Assert.True(createdUser!.EmailConfirmed);
         Assert.True(createdUser.IsEnabled);
-        Assert.True(await userManager.IsInRoleAsync(createdUser, "Administrator"));
+        Assert.True(await userManager.IsInRoleAsync(createdUser, "SystemAdministrator"));
     }
 }
