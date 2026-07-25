@@ -22,7 +22,7 @@ public partial class LoginViewModel : ObservableObject
     {
         _configuration = configuration;
         _environmentSettings = EnvironmentSettings.Load();
-        _apiClient = CreateApiClient();
+        SelectedEnvironment = _environmentSettings.SelectedEnvironment;
     }
 
     [ObservableProperty]
@@ -43,31 +43,12 @@ public partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedServerDisplay = "https://tool.mestariverkko.fi";
 
-    public string SelectedEnvironment
+    partial void OnSelectedEnvironmentChanged(string value)
     {
-        get => _selectedEnvironment;
-        set
-        {
-            if (SetProperty(ref _selectedEnvironment, value))
-            {
-                UpdateServerSelection();
-            }
-        }
-    }
-
-    public string SelectedServerDisplay
-    {
-        get => _selectedServerDisplay;
-        set => SetProperty(ref _selectedServerDisplay, value);
-    }
-
-    [RelayCommand]
-    private void UpdateServerSelection()
-    {
-        var options = GetOptionsForEnvironment(_selectedEnvironment);
+        var options = GetOptionsForEnvironment(value);
         SelectedServerDisplay = options.BaseUrl;
         _apiClient = CreateApiClient(options.BaseUrl);
-        _environmentSettings.SelectedEnvironment = _selectedEnvironment;
+        _environmentSettings.SelectedEnvironment = value;
         _environmentSettings.Save();
     }
 
