@@ -8,4 +8,7 @@ public class ApplicationUser : IdentityUser
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public bool IsEnabled { get; set; } = true;
     public DateTimeOffset? LastLoginAtUtc { get; set; }
+    public string? OrganizationId { get; set; }
+    public Organization? Organization { get; set; }
+    public bool MustChangePassword { get; set; }
 }

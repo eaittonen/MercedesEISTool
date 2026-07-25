@@ -59,6 +59,69 @@ public sealed class AdminUserActionResponseDto
     public string Message { get; set; } = string.Empty;
 }
 
+public sealed class OrganizationSummaryDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public string LicenseType { get; set; } = string.Empty;
+    public DateTimeOffset? LicenseExpirationUtc { get; set; }
+    public int MaxUsers { get; set; }
+    public int UserCount { get; set; }
+}
+
+public sealed class OrganizationListResponseDto
+{
+    public List<OrganizationSummaryDto> Items { get; set; } = new();
+}
+
+public sealed class OrganizationDetailDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public string LicenseType { get; set; } = string.Empty;
+    public DateTimeOffset? LicenseExpirationUtc { get; set; }
+    public int MaxUsers { get; set; }
+    public int UserCount { get; set; }
+}
+
+public sealed class CreateOrganizationRequestDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+    public string LicenseType { get; set; } = "Standard";
+    public DateTimeOffset? LicenseExpirationUtc { get; set; }
+    public int MaxUsers { get; set; } = 4;
+}
+
+public sealed class UpdateOrganizationRequestDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public string LicenseType { get; set; } = string.Empty;
+    public DateTimeOffset? LicenseExpirationUtc { get; set; }
+    public int MaxUsers { get; set; }
+}
+
+public sealed class CreateOrUpdateUserRequestDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string OrganizationId { get; set; } = string.Empty;
+    public List<string> Roles { get; set; } = new();
+    public bool IsEnabled { get; set; } = true;
+}
+
 public sealed class SensitiveFieldDto
 {
     public string Name { get; set; } = string.Empty;

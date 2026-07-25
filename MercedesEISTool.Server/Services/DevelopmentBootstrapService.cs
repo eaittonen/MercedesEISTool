@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using MercedesEISTool.Server.Data;
 using MercedesEISTool.Server.Models;
 
 namespace MercedesEISTool.Server.Services;
@@ -17,17 +19,20 @@ public sealed class DevelopmentBootstrapService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly ApplicationDbContext _dbContext;
     private readonly IOptions<DevelopmentBootstrapOptions> _options;
     private readonly ILogger<DevelopmentBootstrapService> _logger;
 
     public DevelopmentBootstrapService(
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
+        ApplicationDbContext dbContext,
         IOptions<DevelopmentBootstrapOptions> options,
         ILogger<DevelopmentBootstrapService> logger)
     {
         _userManager = userManager;
         _roleManager = roleManager;
+        _dbContext = dbContext;
         _options = options;
         _logger = logger;
     }
@@ -39,16 +44,21 @@ public sealed class DevelopmentBootstrapService
             return;
         }
 
-        await EnsureRoleAsync("User");
-        await EnsureRoleAsync("Administrator");
+        await EnsureRoleAsync("SystemAdministrator");
+        await EnsureRoleAsync("CompanyAdministrator");
+        await EnsureRoleAsync("Technician");
+        await EnsureRoleAsync("Research");
+        await EnsureRoleAsync("ReadOnly");
+
+        var defaultOrganization = await EnsureDefaultOrganizationAsync();
 
         var adminEmail = !string.IsNullOrWhiteSpace(_options.Value.AdminEmail) ? _options.Value.AdminEmail : "admin@example.local";
         var adminPassword = !string.IsNullOrWhiteSpace(_options.Value.AdminPassword) ? _options.Value.AdminPassword : "Admin123!";
         var userEmail = !string.IsNullOrWhiteSpace(_options.Value.UserEmail) ? _options.Value.UserEmail : "user@example.local";
         var userPassword = !string.IsNullOrWhiteSpace(_options.Value.UserPassword) ? _options.Value.UserPassword : "development-only-password";
 
-        await EnsureUserAsync(adminEmail, adminPassword, "Administrator", true, "Administrator");
-        await EnsureUserAsync(userEmail, userPassword, "User", false, "User");
+        await EnsureUserAsync(adminEmail, adminPassword, "SystemAdministrator", true, "Administrator", defaultOrganization.Id);
+        await EnsureUserAsync(userEmail, userPassword, "ReadOnly", false, "User", defaultOrganization.Id);
 
         _logger.LogInformation("Development bootstrap completed.");
     }
@@ -61,7 +71,32 @@ public sealed class DevelopmentBootstrapService
         }
     }
 
-    private async Task EnsureUserAsync(string email, string password, string role, bool isAdmin, string displayName)
+    private async Task<Organization> EnsureDefaultOrganizationAsync()
+    {
+        var existing = await _dbContext.Organizations.FirstOrDefaultAsync(organization => organization.Name == "Default Organization");
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var organization = new Organization
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = "Default Organization",
+            ContactEmail = "admin@example.local",
+            Country = "Finland",
+            IsActive = true,
+            LicenseType = "Standard",
+            MaxUsers = 10,
+            LicenseExpirationUtc = DateTimeOffset.UtcNow.AddYears(1)
+        };
+
+        _dbContext.Organizations.Add(organization);
+        await _dbContext.SaveChangesAsync();
+        return organization;
+    }
+
+    private async Task EnsureUserAsync(string email, string password, string role, bool isAdmin, string displayName, string organizationId)
     {
         var existing = await _userManager.FindByEmailAsync(email);
         if (existing is not null)
@@ -69,6 +104,7 @@ public sealed class DevelopmentBootstrapService
             existing.IsEnabled = true;
             existing.EmailConfirmed = true;
             existing.DisplayName = displayName;
+            existing.OrganizationId = organizationId;
             await _userManager.UpdateAsync(existing);
 
             if (!await _userManager.IsInRoleAsync(existing, role))
@@ -91,7 +127,8 @@ public sealed class DevelopmentBootstrapService
             DisplayName = displayName,
             IsEnabled = true,
             EmailConfirmed = true,
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            OrganizationId = organizationId
         };
 
         var result = await _userManager.CreateAsync(user, password);

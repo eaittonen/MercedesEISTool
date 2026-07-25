@@ -10,6 +10,11 @@ public interface IMercedesEisApiClient
     Task<AdminUserListResponseDto> GetAdminUsersAsync(CancellationToken cancellationToken = default);
     Task<AdminUserActionResponseDto> DisableUserAsync(string userId, CancellationToken cancellationToken = default);
     Task<AdminUserActionResponseDto> EnableUserAsync(string userId, CancellationToken cancellationToken = default);
+    Task<OrganizationListResponseDto> GetOrganizationsAsync(CancellationToken cancellationToken = default);
+    Task<OrganizationDetailDto> CreateOrganizationAsync(CreateOrganizationRequestDto request, CancellationToken cancellationToken = default);
+    Task<OrganizationDetailDto> UpdateOrganizationAsync(string organizationId, UpdateOrganizationRequestDto request, CancellationToken cancellationToken = default);
+    Task<AdminUserActionResponseDto> CreateUserAsync(CreateOrUpdateUserRequestDto request, CancellationToken cancellationToken = default);
+    Task<AdminUserActionResponseDto> UpdateUserAsync(string userId, CreateOrUpdateUserRequestDto request, CancellationToken cancellationToken = default);
     void SetAccessToken(string? accessToken);
     Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default);
     Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string? userProvidedVin, string? userProvidedRegistrationNumber, bool vehicleIdentifierConfirmed, CancellationToken cancellationToken = default);

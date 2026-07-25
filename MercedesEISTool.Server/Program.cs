@@ -136,11 +136,11 @@ app.MapGet("/api/auth/me", async Task<IResult> (UserManager<ApplicationUser> use
         Email = user.Email ?? string.Empty,
         DisplayName = user.DisplayName,
         Roles = roles,
-        IsAdministrator = roles.Contains("Administrator", StringComparer.OrdinalIgnoreCase)
+        IsAdministrator = roles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase))
     });
 });
 
-app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
     var authHeader = httpContext.Request.Headers.Authorization.ToString();
     if (string.IsNullOrWhiteSpace(authHeader))
@@ -156,12 +156,17 @@ app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser>
     }
 
     var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
-    if (!currentRoles.Contains("Administrator", StringComparer.OrdinalIgnoreCase))
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
     {
         return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
-    var users = userManager.Users.ToList();
+    var users = await dbContext.Users
+        .Include(user => user.Organization)
+        .OrderBy(user => user.Email)
+        .ToListAsync();
+
     var items = new List<AdminUserListItemDto>();
     foreach (var user in users)
     {
@@ -181,6 +186,161 @@ app.MapGet("/api/admin/users", async Task<IResult> (UserManager<ApplicationUser>
     return Results.Ok(new AdminUserListResponseDto { Items = items.OrderBy(item => item.Email, StringComparer.OrdinalIgnoreCase).ToList() });
 });
 
+app.MapGet("/api/admin/organizations", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var organizations = await dbContext.Organizations
+        .Include(organization => organization.Users)
+        .OrderBy(organization => organization.Name)
+        .ToListAsync();
+
+    var response = new OrganizationListResponseDto
+    {
+        Items = organizations.Select(organization => new OrganizationSummaryDto
+        {
+            Id = organization.Id,
+            Name = organization.Name,
+            ContactEmail = organization.ContactEmail,
+            Country = organization.Country,
+            IsActive = organization.IsActive,
+            LicenseType = organization.LicenseType,
+            LicenseExpirationUtc = organization.LicenseExpirationUtc,
+            MaxUsers = organization.MaxUsers,
+            UserCount = organization.Users.Count
+        }).ToList()
+    };
+
+    return Results.Ok(response);
+});
+
+app.MapPost("/api/admin/organizations", async Task<IResult> (CreateOrganizationRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Contains("SystemAdministrator", StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    if (string.IsNullOrWhiteSpace(request.Name))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Organization name is required.", ErrorCode = "invalid_request" });
+    }
+
+    var organization = new Organization
+    {
+        Id = Guid.NewGuid().ToString("N"),
+        Name = request.Name,
+        ContactEmail = request.ContactEmail,
+        Country = request.Country,
+        IsActive = request.IsActive,
+        LicenseType = request.LicenseType,
+        LicenseExpirationUtc = request.LicenseExpirationUtc,
+        MaxUsers = request.MaxUsers,
+        CreatedUtc = DateTimeOffset.UtcNow,
+        UpdatedUtc = DateTimeOffset.UtcNow
+    };
+
+    dbContext.Organizations.Add(organization);
+    await dbContext.SaveChangesAsync();
+
+    return Results.Ok(new OrganizationDetailDto
+    {
+        Id = organization.Id,
+        Name = organization.Name,
+        ContactEmail = organization.ContactEmail,
+        Country = organization.Country,
+        IsActive = organization.IsActive,
+        LicenseType = organization.LicenseType,
+        LicenseExpirationUtc = organization.LicenseExpirationUtc,
+        MaxUsers = organization.MaxUsers,
+        UserCount = 0
+    });
+});
+
+app.MapPut("/api/admin/organizations/{organizationId}", async Task<IResult> (string organizationId, UpdateOrganizationRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    if (!currentRoles.Contains("SystemAdministrator", StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var organization = await dbContext.Organizations.Include(organization => organization.Users).FirstOrDefaultAsync(candidate => candidate.Id == organizationId);
+    if (organization is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "Organization was not found.", ErrorCode = "not_found" });
+    }
+
+    organization.Name = request.Name;
+    organization.ContactEmail = request.ContactEmail;
+    organization.Country = request.Country;
+    organization.IsActive = request.IsActive;
+    organization.LicenseType = request.LicenseType;
+    organization.LicenseExpirationUtc = request.LicenseExpirationUtc;
+    organization.MaxUsers = request.MaxUsers;
+    organization.UpdatedUtc = DateTimeOffset.UtcNow;
+
+    await dbContext.SaveChangesAsync();
+
+    return Results.Ok(new OrganizationDetailDto
+    {
+        Id = organization.Id,
+        Name = organization.Name,
+        ContactEmail = organization.ContactEmail,
+        Country = organization.Country,
+        IsActive = organization.IsActive,
+        LicenseType = organization.LicenseType,
+        LicenseExpirationUtc = organization.LicenseExpirationUtc,
+        MaxUsers = organization.MaxUsers,
+        UserCount = organization.Users.Count
+    });
+});
+
 app.MapPost("/api/admin/users/{userId}/disable", async Task<IResult> (string userId, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {
     var authHeader = httpContext.Request.Headers.Authorization.ToString();
@@ -197,7 +357,8 @@ app.MapPost("/api/admin/users/{userId}/disable", async Task<IResult> (string use
     }
 
     var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
-    if (!currentRoles.Contains("Administrator", StringComparer.OrdinalIgnoreCase))
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
     {
         return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
@@ -244,7 +405,8 @@ app.MapPost("/api/admin/users/{userId}/enable", async Task<IResult> (string user
     }
 
     var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
-    if (!currentRoles.Contains("Administrator", StringComparer.OrdinalIgnoreCase))
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
     {
         return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
@@ -267,6 +429,149 @@ app.MapPost("/api/admin/users/{userId}/enable", async Task<IResult> (string user
         UserId = targetUser.Id,
         IsEnabled = targetUser.IsEnabled,
         Message = "User enabled."
+    });
+});
+
+app.MapPost("/api/admin/users", async Task<IResult> (CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Email and password are required.", ErrorCode = "invalid_request" });
+    }
+
+    var organization = await dbContext.Organizations.FirstOrDefaultAsync(candidate => candidate.Id == request.OrganizationId);
+    if (organization is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "Organization was not found.", ErrorCode = "not_found" });
+    }
+
+    var existingUser = await userManager.FindByEmailAsync(request.Email);
+    if (existingUser is not null)
+    {
+        return Results.Conflict(new ApiErrorResponse { Message = "A user with that email already exists.", ErrorCode = "already_exists" });
+    }
+
+    var user = new ApplicationUser
+    {
+        UserName = request.Email,
+        Email = request.Email,
+        DisplayName = request.DisplayName,
+        IsEnabled = request.IsEnabled,
+        EmailConfirmed = true,
+        OrganizationId = organization.Id,
+        CreatedAtUtc = DateTimeOffset.UtcNow
+    };
+
+    var result = await userManager.CreateAsync(user, request.Password);
+    if (!result.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", result.Errors.Select(error => error.Description)), ErrorCode = "create_failed" });
+    }
+
+    foreach (var role in request.Roles.Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+        await userManager.AddToRoleAsync(user, role);
+    }
+
+    return Results.Ok(new AdminUserActionResponseDto
+    {
+        UserId = user.Id,
+        IsEnabled = user.IsEnabled,
+        Message = "User created."
+    });
+});
+
+app.MapPut("/api/admin/users/{userId}", async Task<IResult> (string userId, CreateOrUpdateUserRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var authHeader = httpContext.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var currentUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var user = await userManager.FindByIdAsync(userId);
+    if (user is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "User was not found.", ErrorCode = "not_found" });
+    }
+
+    var organization = await dbContext.Organizations.FirstOrDefaultAsync(candidate => candidate.Id == request.OrganizationId);
+    if (organization is null)
+    {
+        return Results.NotFound(new ApiErrorResponse { Message = "Organization was not found.", ErrorCode = "not_found" });
+    }
+
+    user.DisplayName = request.DisplayName;
+    user.Email = request.Email;
+    user.UserName = request.Email;
+    user.IsEnabled = request.IsEnabled;
+    user.OrganizationId = organization.Id;
+
+    if (!string.IsNullOrWhiteSpace(request.Password))
+    {
+        var tokenResult = await userManager.RemovePasswordAsync(user);
+        if (tokenResult.Succeeded)
+        {
+            await userManager.AddPasswordAsync(user, request.Password);
+        }
+    }
+
+    var updateResult = await userManager.UpdateAsync(user);
+    if (!updateResult.Succeeded)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = string.Join("; ", updateResult.Errors.Select(error => error.Description)), ErrorCode = "update_failed" });
+    }
+
+    var currentUserRoles = (await userManager.GetRolesAsync(user)).ToList();
+    foreach (var currentRole in currentUserRoles)
+    {
+        await userManager.RemoveFromRoleAsync(user, currentRole);
+    }
+
+    foreach (var role in request.Roles.Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+        await userManager.AddToRoleAsync(user, role);
+    }
+
+    return Results.Ok(new AdminUserActionResponseDto
+    {
+        UserId = user.Id,
+        IsEnabled = user.IsEnabled,
+        Message = "User updated."
     });
 });
 

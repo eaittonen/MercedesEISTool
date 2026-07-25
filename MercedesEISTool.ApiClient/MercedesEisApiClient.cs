@@ -77,6 +77,41 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
     }
 
+    public async Task<OrganizationListResponseDto> GetOrganizationsAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("/api/admin/organizations", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<OrganizationListResponseDto>(cancellationToken: cancellationToken) ?? new OrganizationListResponseDto();
+    }
+
+    public async Task<OrganizationDetailDto> CreateOrganizationAsync(CreateOrganizationRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("/api/admin/organizations", request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<OrganizationDetailDto>(cancellationToken: cancellationToken) ?? new OrganizationDetailDto();
+    }
+
+    public async Task<OrganizationDetailDto> UpdateOrganizationAsync(string organizationId, UpdateOrganizationRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync($"/api/admin/organizations/{organizationId}", request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<OrganizationDetailDto>(cancellationToken: cancellationToken) ?? new OrganizationDetailDto();
+    }
+
+    public async Task<AdminUserActionResponseDto> CreateUserAsync(CreateOrUpdateUserRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("/api/admin/users", request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
+    public async Task<AdminUserActionResponseDto> UpdateUserAsync(string userId, CreateOrUpdateUserRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync($"/api/admin/users/{userId}", request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminUserActionResponseDto>(cancellationToken: cancellationToken) ?? new AdminUserActionResponseDto();
+    }
+
     public async Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();

@@ -58,6 +58,12 @@ public partial class MainViewModel : ViewModelBase
     private ObservableCollection<AdminUserListItemDto> _adminUsers = new();
 
     [ObservableProperty]
+    private ObservableCollection<OrganizationSummaryDto> _organizations = new();
+
+    [ObservableProperty]
+    private OrganizationSummaryDto? _selectedOrganization;
+
+    [ObservableProperty]
     private AdminUserListItemDto? _selectedAdminUser;
 
     [ObservableProperty]
@@ -357,6 +363,7 @@ public partial class MainViewModel : ViewModelBase
             if (IsAdministrator)
             {
                 await LoadAdminUsersAsync();
+                await LoadOrganizationsAsync();
             }
         }
         catch (Exception ex)
@@ -379,6 +386,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             await LoadAdminUsersAsync();
+            await LoadOrganizationsAsync();
         }
         catch (Exception ex)
         {
@@ -449,6 +457,29 @@ public partial class MainViewModel : ViewModelBase
         {
             Debug.WriteLine($"Administration load failed: {ex}");
             AdminStatus = $"Unable to load administrator users. {ex.Message}";
+        }
+    }
+
+    private async Task LoadOrganizationsAsync()
+    {
+        try
+        {
+            var response = await _apiClient.GetOrganizationsAsync();
+            var items = response?.Items?
+                .Where(item => item is not null)
+                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<OrganizationSummaryDto>();
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Organizations = new ObservableCollection<OrganizationSummaryDto>(items);
+                SelectedOrganization ??= Organizations.FirstOrDefault();
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Organizations load failed: {ex}");
+            AdminStatus = $"Unable to load organizations. {ex.Message}";
         }
     }
 
