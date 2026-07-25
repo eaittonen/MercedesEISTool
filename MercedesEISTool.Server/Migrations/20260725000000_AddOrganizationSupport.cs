@@ -44,32 +44,6 @@ public partial class AddOrganizationSupport : Migration
         ");
 
         migrationBuilder.Sql(@"
-            CREATE TABLE IF NOT EXISTS AspNetUsers (
-                Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers PRIMARY KEY,
-                UserName TEXT NULL,
-                NormalizedUserName TEXT NULL,
-                Email TEXT NULL,
-                NormalizedEmail TEXT NULL,
-                EmailConfirmed INTEGER NOT NULL,
-                PasswordHash TEXT NULL,
-                SecurityStamp TEXT NULL,
-                ConcurrencyStamp TEXT NULL,
-                PhoneNumber TEXT NULL,
-                PhoneNumberConfirmed INTEGER NOT NULL,
-                TwoFactorEnabled INTEGER NOT NULL,
-                LockoutEnd TEXT NULL,
-                LockoutEnabled INTEGER NOT NULL,
-                AccessFailedCount INTEGER NOT NULL,
-                DisplayName TEXT NULL,
-                CreatedAtUtc TEXT NOT NULL,
-                IsEnabled INTEGER NOT NULL,
-                LastLoginAtUtc TEXT NULL,
-                OrganizationId TEXT NULL,
-                MustChangePassword INTEGER NOT NULL
-            );
-        ");
-
-        migrationBuilder.Sql(@"
             CREATE TABLE IF NOT EXISTS AspNetRoleClaims (
                 Id INTEGER NOT NULL CONSTRAINT PK_AspNetRoleClaims PRIMARY KEY AUTOINCREMENT,
                 RoleId TEXT NOT NULL,
@@ -115,45 +89,157 @@ public partial class AddOrganizationSupport : Migration
             );
         ");
 
-        migrationBuilder.AddColumn<string>(
-            name: "OrganizationId",
-            table: "AspNetUsers",
-            type: "TEXT",
-            nullable: true);
-
         migrationBuilder.Sql(@"
-            UPDATE AspNetUsers
-            SET OrganizationId = 'default-org'
-            WHERE OrganizationId IS NULL OR trim(OrganizationId) = '';
+            CREATE TABLE IF NOT EXISTS AspNetUsers (
+                Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers PRIMARY KEY,
+                UserName TEXT NULL,
+                NormalizedUserName TEXT NULL,
+                Email TEXT NULL,
+                NormalizedEmail TEXT NULL,
+                EmailConfirmed INTEGER NOT NULL,
+                PasswordHash TEXT NULL,
+                SecurityStamp TEXT NULL,
+                ConcurrencyStamp TEXT NULL,
+                PhoneNumber TEXT NULL,
+                PhoneNumberConfirmed INTEGER NOT NULL,
+                TwoFactorEnabled INTEGER NOT NULL,
+                LockoutEnd TEXT NULL,
+                LockoutEnabled INTEGER NOT NULL,
+                AccessFailedCount INTEGER NOT NULL,
+                DisplayName TEXT NULL,
+                CreatedAtUtc TEXT NOT NULL,
+                IsEnabled INTEGER NOT NULL,
+                LastLoginAtUtc TEXT NULL,
+                MustChangePassword INTEGER NOT NULL
+            );
         ");
 
-        migrationBuilder.CreateIndex(
-            name: "IX_AspNetUsers_OrganizationId",
-            table: "AspNetUsers",
-            column: "OrganizationId");
+        migrationBuilder.Sql(@"
+            CREATE TABLE IF NOT EXISTS AspNetUsers_legacy (
+                Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers_legacy PRIMARY KEY,
+                UserName TEXT NULL,
+                NormalizedUserName TEXT NULL,
+                Email TEXT NULL,
+                NormalizedEmail TEXT NULL,
+                EmailConfirmed INTEGER NOT NULL,
+                PasswordHash TEXT NULL,
+                SecurityStamp TEXT NULL,
+                ConcurrencyStamp TEXT NULL,
+                PhoneNumber TEXT NULL,
+                PhoneNumberConfirmed INTEGER NOT NULL,
+                TwoFactorEnabled INTEGER NOT NULL,
+                LockoutEnd TEXT NULL,
+                LockoutEnabled INTEGER NOT NULL,
+                AccessFailedCount INTEGER NOT NULL,
+                DisplayName TEXT NULL,
+                CreatedAtUtc TEXT NOT NULL,
+                IsEnabled INTEGER NOT NULL,
+                LastLoginAtUtc TEXT NULL,
+                MustChangePassword INTEGER NOT NULL
+            );
+        ");
 
-        migrationBuilder.AddForeignKey(
-            name: "FK_AspNetUsers_Organizations_OrganizationId",
-            table: "AspNetUsers",
-            column: "OrganizationId",
-            principalTable: "Organizations",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Restrict);
+        migrationBuilder.Sql(@"
+            INSERT INTO AspNetUsers_legacy (
+                Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
+                PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed,
+                TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount, DisplayName,
+                CreatedAtUtc, IsEnabled, LastLoginAtUtc, MustChangePassword)
+            SELECT
+                Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
+                PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed,
+                TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount, DisplayName,
+                CreatedAtUtc, IsEnabled, LastLoginAtUtc, MustChangePassword
+            FROM AspNetUsers;
+        ");
+
+        migrationBuilder.Sql(@"
+            DROP TABLE AspNetUsers;
+        ");
+
+        migrationBuilder.Sql(@"
+            CREATE TABLE AspNetUsers (
+                Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers PRIMARY KEY,
+                UserName TEXT NULL,
+                NormalizedUserName TEXT NULL,
+                Email TEXT NULL,
+                NormalizedEmail TEXT NULL,
+                EmailConfirmed INTEGER NOT NULL,
+                PasswordHash TEXT NULL,
+                SecurityStamp TEXT NULL,
+                ConcurrencyStamp TEXT NULL,
+                PhoneNumber TEXT NULL,
+                PhoneNumberConfirmed INTEGER NOT NULL,
+                TwoFactorEnabled INTEGER NOT NULL,
+                LockoutEnd TEXT NULL,
+                LockoutEnabled INTEGER NOT NULL,
+                AccessFailedCount INTEGER NOT NULL,
+                DisplayName TEXT NULL,
+                CreatedAtUtc TEXT NOT NULL,
+                IsEnabled INTEGER NOT NULL,
+                LastLoginAtUtc TEXT NULL,
+                OrganizationId TEXT NULL,
+                MustChangePassword INTEGER NOT NULL,
+                CONSTRAINT FK_AspNetUsers_Organizations_OrganizationId FOREIGN KEY (OrganizationId)
+                    REFERENCES Organizations (Id) ON DELETE RESTRICT
+            );
+        ");
+
+        migrationBuilder.Sql(@"
+            INSERT INTO AspNetUsers (
+                Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
+                PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed,
+                TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount, DisplayName,
+                CreatedAtUtc, IsEnabled, LastLoginAtUtc, OrganizationId, MustChangePassword)
+            SELECT
+                Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
+                PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed,
+                TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount, DisplayName,
+                CreatedAtUtc, IsEnabled, LastLoginAtUtc, 'default-org', MustChangePassword
+            FROM AspNetUsers_legacy;
+        ");
+
+        migrationBuilder.Sql(@"
+            DROP TABLE AspNetUsers_legacy;
+        ");
+
+        migrationBuilder.Sql(@"
+            CREATE INDEX IF NOT EXISTS IX_AspNetUsers_OrganizationId ON AspNetUsers (OrganizationId);
+            CREATE INDEX IF NOT EXISTS IX_AspNetUsers_NormalizedUserName ON AspNetUsers (NormalizedUserName);
+            CREATE INDEX IF NOT EXISTS IX_AspNetUsers_NormalizedEmail ON AspNetUsers (NormalizedEmail);
+        ");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropForeignKey(
-            name: "FK_AspNetUsers_Organizations_OrganizationId",
-            table: "AspNetUsers");
+        migrationBuilder.Sql(@"
+            DROP TABLE IF EXISTS AspNetUsers;
+        ");
 
-        migrationBuilder.DropIndex(
-            name: "IX_AspNetUsers_OrganizationId",
-            table: "AspNetUsers");
-
-        migrationBuilder.DropColumn(
-            name: "OrganizationId",
-            table: "AspNetUsers");
+        migrationBuilder.Sql(@"
+            CREATE TABLE AspNetUsers (
+                Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers PRIMARY KEY,
+                UserName TEXT NULL,
+                NormalizedUserName TEXT NULL,
+                Email TEXT NULL,
+                NormalizedEmail TEXT NULL,
+                EmailConfirmed INTEGER NOT NULL,
+                PasswordHash TEXT NULL,
+                SecurityStamp TEXT NULL,
+                ConcurrencyStamp TEXT NULL,
+                PhoneNumber TEXT NULL,
+                PhoneNumberConfirmed INTEGER NOT NULL,
+                TwoFactorEnabled INTEGER NOT NULL,
+                LockoutEnd TEXT NULL,
+                LockoutEnabled INTEGER NOT NULL,
+                AccessFailedCount INTEGER NOT NULL,
+                DisplayName TEXT NULL,
+                CreatedAtUtc TEXT NOT NULL,
+                IsEnabled INTEGER NOT NULL,
+                LastLoginAtUtc TEXT NULL,
+                MustChangePassword INTEGER NOT NULL
+            );
+        ");
 
         migrationBuilder.DropTable(
             name: "Organizations");
