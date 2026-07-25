@@ -105,7 +105,17 @@
                 <Border Padding="12" CornerRadius="6" Background="#202020">
                     <StackPanel Spacing="12">
                         <TextBlock Text="Persisted uploads" FontSize="18" FontWeight="SemiBold" />
-                        <TextBox Text="{Binding UploadedFilesSummary}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="260" />
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto">
+                            <TextBox Grid.Column="0" Watermark="Search by file name or identifier" Text="{Binding MyFilesSearchText}" />
+                            <Button Grid.Column="1" Content="Search" Command="{Binding SearchMyFilesCommand}" />
+                            <Button Grid.Column="2" Content="Details" Command="{Binding ViewStoredFileDetailsCommand}" />
+                            <Button Grid.Column="3" Content="Download" Command="{Binding OpenStoredFileCommand}" />
+                            <Button Grid.Column="4" Content="Reanalyze" Command="{Binding ReanalyzeStoredFileCommand}" />
+                        </Grid>
+                        <TextBox Text="{Binding UploadedFilesSummary}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="220" />
+                        <Border Padding="8" CornerRadius="4" Background="#303030">
+                            <TextBox Text="{Binding MyFilesDetails}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" />
+                        </Border>
                     </StackPanel>
                 </Border>
             </TabItem>

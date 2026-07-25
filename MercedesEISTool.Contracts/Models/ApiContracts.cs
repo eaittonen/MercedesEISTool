@@ -51,6 +51,78 @@ public sealed class EisAnalysisDetailsDto
     public string ParserVersion { get; set; } = string.Empty;
 }
 
+public sealed class StoredFileListItemDto
+{
+    public Guid Id { get; set; }
+    public string OriginalFileName { get; set; } = string.Empty;
+    public DateTimeOffset UploadedAtUtc { get; set; }
+    public string? UserProvidedVin { get; set; }
+    public string? DetectedVin { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string DetectedFormat { get; set; } = "Unknown";
+    public string? EisType { get; set; }
+    public string? McuType { get; set; }
+    public int? KeyCount { get; set; }
+    public string KeyCountStatus { get; set; } = "NotMapped";
+    public string? EisPassword { get; set; }
+    public string EisPasswordStatus { get; set; } = "NotMapped";
+    public string? Ssid { get; set; }
+    public string SsidStatus { get; set; } = "NotMapped";
+    public int KeyPasswordsFound { get; set; }
+    public string AnalysisStatus { get; set; } = string.Empty;
+    public string ParserVersion { get; set; } = string.Empty;
+    public long FileSizeBytes { get; set; }
+    public string Sha256 { get; set; } = string.Empty;
+    public bool IsDeleted { get; set; }
+    public bool CanViewSensitiveFields { get; set; }
+}
+
+public sealed class StoredFileListResponse
+{
+    public List<StoredFileListItemDto> Items { get; set; } = new();
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int TotalCount { get; set; }
+    public int TotalPages { get; set; }
+}
+
+public sealed class StoredFileDetailsDto
+{
+    public Guid Id { get; set; }
+    public string OriginalFileName { get; set; } = string.Empty;
+    public DateTimeOffset UploadedAtUtc { get; set; }
+    public string? UserProvidedVin { get; set; }
+    public string? DetectedVin { get; set; }
+    public string VinStatus { get; set; } = "NotMapped";
+    public string? RegistrationNumber { get; set; }
+    public string DetectedFormat { get; set; } = "Unknown";
+    public string? EisType { get; set; }
+    public string EisTypeStatus { get; set; } = "NotMapped";
+    public string? McuType { get; set; }
+    public string McuTypeStatus { get; set; } = "NotMapped";
+    public int? KeyCount { get; set; }
+    public string KeyCountStatus { get; set; } = "NotMapped";
+    public string? EisPassword { get; set; }
+    public string EisPasswordStatus { get; set; } = "NotMapped";
+    public string? Ssid { get; set; }
+    public string SsidStatus { get; set; } = "NotMapped";
+    public List<KeySlotDto> Keys { get; set; } = new();
+    public string ParserVersion { get; set; } = string.Empty;
+    public DateTimeOffset? AnalyzedAtUtc { get; set; }
+    public long FileSizeBytes { get; set; }
+    public string Sha256 { get; set; } = string.Empty;
+    public bool IsDeleted { get; set; }
+    public bool CanViewSensitiveFields { get; set; }
+}
+
+public sealed class StoredFileDownloadResult
+{
+    public byte[] Data { get; set; } = Array.Empty<byte>();
+    public string FileName { get; set; } = string.Empty;
+    public string? ContentType { get; set; }
+    public string? Sha256 { get; set; }
+}
+
 public class AnalyzeDumpRequest
 {
     public string FileName { get; set; } = string.Empty;

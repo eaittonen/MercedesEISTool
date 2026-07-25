@@ -7,7 +7,9 @@
     "RegistrationNumber": "",
     "Operation": "upload",
     "CreatedAtUtc": "2026-07-25T11:02:27.6286017+00:00",
-    "SizeBytes": 256
+    "SizeBytes": 256,
+    "LatestAnalysis": null,
+    "AnalysisHistory": []
   },
   {
     "Id": "7bdd0de2-9358-4d28-a6be-a630ff3d08a5",
@@ -17,6 +19,114 @@
     "RegistrationNumber": "JJS-986",
     "Operation": "upload",
     "CreatedAtUtc": "2026-07-25T11:10:28.0012561+00:00",
-    "SizeBytes": 256
+    "SizeBytes": 256,
+    "LatestAnalysis": null,
+    "AnalysisHistory": []
+  },
+  {
+    "Id": "398dc491-ab1a-47a9-bbf2-34b5af2479aa",
+    "FileName": "Jjs-986",
+    "StoredFilePath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Server\\bin\\Debug\\net8.0\\App_Data\\uploads\\uploads\\398dc491ab1a47a9bbf234b5af2479aa-Jjs-986",
+    "VehicleIdentifier": "WDC1660241A014668",
+    "RegistrationNumber": "",
+    "Operation": "upload",
+    "CreatedAtUtc": "2026-07-25T11:19:03.5480993+00:00",
+    "SizeBytes": 256,
+    "LatestAnalysis": {
+      "Id": "38b36aec-0b20-4d39-b371-76548f2f7667",
+      "StoredFileId": "398dc491-ab1a-47a9-bbf2-34b5af2479aa",
+      "ParserVersion": "1.1.0",
+      "DetectedFormat": "VVDI MB Tool",
+      "DetectedVin": "WDC1660241A014668",
+      "VinStatus": "Present",
+      "EisType": null,
+      "EisTypeStatus": 2,
+      "McuType": null,
+      "McuTypeStatus": 2,
+      "KeyCount": null,
+      "KeyCountStatus": 2,
+      "EisPassword": {
+        "Name": "EIS password",
+        "Value": null,
+        "Status": 2,
+        "SourceDescription": null,
+        "SourceOffset": null,
+        "Length": null,
+        "Confidence": "Unknown"
+      },
+      "Ssid": {
+        "Name": "SSID",
+        "Value": null,
+        "Status": 2,
+        "SourceDescription": null,
+        "SourceOffset": null,
+        "Length": null,
+        "Confidence": "Unknown"
+      },
+      "Keys": [],
+      "AdditionalFields": [
+        {
+          "Name": "FileName",
+          "Value": "Jjs-986",
+          "Status": 0,
+          "SourceDescription": null,
+          "SourceOffset": null,
+          "Length": null,
+          "Confidence": "Verified"
+        }
+      ],
+      "AnalyzedAtUtc": "2026-07-25T11:19:03.5787288+00:00",
+      "AnalysisSucceeded": true,
+      "FailureMessage": null
+    },
+    "AnalysisHistory": [
+      {
+        "Id": "38b36aec-0b20-4d39-b371-76548f2f7667",
+        "StoredFileId": "398dc491-ab1a-47a9-bbf2-34b5af2479aa",
+        "ParserVersion": "1.1.0",
+        "DetectedFormat": "VVDI MB Tool",
+        "DetectedVin": "WDC1660241A014668",
+        "VinStatus": "Present",
+        "EisType": null,
+        "EisTypeStatus": 2,
+        "McuType": null,
+        "McuTypeStatus": 2,
+        "KeyCount": null,
+        "KeyCountStatus": 2,
+        "EisPassword": {
+          "Name": "EIS password",
+          "Value": null,
+          "Status": 2,
+          "SourceDescription": null,
+          "SourceOffset": null,
+          "Length": null,
+          "Confidence": "Unknown"
+        },
+        "Ssid": {
+          "Name": "SSID",
+          "Value": null,
+          "Status": 2,
+          "SourceDescription": null,
+          "SourceOffset": null,
+          "Length": null,
+          "Confidence": "Unknown"
+        },
+        "Keys": [],
+        "AdditionalFields": [
+          {
+            "Name": "FileName",
+            "Value": "Jjs-986",
+            "Status": 0,
+            "SourceDescription": null,
+            "SourceOffset": null,
+            "Length": null,
+            "Confidence": "Verified"
+          }
+        ],
+        "AnalyzedAtUtc": "2026-07-25T11:19:03.5787288+00:00",
+        "AnalysisSucceeded": true,
+        "FailureMessage": null
+      }
+    ]
   }
 ]

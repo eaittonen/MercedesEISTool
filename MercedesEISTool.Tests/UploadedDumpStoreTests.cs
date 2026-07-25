@@ -104,4 +104,32 @@ public class UploadedDumpStoreTests
             }
         }
     }
+
+    [Fact]
+    public async Task ListAsync_FiltersBySearchTextAndReadStoredFileAsync_ReturnsBytes()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "MercedesEISToolTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+
+        try
+        {
+            var store = new JsonUploadedDumpStore(root);
+            await store.PersistAsync(new byte[] { 1, 2, 3 }, "alpha.bin", "VIN12345678901234", "ABC-123", "analyze", currentUser: null);
+            await store.PersistAsync(new byte[] { 4, 5, 6 }, "beta.bin", "VIN12345678901234", "ABC-123", "compare", currentUser: null);
+
+            var records = await store.ListAsync(currentUser: null, search: "alpha");
+            Assert.Single(records);
+            Assert.Equal("alpha.bin", records[0].FileName);
+
+            var bytes = await store.ReadStoredFileAsync(records[0].Id, currentUser: null);
+            Assert.Equal(new byte[] { 1, 2, 3 }, bytes);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
 }

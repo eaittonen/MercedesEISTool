@@ -52,6 +52,42 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<UploadedDumpListResponse>(cancellationToken: cancellationToken) ?? new UploadedDumpListResponse();
     }
 
+    public async Task<StoredFileListResponse> GetStoredFilesAsync(string? search = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"search={Uri.EscapeDataString(search)}");
+        }
+
+        query.Add($"page={page}");
+        query.Add($"pageSize={pageSize}");
+        using var response = await _httpClient.GetAsync($"/api/files?{string.Join("&", query)}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<StoredFileListResponse>(cancellationToken: cancellationToken) ?? new StoredFileListResponse();
+    }
+
+    public async Task<StoredFileDetailsDto> GetStoredFileDetailsAsync(Guid storedFileId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"/api/files/{storedFileId}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<StoredFileDetailsDto>(cancellationToken: cancellationToken) ?? new StoredFileDetailsDto();
+    }
+
+    public async Task<byte[]> DownloadStoredFileAsync(Guid storedFileId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"/api/files/{storedFileId}/download", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public async Task<StoredFileDetailsDto> ReanalyzeStoredFileAsync(Guid storedFileId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync($"/api/files/{storedFileId}/reanalyze", content: null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<StoredFileDetailsDto>(cancellationToken: cancellationToken) ?? new StoredFileDetailsDto();
+    }
+
     public async Task<CompareDumpsResponse> CompareDumpsAsync(byte[] left, byte[] right, string leftFileName, string rightFileName, string vehicleIdentifier, string registrationNumber, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();

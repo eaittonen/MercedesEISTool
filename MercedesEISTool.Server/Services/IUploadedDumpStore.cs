@@ -1,13 +1,16 @@
 using MercedesEISTool.Contracts.Models;
+using MercedesEISTool.Server.Models;
 
 namespace MercedesEISTool.Server.Services;
 
 public interface IUploadedDumpStore
 {
-    Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null);
-    Task<List<UploadedDumpRecord>> ListAsync();
+    Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null);
+    Task<List<UploadedDumpRecord>> ListAsync(ICurrentUser? currentUser = null, string? search = null, int page = 1, int pageSize = 50);
     Task<StoredFileAnalysisSnapshot?> GetLatestAnalysisAsync(Guid storedFileId);
     Task<StoredFileAnalysisSnapshot?> AnalyzeAndStoreAsync(Guid storedFileId, IEisAnalysisService analysisService);
+    Task<byte[]> ReadStoredFileAsync(Guid storedFileId, ICurrentUser? currentUser = null);
+    Task<UploadedDumpRecord?> GetByIdAsync(Guid storedFileId, ICurrentUser? currentUser = null);
 }
 
 public class UploadedDumpRecord
@@ -20,6 +23,7 @@ public class UploadedDumpRecord
     public string Operation { get; set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public long SizeBytes { get; set; }
+    public string UploadedByUserId { get; set; } = "development";
     public StoredFileAnalysisSnapshot? LatestAnalysis { get; set; }
     public List<StoredFileAnalysisSnapshot> AnalysisHistory { get; set; } = new();
 }

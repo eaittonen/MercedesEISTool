@@ -59,6 +59,15 @@ public partial class MainViewModel : ViewModelBase
     private string _uploadedFilesSummary = string.Empty;
 
     [ObservableProperty]
+    private string _myFilesSearchText = string.Empty;
+
+    [ObservableProperty]
+    private string _myFilesDetails = string.Empty;
+
+    [ObservableProperty]
+    private Guid? _selectedStoredFileId;
+
+    [ObservableProperty]
     private string _apiBaseUrl = "http://localhost:5080";
 
     [ObservableProperty]
@@ -380,6 +389,82 @@ public partial class MainViewModel : ViewModelBase
     private async Task RefreshUploadedFiles()
     {
         await RefreshUploadedFilesAsync();
+    }
+
+    [RelayCommand]
+    private async Task SearchMyFiles()
+    {
+        await RefreshUploadedFilesAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenStoredFile()
+    {
+        if (SelectedStoredFileId is null)
+        {
+            Status = "Select a stored file first.";
+            return;
+        }
+
+        try
+        {
+            var bytes = await _apiClient.DownloadStoredFileAsync(SelectedStoredFileId.Value);
+            var path = Path.Combine(AppContext.BaseDirectory, "DownloadedFiles", $"{SelectedStoredFileId.Value:N}.bin");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllBytesAsync(path, bytes);
+            MyFilesDetails = $"Downloaded to {path}";
+            Status = "Stored file downloaded.";
+        }
+        catch (Exception ex)
+        {
+            MyFilesDetails = $"Download failed: {ex.Message}";
+            Status = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ReanalyzeStoredFile()
+    {
+        if (SelectedStoredFileId is null)
+        {
+            Status = "Select a stored file first.";
+            return;
+        }
+
+        try
+        {
+            var details = await _apiClient.ReanalyzeStoredFileAsync(SelectedStoredFileId.Value);
+            MyFilesDetails = $"Reanalyzed: {details.DetectedFormat} | VIN: {details.DetectedVin ?? "Not mapped"}";
+            Status = "Stored file reanalyzed.";
+            await RefreshUploadedFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            MyFilesDetails = $"Reanalysis failed: {ex.Message}";
+            Status = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ViewStoredFileDetails()
+    {
+        if (SelectedStoredFileId is null)
+        {
+            Status = "Select a stored file first.";
+            return;
+        }
+
+        try
+        {
+            var details = await _apiClient.GetStoredFileDetailsAsync(SelectedStoredFileId.Value);
+            MyFilesDetails = $"File: {details.OriginalFileName}{Environment.NewLine}Format: {details.DetectedFormat}{Environment.NewLine}VIN: {details.DetectedVin ?? "Not mapped"}{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}{Environment.NewLine}MCU: {details.McuType ?? "Not mapped"}{Environment.NewLine}Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
+            Status = "Stored file details loaded.";
+        }
+        catch (Exception ex)
+        {
+            MyFilesDetails = $"Details failed: {ex.Message}";
+            Status = ex.Message;
+        }
     }
 
     [RelayCommand]
@@ -1095,9 +1180,13 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            var response = await _apiClient.GetUploadedDumpsAsync();
-            var lines = response.Uploads.Select(upload => $"{upload.FileName} | {upload.UserProvidedVin ?? string.Empty} | {upload.UserProvidedRegistrationNumber ?? string.Empty} | {upload.Operation} | {upload.SizeBytes} bytes").ToList();
+            var response = await _apiClient.GetStoredFilesAsync(MyFilesSearchText, 1, 50);
+            var lines = response.Items.Select(item => $"{item.Id:N} | {item.OriginalFileName} | VIN={item.UserProvidedVin ?? item.DetectedVin ?? ""} | REG={item.RegistrationNumber ?? ""} | {item.AnalysisStatus} | {item.FileSizeBytes} bytes").ToList();
             UploadedFilesSummary = lines.Any() ? string.Join(Environment.NewLine, lines) : "No uploaded files yet.";
+            if (response.Items.Count > 0)
+            {
+                SelectedStoredFileId = response.Items[0].Id;
+            }
         }
         catch (Exception ex)
         {
