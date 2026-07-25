@@ -15,9 +15,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Width = 1280;
-        Height = 860;
+        Height = 980;
         MinWidth = 1024;
-        MinHeight = 720;
+        MinHeight = 820;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         PositionChanged += OnPositionChanged;
         SizeChanged += OnSizeChanged;

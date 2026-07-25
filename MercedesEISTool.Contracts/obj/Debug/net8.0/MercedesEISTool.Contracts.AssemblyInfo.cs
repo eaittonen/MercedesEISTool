@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MercedesEISTool.Contracts")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b670a98ed5ed0a416012a6c07c46ad7e08a92242")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5984ff635416f194ec28802a2bc297fd0bcc061d")]
 [assembly: System.Reflection.AssemblyProductAttribute("MercedesEISTool.Contracts")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MercedesEISTool.Contracts")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
