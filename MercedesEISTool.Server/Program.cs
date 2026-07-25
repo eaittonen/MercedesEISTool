@@ -42,31 +42,27 @@ app.MapGet("/api/uploads", async (IUploadedDumpStore uploadedDumpStore) =>
         {
             Id = record.Id,
             FileName = record.FileName,
-            StoredFilePath = record.StoredFilePath,
-            VehicleIdentifier = record.VehicleIdentifier,
-            RegistrationNumber = record.RegistrationNumber,
             Operation = record.Operation,
             CreatedAtUtc = record.CreatedAtUtc,
-            SizeBytes = record.SizeBytes
+            SizeBytes = record.SizeBytes,
+            DetectedVin = record.VehicleIdentifier,
+            VinStatus = "Present",
+            UserProvidedVin = record.VehicleIdentifier,
+            UserProvidedRegistrationNumber = record.RegistrationNumber
         }).ToList()
     });
 });
 
-app.MapPost("/api/dumps/upload", async Task<IResult> (IFormFile? file, [FromForm] UploadDumpRequest request, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
+app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {
         return Results.BadRequest(new ApiErrorResponse { Message = "A dump file is required.", ErrorCode = "missing_file", RequestId = httpContext.TraceIdentifier });
     }
 
-    if (string.IsNullOrWhiteSpace(request.VehicleIdentifier))
+    if (!vehicleIdentifierConfirmed)
     {
-        return Results.BadRequest(new ApiErrorResponse { Message = "A vehicle identifier is required for uploads.", ErrorCode = "missing_vehicle_identifier", RequestId = httpContext.TraceIdentifier });
-    }
-
-    if (string.IsNullOrWhiteSpace(request.RegistrationNumber))
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = "A registration number is required for uploads.", ErrorCode = "missing_registration_number", RequestId = httpContext.TraceIdentifier });
+        return Results.BadRequest(new ApiErrorResponse { Message = "Confirmation is required before upload.", ErrorCode = "confirmation_required", RequestId = httpContext.TraceIdentifier });
     }
 
     var license = licenseService.CheckFeature(FeatureName.AnalyzeDump);
@@ -86,31 +82,44 @@ app.MapPost("/api/dumps/upload", async Task<IResult> (IFormFile? file, [FromForm
         return Results.BadRequest(new ApiErrorResponse { Message = "Mercedes EIS dumps must be exactly 256 bytes.", ErrorCode = "invalid_size", RequestId = httpContext.TraceIdentifier });
     }
 
+    var workflow = new AnalysisWorkflowService();
+    var analysis = workflow.Analyze(bytes, file.FileName);
+    var validation = workflow.ValidateUpload(bytes, userProvidedVin, userProvidedRegistrationNumber, vehicleIdentifierConfirmed);
+    if (!validation.IsValid)
+    {
+        if (validation.Message.Contains("does not match", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Conflict(new ApiErrorResponse { Message = validation.Message, ErrorCode = "vin_mismatch", RequestId = httpContext.TraceIdentifier });
+        }
+
+        return Results.BadRequest(new ApiErrorResponse { Message = validation.Message, ErrorCode = "invalid_upload_metadata", RequestId = httpContext.TraceIdentifier });
+    }
+
     UploadedDumpRecord savedUpload;
     try
     {
-        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, request.VehicleIdentifier, request.RegistrationNumber, "upload");
+        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, userProvidedVin ?? string.Empty, userProvidedRegistrationNumber ?? string.Empty, "upload");
     }
     catch (ArgumentException ex)
     {
         return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "invalid_upload_metadata", RequestId = httpContext.TraceIdentifier });
     }
 
-    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=upload requestId={RequestId} success=true fileSize={FileSize} sha256={Sha256} storedPath={StoredPath}", httpContext.TraceIdentifier, bytes.Length, sha, savedUpload.StoredFilePath);
+    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=upload requestId={RequestId} success=true fileSize={FileSize} sha256={Sha256}", httpContext.TraceIdentifier, bytes.Length, sha);
     return Results.Ok(new UploadDumpResponse
     {
         FileName = file.FileName,
         Status = "Uploaded",
-        StoredFilePath = savedUpload.StoredFilePath,
-        VehicleIdentifier = request.VehicleIdentifier,
-        RegistrationNumber = request.RegistrationNumber,
         Sha256 = sha,
         FileSizeBytes = bytes.Length,
-        UploadId = savedUpload.Id
+        UploadId = savedUpload.Id,
+        DetectedVin = analysis.DetectedVin,
+        VinStatus = analysis.VinStatus.ToString(),
+        Message = validation.Message
     });
 }).DisableAntiforgery();
 
-app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, [FromForm] AnalyzeDumpRequest request, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
+app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, ILicenseService licenseService, ILoggerFactory loggerFactory, HttpContext httpContext, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {
@@ -120,16 +129,6 @@ app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, [FromFor
     if (file.Length > 1_048_576)
     {
         return Results.BadRequest(new ApiErrorResponse { Message = "The uploaded dump must be no larger than 1 MB.", ErrorCode = "file_too_large", RequestId = httpContext.TraceIdentifier });
-    }
-
-    if (string.IsNullOrWhiteSpace(request.VehicleIdentifier))
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = "A vehicle identifier is required for uploads.", ErrorCode = "missing_vehicle_identifier", RequestId = httpContext.TraceIdentifier });
-    }
-
-    if (string.IsNullOrWhiteSpace(request.RegistrationNumber))
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = "A registration number is required for uploads.", ErrorCode = "missing_registration_number", RequestId = httpContext.TraceIdentifier });
     }
 
     var license = licenseService.CheckFeature(FeatureName.AnalyzeDump);
@@ -149,40 +148,26 @@ app.MapPost("/api/dumps/analyze", async Task<IResult> (IFormFile? file, [FromFor
         return Results.BadRequest(new ApiErrorResponse { Message = "Mercedes EIS dumps must be exactly 256 bytes.", ErrorCode = "invalid_size", RequestId = httpContext.TraceIdentifier });
     }
 
-    UploadedDumpRecord savedUpload;
-    try
-    {
-        savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, request.VehicleIdentifier, request.RegistrationNumber, "analyze");
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "invalid_upload_metadata", RequestId = httpContext.TraceIdentifier });
-    }
-
-    var service = new EisDumpService();
-    var dump = service.ParseDump(bytes);
+    var workflow = new AnalysisWorkflowService();
+    var analysis = workflow.Analyze(bytes, file.FileName);
     var response = new AnalyzeDumpResponse
     {
         FileName = file.FileName,
-        DetectedFormat = dump.Format,
-        Vin = dump.VIN,
-        FieldAvailability = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["VIN"] = !string.IsNullOrWhiteSpace(dump.VIN),
-            ["Format"] = !string.IsNullOrWhiteSpace(dump.Format),
-            ["EIS type"] = !string.IsNullOrWhiteSpace(dump.EisType),
-            ["MCU"] = !string.IsNullOrWhiteSpace(dump.MCU),
-            ["Key count"] = dump.Keys.Count > 0
-        },
+        DetectedFormat = analysis.DetectedFormat,
+        DetectedVin = analysis.DetectedVin,
+        VinStatus = analysis.VinStatus.ToString(),
+        VinSource = analysis.VinSource,
+        EisType = analysis.EisType,
+        McuType = analysis.McuType,
+        KeyCount = analysis.KeyCount,
         Sha256 = sha,
         FileSizeBytes = bytes.Length,
-        Status = "Analyzed",
-        StoredFilePath = savedUpload.StoredFilePath,
-        VehicleIdentifier = request.VehicleIdentifier,
-        RegistrationNumber = request.RegistrationNumber
+        AnalysisSucceeded = analysis.AnalysisSucceeded,
+        Message = analysis.Message,
+        Status = analysis.AnalysisSucceeded ? "Analyzed" : "Failed"
     };
 
-    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=analyze requestId={RequestId} success=true fileSize={FileSize} sha256={Sha256} storedPath={StoredPath}", httpContext.TraceIdentifier, bytes.Length, sha, savedUpload.StoredFilePath);
+    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=analyze requestId={RequestId} success=true fileSize={FileSize} sha256={Sha256}", httpContext.TraceIdentifier, bytes.Length, sha);
     return Results.Ok(response);
 }).DisableAntiforgery();
 

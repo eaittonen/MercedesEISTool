@@ -11,14 +11,17 @@ public class AnalyzeDumpResponse
 {
     public string FileName { get; set; } = string.Empty;
     public string DetectedFormat { get; set; } = "Unknown";
-    public string Vin { get; set; } = string.Empty;
-    public Dictionary<string, bool> FieldAvailability { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public string? DetectedVin { get; set; }
+    public string VinStatus { get; set; } = "NotPresent";
+    public string VinSource { get; set; } = "None";
+    public string EisType { get; set; } = string.Empty;
+    public string McuType { get; set; } = string.Empty;
+    public string KeyCount { get; set; } = string.Empty;
     public string Sha256 { get; set; } = string.Empty;
     public long FileSizeBytes { get; set; }
+    public bool AnalysisSucceeded { get; set; }
+    public string Message { get; set; } = "Analyzed";
     public string Status { get; set; } = "Analyzed";
-    public string StoredFilePath { get; set; } = string.Empty;
-    public string VehicleIdentifier { get; set; } = string.Empty;
-    public string RegistrationNumber { get; set; } = string.Empty;
 }
 
 public class CompareDumpsRequest
@@ -48,24 +51,25 @@ public class UploadDumpResponse
 {
     public string FileName { get; set; } = string.Empty;
     public string Status { get; set; } = "Uploaded";
-    public string StoredFilePath { get; set; } = string.Empty;
-    public string VehicleIdentifier { get; set; } = string.Empty;
-    public string RegistrationNumber { get; set; } = string.Empty;
     public string Sha256 { get; set; } = string.Empty;
     public long FileSizeBytes { get; set; }
     public Guid UploadId { get; set; }
+    public string? DetectedVin { get; set; }
+    public string VinStatus { get; set; } = "NotPresent";
+    public string Message { get; set; } = string.Empty;
 }
 
 public class UploadedDumpSummary
 {
     public Guid Id { get; set; }
     public string FileName { get; set; } = string.Empty;
-    public string StoredFilePath { get; set; } = string.Empty;
-    public string VehicleIdentifier { get; set; } = string.Empty;
-    public string RegistrationNumber { get; set; } = string.Empty;
     public string Operation { get; set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; set; }
     public long SizeBytes { get; set; }
+    public string? DetectedVin { get; set; }
+    public string VinStatus { get; set; } = "NotPresent";
+    public string? UserProvidedVin { get; set; }
+    public string? UserProvidedRegistrationNumber { get; set; }
 }
 
 public class UploadedDumpListResponse

@@ -1,0 +1,12 @@
+[
+  {
+    "Id": "336388f2-17d5-4d17-a353-19f9e41a9acd",
+    "FileName": "WDC2511221A103827_EE_2019_12_27_15_14_50.bin",
+    "StoredFilePath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Server\\bin\\Debug\\net8.0\\App_Data\\uploads\\uploads\\336388f217d54d17a35319f9e41a9acd-WDC2511221A103827_EE_2019_12_27_15_14_50.bin",
+    "VehicleIdentifier": "WDC2511221A103827",
+    "RegistrationNumber": "",
+    "Operation": "upload",
+    "CreatedAtUtc": "2026-07-25T11:02:27.6286017+00:00",
+    "SizeBytes": 256
+  }
+]

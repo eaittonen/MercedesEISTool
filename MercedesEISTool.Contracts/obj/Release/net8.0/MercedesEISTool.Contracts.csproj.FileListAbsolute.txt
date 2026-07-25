@@ -1,0 +1,12 @@
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\bin\Release\net8.0\MercedesEISTool.Contracts.deps.json
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\bin\Release\net8.0\MercedesEISTool.Contracts.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\bin\Release\net8.0\MercedesEISTool.Contracts.pdb
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\MercedesEISTool.Contracts.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\MercedesEISTool.Contracts.AssemblyInfoInputs.cache
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\MercedesEISTool.Contracts.AssemblyInfo.cs
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\MercedesEISTool.Contracts.csproj.CoreCompileInputs.cache
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\MercedesEISTool.Contracts.sourcelink.json
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\MercedesEISTool.Contracts.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\refint\MercedesEISTool.Contracts.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\MercedesEISTool.Contracts.pdb
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Contracts\obj\Release\net8.0\ref\MercedesEISTool.Contracts.dll

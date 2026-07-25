@@ -18,14 +18,9 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
 
     public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation)
     {
-        if (string.IsNullOrWhiteSpace(vehicleIdentifier))
+        if (string.IsNullOrWhiteSpace(vehicleIdentifier) && string.IsNullOrWhiteSpace(registrationNumber))
         {
-            throw new ArgumentException("A vehicle identifier is required for uploads.", nameof(vehicleIdentifier));
-        }
-
-        if (string.IsNullOrWhiteSpace(registrationNumber))
-        {
-            throw new ArgumentException("A registration number is required for uploads.", nameof(registrationNumber));
+            throw new ArgumentException("At least one identifier is required for uploads.", nameof(vehicleIdentifier));
         }
 
         var record = new UploadedDumpRecord

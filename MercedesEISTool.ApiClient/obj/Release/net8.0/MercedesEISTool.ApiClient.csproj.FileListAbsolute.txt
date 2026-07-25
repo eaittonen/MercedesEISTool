@@ -1,0 +1,16 @@
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\bin\Release\net8.0\MercedesEISTool.ApiClient.deps.json
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\bin\Release\net8.0\MercedesEISTool.ApiClient.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\bin\Release\net8.0\MercedesEISTool.ApiClient.pdb
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\bin\Release\net8.0\MercedesEISTool.Contracts.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\bin\Release\net8.0\MercedesEISTool.Contracts.pdb
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.csproj.AssemblyReference.cache
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.AssemblyInfoInputs.cache
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.AssemblyInfo.cs
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.csproj.CoreCompileInputs.cache
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.sourcelink.json
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\Mercedes.3F2ABC9C.Up2Date
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\refint\MercedesEISTool.ApiClient.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\MercedesEISTool.ApiClient.pdb
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.ApiClient\obj\Release\net8.0\ref\MercedesEISTool.ApiClient.dll

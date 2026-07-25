@@ -71,6 +71,27 @@ public partial class MainViewModel : ViewModelBase
     private string _registrationNumber = string.Empty;
 
     [ObservableProperty]
+    private bool _vinConfirmedByUser;
+
+    [ObservableProperty]
+    private string _validationMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    [ObservableProperty]
+    private bool _canUpload;
+
+    [ObservableProperty]
+    private string _lastChecked = string.Empty;
+
+    [ObservableProperty]
+    private string _connectionReason = string.Empty;
+
+    [ObservableProperty]
+    private string _connectionUrl = "http://localhost:5080";
+
+    [ObservableProperty]
     private string _rawHexText = string.Empty;
 
     [ObservableProperty]
@@ -176,13 +197,45 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel()
     {
         _apiClient = CreateApiClient(ApiBaseUrl);
+        ConnectionUrl = ApiBaseUrl;
         _ = RefreshServerStatusAsync();
     }
 
     partial void OnApiBaseUrlChanged(string value)
     {
         _apiClient = CreateApiClient(value);
+        ConnectionUrl = value;
         _ = RefreshServerStatusAsync();
+    }
+
+    partial void OnVehicleIdentifierChanged(string value)
+    {
+        UpdateUploadAvailability();
+    }
+
+    partial void OnRegistrationNumberChanged(string value)
+    {
+        UpdateUploadAvailability();
+    }
+
+    partial void OnVinConfirmedByUserChanged(bool value)
+    {
+        UpdateUploadAvailability();
+    }
+
+    partial void OnServerStatusChanged(string value)
+    {
+        UpdateUploadAvailability();
+    }
+
+    partial void OnSelectedFileNameChanged(string value)
+    {
+        UpdateUploadAvailability();
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        UpdateUploadAvailability();
     }
 
     public ObservableCollection<string> SupportedFormats { get; } = new() { "VVDI MB Tool", "CGDI MB" };
@@ -230,24 +283,32 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(VehicleIdentifier) || string.IsNullOrWhiteSpace(RegistrationNumber))
-        {
-            Status = "Provide a vehicle identifier and registration number before analyzing.";
-            return;
-        }
-
         try
         {
+            IsBusy = true;
             var bytes = LoadLocalFile(SelectedFilePath);
-            var response = await _apiClient.AnalyzeDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber);
-            Vin = DisplayValue(response.Vin);
+            var response = await _apiClient.AnalyzeDumpAsync(bytes, SelectedFileName);
+            Vin = DisplayValue(response.DetectedVin);
             DetectedFormat = DisplayValue(response.DetectedFormat);
-            EisType = "Unknown";
-            Mcu = "Unknown";
-            KeyCount = "0";
+            EisType = DisplayValue(response.EisType);
+            Mcu = DisplayValue(response.McuType);
+            KeyCount = DisplayValue(response.KeyCount);
             RawHexText = BuildRawHexText(bytes);
-            AnalysisSummary = $"Analyzed via server: {response.Status} | SHA256 {response.Sha256}";
+            AnalysisSummary = response.Message;
             UploadSummary = string.Empty;
+            ValidationMessage = string.Empty;
+            if (!string.IsNullOrWhiteSpace(response.DetectedVin))
+            {
+                VehicleIdentifier = response.DetectedVin;
+                ValidationMessage = "Detected from dump";
+                VinConfirmedByUser = false;
+            }
+            else
+            {
+                VehicleIdentifier = string.Empty;
+                ValidationMessage = "No VIN detected from the dump.";
+                VinConfirmedByUser = false;
+            }
             Status = response.Status;
             CanConvert = false;
             CanSave = false;
@@ -257,6 +318,15 @@ public partial class MainViewModel : ViewModelBase
             AnalysisSummary = $"Analysis failed: {ex.Message}";
             Status = ex.Message;
         }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void UpdateUploadAvailability()
+    {
+        CanUpload = !IsBusy && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(SelectedFileName) && !SelectedFileName.Equals("No file selected", StringComparison.OrdinalIgnoreCase) && VinConfirmedByUser && (!string.IsNullOrWhiteSpace(VehicleIdentifier) || !string.IsNullOrWhiteSpace(RegistrationNumber));
     }
 
     [RelayCommand]
@@ -268,17 +338,24 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(VehicleIdentifier) || string.IsNullOrWhiteSpace(RegistrationNumber))
+        if (!VinConfirmedByUser)
         {
-            Status = "Provide a vehicle identifier and registration number before uploading.";
+            Status = "Provide either a VIN or registration number and confirm it before uploading.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(VehicleIdentifier) && string.IsNullOrWhiteSpace(RegistrationNumber))
+        {
+            Status = "Provide either a VIN or registration number and confirm it before uploading.";
             return;
         }
 
         try
         {
+            IsBusy = true;
             var bytes = LoadLocalFile(SelectedFilePath);
-            var response = await _apiClient.UploadDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber);
-            UploadSummary = $"Uploaded to server: {response.Status} | {response.StoredFilePath}";
+            var response = await _apiClient.UploadDumpAsync(bytes, SelectedFileName, VehicleIdentifier, RegistrationNumber, VinConfirmedByUser);
+            UploadSummary = $"Uploaded to server: {response.Status} | {response.Message}";
             Status = response.Status;
             await RefreshUploadedFilesAsync();
         }
@@ -286,6 +363,10 @@ public partial class MainViewModel : ViewModelBase
         {
             UploadSummary = $"Upload failed: {ex.Message}";
             Status = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -978,12 +1059,12 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             ServerStatus = "Connecting";
-            var response = await _apiClient.AnalyzeDumpAsync(data, fileName, VehicleIdentifier, RegistrationNumber);
-            Vin = DisplayValue(response.Vin);
+            var response = await _apiClient.AnalyzeDumpAsync(data, fileName);
+            Vin = DisplayValue(response.DetectedVin);
             DetectedFormat = DisplayValue(response.DetectedFormat);
-            EisType = "Unknown";
-            Mcu = "Unknown";
-            KeyCount = "0";
+            EisType = DisplayValue(response.EisType);
+            Mcu = DisplayValue(response.McuType);
+            KeyCount = DisplayValue(response.KeyCount);
             RawHexText = BuildRawHexText(data);
             ServerStatus = "Connected";
             Status = response.Status;
@@ -1008,7 +1089,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var response = await _apiClient.GetUploadedDumpsAsync();
-            var lines = response.Uploads.Select(upload => $"{upload.FileName} | {upload.VehicleIdentifier} | {upload.RegistrationNumber} | {upload.Operation} | {upload.SizeBytes} bytes").ToList();
+            var lines = response.Uploads.Select(upload => $"{upload.FileName} | {upload.UserProvidedVin ?? string.Empty} | {upload.UserProvidedRegistrationNumber ?? string.Empty} | {upload.Operation} | {upload.SizeBytes} bytes").ToList();
             UploadedFilesSummary = lines.Any() ? string.Join(Environment.NewLine, lines) : "No uploaded files yet.";
         }
         catch (Exception ex)
@@ -1042,12 +1123,16 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             ServerStatus = "Connecting";
-            await _apiClient.GetHealthAsync();
-            ServerStatus = "Connected";
+            var response = await _apiClient.GetHealthAsync();
+            ServerStatus = response.IsHealthy ? "Connected" : "Offline";
+            ConnectionReason = response.Status;
+            LastChecked = DateTime.Now.ToString("HH:mm:ss");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             ServerStatus = "Offline";
+            ConnectionReason = ex.Message;
+            LastChecked = DateTime.Now.ToString("HH:mm:ss");
         }
     }
 

@@ -30,3 +30,4 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\obj\D
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\obj\Debug\net8.0\MercedesEISTool.Server.pdb
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\obj\Debug\net8.0\MercedesEISTool.Server.genruntimeconfig.cache
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\obj\Debug\net8.0\ref\MercedesEISTool.Server.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.exe

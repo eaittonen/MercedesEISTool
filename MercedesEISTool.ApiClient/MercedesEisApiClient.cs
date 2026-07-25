@@ -20,28 +20,27 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<HealthResponse>(cancellationToken: cancellationToken) ?? new HealthResponse();
     }
 
-    public async Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, CancellationToken cancellationToken = default)
+    public async Task<AnalyzeDumpResponse> AnalyzeDumpAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
         using var streamContent = new ByteArrayContent(data);
         content.Add(streamContent, "file", fileName);
-        content.Add(new StringContent(vehicleIdentifier), "vehicleIdentifier");
-        content.Add(new StringContent(registrationNumber), "registrationNumber");
 
         using var response = await _httpClient.PostAsync("/api/dumps/analyze", content, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<AnalyzeDumpResponse>(cancellationToken: cancellationToken) ?? new AnalyzeDumpResponse();
     }
 
-    public async Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, CancellationToken cancellationToken = default)
+    public async Task<UploadDumpResponse> UploadDumpAsync(byte[] data, string fileName, string? userProvidedVin, string? userProvidedRegistrationNumber, bool vehicleIdentifierConfirmed, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
         using var streamContent = new ByteArrayContent(data);
         content.Add(streamContent, "file", fileName);
-        content.Add(new StringContent(vehicleIdentifier), "vehicleIdentifier");
-        content.Add(new StringContent(registrationNumber), "registrationNumber");
+        content.Add(new StringContent(userProvidedVin ?? string.Empty), "userProvidedVin");
+        content.Add(new StringContent(userProvidedRegistrationNumber ?? string.Empty), "userProvidedRegistrationNumber");
+        content.Add(new StringContent(vehicleIdentifierConfirmed.ToString()), "vehicleIdentifierConfirmed");
 
-        using var response = await _httpClient.PostAsync("/api/dumps/upload", content, cancellationToken);
+        using var response = await _httpClient.PostAsync("/api/files/upload", content, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<UploadDumpResponse>(cancellationToken: cancellationToken) ?? new UploadDumpResponse();
     }
