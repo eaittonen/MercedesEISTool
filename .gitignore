@@ -1,0 +1,21 @@
+# Build outputs
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Local databases and runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+App_Data/uploads/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+
+# User-specific / local state
+.vs/
+.vscode/
+.idea/

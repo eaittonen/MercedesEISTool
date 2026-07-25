@@ -133,7 +133,7 @@
                         <StackPanel Spacing="12">
                             <TextBlock Text="Persisted uploads" FontSize="18" FontWeight="SemiBold" />
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto">
-                                <TextBox Grid.Column="0" Watermark="Search by file name or identifier" Text="{Binding MyFilesSearchText}" />
+                                <TextBox Grid.Column="0" PlaceholderText="Search by file name or identifier" Text="{Binding MyFilesSearchText}" />
                                 <Button Grid.Column="1" Content="Search" Command="{Binding SearchMyFilesCommand}" />
                                 <Button Grid.Column="2" Content="Details" Command="{Binding OpenDetailsCommand}" />
                                 <Button Grid.Column="3" Content="Load" Command="{Binding LoadIntoWorkspaceCommand}" />

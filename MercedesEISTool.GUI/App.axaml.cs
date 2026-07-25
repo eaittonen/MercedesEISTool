@@ -32,16 +32,14 @@ public partial class App : Application
             return;
         }
 
-        if (desktop.MainWindow is Window currentWindow)
+        var loginWindow = desktop.MainWindow;
+        var mainWindow = new MainWindow
         {
-            currentWindow.Close();
-        }
-
-        desktop.MainWindow = new MainWindow
-        {
-            DataContext = new MainViewModel(apiClient),
+            DataContext = new MainViewModel(apiClient)
         };
 
-        desktop.MainWindow.Show();
+        desktop.MainWindow = mainWindow;
+        mainWindow.Show();
+        loginWindow?.Close();
     }
 }
