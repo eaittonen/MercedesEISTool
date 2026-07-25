@@ -107,6 +107,20 @@ public sealed class DevelopmentBootstrapService
             existing.OrganizationId = organizationId;
             await _userManager.UpdateAsync(existing);
 
+            var passwordResult = await _userManager.RemovePasswordAsync(existing);
+            if (passwordResult.Succeeded)
+            {
+                var addPasswordResult = await _userManager.AddPasswordAsync(existing, password);
+                if (!addPasswordResult.Succeeded)
+                {
+                    throw new InvalidOperationException(string.Join(", ", addPasswordResult.Errors.Select(error => error.Description)));
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException(string.Join(", ", passwordResult.Errors.Select(error => error.Description)));
+            }
+
             if (!await _userManager.IsInRoleAsync(existing, role))
             {
                 await _userManager.AddToRoleAsync(existing, role);
