@@ -6,7 +6,7 @@ namespace MercedesEISTool.Server.Services;
 
 public sealed class DevelopmentBootstrapOptions
 {
-    public bool Enabled { get; set; }
+    public bool Enabled { get; set; } = true;
     public string? AdminEmail { get; set; }
     public string? AdminPassword { get; set; }
     public string? UserEmail { get; set; }
@@ -43,12 +43,12 @@ public sealed class DevelopmentBootstrapService
         await EnsureRoleAsync("Administrator");
 
         var adminEmail = !string.IsNullOrWhiteSpace(_options.Value.AdminEmail) ? _options.Value.AdminEmail : "admin@example.local";
-        var adminPassword = !string.IsNullOrWhiteSpace(_options.Value.AdminPassword) ? _options.Value.AdminPassword : "development-only-password";
+        var adminPassword = !string.IsNullOrWhiteSpace(_options.Value.AdminPassword) ? _options.Value.AdminPassword : "Admin123!";
         var userEmail = !string.IsNullOrWhiteSpace(_options.Value.UserEmail) ? _options.Value.UserEmail : "user@example.local";
         var userPassword = !string.IsNullOrWhiteSpace(_options.Value.UserPassword) ? _options.Value.UserPassword : "development-only-password";
 
-        await EnsureUserAsync(adminEmail, adminPassword, "Administrator");
-        await EnsureUserAsync(userEmail, userPassword, "User");
+        await EnsureUserAsync(adminEmail, adminPassword, "Administrator", true, "Administrator");
+        await EnsureUserAsync(userEmail, userPassword, "User", false, "User");
 
         _logger.LogInformation("Development bootstrap completed.");
     }
@@ -61,20 +61,24 @@ public sealed class DevelopmentBootstrapService
         }
     }
 
-    private async Task EnsureUserAsync(string email, string password, string role)
+    private async Task EnsureUserAsync(string email, string password, string role, bool isAdmin, string displayName)
     {
         var existing = await _userManager.FindByEmailAsync(email);
         if (existing is not null)
         {
-            if (!existing.IsEnabled)
-            {
-                existing.IsEnabled = true;
-                await _userManager.UpdateAsync(existing);
-            }
+            existing.IsEnabled = true;
+            existing.EmailConfirmed = true;
+            existing.DisplayName = displayName;
+            await _userManager.UpdateAsync(existing);
 
             if (!await _userManager.IsInRoleAsync(existing, role))
             {
                 await _userManager.AddToRoleAsync(existing, role);
+            }
+
+            if (isAdmin)
+            {
+                _logger.LogWarning("Initial administrator bootstrap completed for {Email}. Please change the default password immediately.", email);
             }
 
             return;
@@ -84,8 +88,9 @@ public sealed class DevelopmentBootstrapService
         {
             UserName = email,
             Email = email,
-            DisplayName = role,
+            DisplayName = displayName,
             IsEnabled = true,
+            EmailConfirmed = true,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
@@ -96,6 +101,11 @@ public sealed class DevelopmentBootstrapService
         }
 
         await _userManager.AddToRoleAsync(user, role);
+
+        if (isAdmin)
+        {
+            _logger.LogWarning("Initial administrator bootstrap completed for {Email}. Please change the default password immediately.", email);
+        }
     }
 
 }

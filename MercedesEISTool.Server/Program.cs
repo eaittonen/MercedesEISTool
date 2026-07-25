@@ -46,14 +46,15 @@ if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddSingleton<ILicenseService, DevelopmentLicenseService>();
     builder.Services.AddSingleton<ICurrentUser, DevelopmentCurrentUser>();
-    builder.Services.Configure<DevelopmentBootstrapOptions>(builder.Configuration.GetSection("Authentication:DevelopmentBootstrap"));
-    builder.Services.AddScoped<DevelopmentBootstrapService>();
 }
 else
 {
     builder.Services.AddSingleton<ILicenseService, ProductionLicenseService>();
     builder.Services.AddSingleton<ICurrentUser, ProductionCurrentUser>();
 }
+
+builder.Services.Configure<DevelopmentBootstrapOptions>(builder.Configuration.GetSection("Authentication:DevelopmentBootstrap"));
+builder.Services.AddScoped<DevelopmentBootstrapService>();
 
 var app = builder.Build();
 
@@ -65,11 +66,8 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await dbContext.Database.EnsureCreatedAsync();
 
-    if (builder.Environment.IsDevelopment())
-    {
-        var bootstrap = scope.ServiceProvider.GetRequiredService<DevelopmentBootstrapService>();
-        await bootstrap.SeedAsync();
-    }
+    var bootstrap = scope.ServiceProvider.GetRequiredService<DevelopmentBootstrapService>();
+    await bootstrap.SeedAsync();
 }
 
 app.UseForwardedHeaders();
