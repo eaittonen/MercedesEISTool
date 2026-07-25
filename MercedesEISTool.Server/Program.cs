@@ -15,6 +15,18 @@ using MercedesEISTool.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var configuredUrls = builder.Configuration["ASPNETCORE_URLS"]
+    ?? builder.Configuration["Urls"]
+    ?? builder.Configuration["Server:Urls"]
+    ?? builder.Configuration["Server:BaseUrl"];
+
+if (string.IsNullOrWhiteSpace(configuredUrls))
+{
+    configuredUrls = "http://0.0.0.0:5080";
+}
+
+builder.WebHost.UseUrls(configuredUrls);
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=mercedes-eis-auth.db";
 
 builder.Services.AddHttpContextAccessor();
