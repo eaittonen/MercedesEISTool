@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using MercedesEISTool.GUI.ViewModels;
 
 namespace MercedesEISTool.GUI.Views;
 
@@ -106,6 +108,32 @@ public partial class MainWindow : Window
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         SaveWindowState();
+    }
+
+    private void DataGrid_DoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is DataGrid dataGrid && dataGrid.SelectedItem is StoredFileListItemViewModel item)
+        {
+            if (DataContext is MainViewModel viewModel)
+            {
+                viewModel.SelectedStoredFile = item;
+                _ = viewModel.OpenDetailsCommand.ExecuteAsync(null);
+            }
+        }
+    }
+
+    private void DataGrid_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Enter && sender is DataGrid dataGrid && dataGrid.SelectedItem is StoredFileListItemViewModel item)
+        {
+            if (DataContext is MainViewModel viewModel)
+            {
+                viewModel.SelectedStoredFile = item;
+                _ = viewModel.OpenDetailsCommand.ExecuteAsync(null);
+            }
+
+            e.Handled = true;
+        }
     }
 
     private sealed class WindowStateSettings

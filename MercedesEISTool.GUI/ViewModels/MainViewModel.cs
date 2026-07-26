@@ -164,6 +164,47 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string _myFilesDetails = string.Empty;
 
+    public string SelectedStoredFileRegistration => SelectedStoredFile?.RegistrationNumber ?? string.Empty;
+    public bool HasSelectedStoredFileRegistration => !string.IsNullOrWhiteSpace(SelectedStoredFileRegistration);
+    public string SelectedStoredFileVin => SelectedStoredFile?.UserProvidedVin ?? SelectedStoredFile?.DetectedVin ?? string.Empty;
+    public bool HasSelectedStoredFileVin => !string.IsNullOrWhiteSpace(SelectedStoredFileVin);
+    public string SelectedStoredFileCustomer => SelectedStoredFile?.CustomerName ?? string.Empty;
+    public bool HasSelectedStoredFileCustomer => !string.IsNullOrWhiteSpace(SelectedStoredFileCustomer);
+    public string SelectedStoredFileUploadDate => SelectedStoredFile is null ? string.Empty : SelectedStoredFile.UploadedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
+    public bool HasSelectedStoredFileUploadDate => SelectedStoredFile is not null;
+    public string SelectedStoredFileFilename => SelectedStoredFile?.OriginalFileName ?? string.Empty;
+    public bool HasSelectedStoredFileFilename => !string.IsNullOrWhiteSpace(SelectedStoredFileFilename);
+    public string SelectedStoredFileAnalysisStatus => SelectedStoredFile?.AnalysisStatus ?? string.Empty;
+    public bool HasSelectedStoredFileAnalysisStatus => !string.IsNullOrWhiteSpace(SelectedStoredFileAnalysisStatus);
+    public string SelectedStoredFileKeyCountDisplay => SelectedStoredFile?.KeyCount is null ? string.Empty : $"Key count: {SelectedStoredFile.KeyCount.Value}";
+    public bool HasSelectedStoredFileKeyCount => SelectedStoredFile?.KeyCount is not null;
+    public string SelectedStoredFileEisPasswordDisplay => string.IsNullOrWhiteSpace(SelectedStoredFile?.EisPassword) ? string.Empty : $"EIS password: {SelectedStoredFile.EisPassword}";
+    public bool HasSelectedStoredFileEisPassword => !string.IsNullOrWhiteSpace(SelectedStoredFile?.EisPassword);
+    public string SelectedStoredFileVehicleInfo
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(SelectedStoredFileRegistration))
+            {
+                parts.Add($"Registration: {SelectedStoredFileRegistration}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(SelectedStoredFileVin))
+            {
+                parts.Add($"VIN: {SelectedStoredFileVin}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(SelectedStoredFileCustomer))
+            {
+                parts.Add($"Customer: {SelectedStoredFileCustomer}");
+            }
+
+            return string.Join(" • ", parts);
+        }
+    }
+    public bool HasSelectedStoredFileVehicleInfo => !string.IsNullOrWhiteSpace(SelectedStoredFileVehicleInfo);
+
     [ObservableProperty]
     private string _customerName = string.Empty;
 
@@ -406,7 +447,8 @@ public partial class MainViewModel : ViewModelBase
     {
         SelectedStoredFileId = value?.Id;
         SelectedStoredFileDisplay = value is null ? "Selected: No file selected" : $"Selected: {value.OriginalFileName}";
-        MyFilesDetails = value is null ? string.Empty : $"Selected row: {value.OriginalFileName}";
+        MyFilesDetails = BuildSelectedStoredFileDetails(value);
+        NotifySelectedStoredFileDetailPropertiesChanged();
         UpdateStoredFileCommandStates();
     }
 
@@ -1345,6 +1387,28 @@ public partial class MainViewModel : ViewModelBase
         await CopyValueAsync(SelectedStoredFile.Ssid, $"SSID copied for {SelectedStoredFile.OriginalFileName}");
     }
 
+    [RelayCommand(CanExecute = nameof(CanCopyCustomerValue))]
+    private async Task CopyCustomer()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        await CopyValueAsync(SelectedStoredFile.CustomerName, $"Customer copied for {SelectedStoredFile.OriginalFileName}");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyFilenameValue))]
+    private async Task CopyFilename()
+    {
+        if (SelectedStoredFile is null)
+        {
+            return;
+        }
+
+        await CopyValueAsync(SelectedStoredFile.OriginalFileName, $"Filename copied for {SelectedStoredFile.OriginalFileName}");
+    }
+
     [RelayCommand(CanExecute = nameof(CanDeleteStoredFile))]
     private void DeleteStoredFile()
     {
@@ -2143,13 +2207,15 @@ public partial class MainViewModel : ViewModelBase
                 || (item.DetectedVin?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (item.RegistrationNumber?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (item.CustomerName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (item.UploadedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture).Contains(query, StringComparison.OrdinalIgnoreCase))
                 || (item.DetectedFormat?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (item.EisType?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (item.McuType?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (item.AnalysisStatus?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
 
+        var visibleItems = items.OrderByDescending(item => item.UploadedAtUtc).ToList();
         var selectedId = SelectedStoredFile?.Id;
-        StoredFiles = new ObservableCollection<StoredFileListItemViewModel>(items);
+        StoredFiles = new ObservableCollection<StoredFileListItemViewModel>(visibleItems);
         SelectedStoredFile = StoredFiles.FirstOrDefault(item => item.Id == selectedId) ?? StoredFiles.FirstOrDefault();
         UpdateStoredFileCommandStates();
     }
@@ -2204,6 +2270,16 @@ public partial class MainViewModel : ViewModelBase
         return CanCopyStoredFileValue() && !string.IsNullOrWhiteSpace(SelectedStoredFile?.Ssid);
     }
 
+    private bool CanCopyCustomerValue()
+    {
+        return CanCopyStoredFileValue() && !string.IsNullOrWhiteSpace(SelectedStoredFile?.CustomerName);
+    }
+
+    private bool CanCopyFilenameValue()
+    {
+        return CanCopyStoredFileValue() && !string.IsNullOrWhiteSpace(SelectedStoredFile?.OriginalFileName);
+    }
+
     private async Task CopyValueAsync(string? value, string successMessage)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -2245,8 +2321,80 @@ public partial class MainViewModel : ViewModelBase
         CopyRegistrationCommand.NotifyCanExecuteChanged();
         CopyEisPasswordCommand.NotifyCanExecuteChanged();
         CopySsidCommand.NotifyCanExecuteChanged();
+        CopyCustomerCommand.NotifyCanExecuteChanged();
+        CopyFilenameCommand.NotifyCanExecuteChanged();
         DeleteStoredFileCommand.NotifyCanExecuteChanged();
         RestoreStoredFileCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifySelectedStoredFileDetailPropertiesChanged()
+    {
+        OnPropertyChanged(nameof(SelectedStoredFileRegistration));
+        OnPropertyChanged(nameof(HasSelectedStoredFileRegistration));
+        OnPropertyChanged(nameof(SelectedStoredFileVin));
+        OnPropertyChanged(nameof(HasSelectedStoredFileVin));
+        OnPropertyChanged(nameof(SelectedStoredFileCustomer));
+        OnPropertyChanged(nameof(HasSelectedStoredFileCustomer));
+        OnPropertyChanged(nameof(SelectedStoredFileUploadDate));
+        OnPropertyChanged(nameof(HasSelectedStoredFileUploadDate));
+        OnPropertyChanged(nameof(SelectedStoredFileFilename));
+        OnPropertyChanged(nameof(HasSelectedStoredFileFilename));
+        OnPropertyChanged(nameof(SelectedStoredFileAnalysisStatus));
+        OnPropertyChanged(nameof(HasSelectedStoredFileAnalysisStatus));
+        OnPropertyChanged(nameof(SelectedStoredFileKeyCountDisplay));
+        OnPropertyChanged(nameof(HasSelectedStoredFileKeyCount));
+        OnPropertyChanged(nameof(SelectedStoredFileEisPasswordDisplay));
+        OnPropertyChanged(nameof(HasSelectedStoredFileEisPassword));
+        OnPropertyChanged(nameof(SelectedStoredFileVehicleInfo));
+        OnPropertyChanged(nameof(HasSelectedStoredFileVehicleInfo));
+    }
+
+    private string BuildSelectedStoredFileDetails(StoredFileListItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>();
+        AddDetailLine(lines, "Registration", item.RegistrationNumber);
+        AddDetailLine(lines, "VIN", item.UserProvidedVin ?? item.DetectedVin);
+        AddDetailLine(lines, "Customer", item.CustomerName);
+        AddDetailLine(lines, "Upload date", item.UploadedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
+        AddDetailLine(lines, "Filename", item.OriginalFileName);
+        AddDetailLine(lines, "Analysis status", item.AnalysisStatus);
+        AddDetailLine(lines, "Key count", item.KeyCount?.ToString());
+        AddDetailLine(lines, "EIS password", item.EisPassword);
+        var vehicleInfo = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.RegistrationNumber))
+        {
+            vehicleInfo.Add($"Registration: {item.RegistrationNumber}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.UserProvidedVin ?? item.DetectedVin))
+        {
+            vehicleInfo.Add($"VIN: {item.UserProvidedVin ?? item.DetectedVin}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.CustomerName))
+        {
+            vehicleInfo.Add($"Customer: {item.CustomerName}");
+        }
+
+        if (vehicleInfo.Count > 0)
+        {
+            lines.Add($"Vehicle information: {string.Join(" • ", vehicleInfo)}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static void AddDetailLine(List<string> lines, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            lines.Add($"{label}: {value}");
+        }
     }
 
     private void PopulateWorkspaceFromDetails(StoredFileDetailsDto details, byte[]? bytes = null)
@@ -2362,25 +2510,51 @@ public partial class MainViewModel : ViewModelBase
             IsDeleted = item.IsDeleted;
         }
 
+        public void UpdateFromDto(StoredFileListItemDto item)
+        {
+            OriginalFileName = item.OriginalFileName;
+            UploadedAtUtc = item.UploadedAtUtc;
+            UserProvidedVin = item.UserProvidedVin;
+            DetectedVin = item.DetectedVin;
+            RegistrationNumber = item.RegistrationNumber;
+            CustomerName = item.CustomerName;
+            DetectedFormat = item.DetectedFormat;
+            EisType = item.EisType;
+            McuType = item.McuType;
+            KeyCount = item.KeyCount;
+            EisPassword = item.EisPassword;
+            Ssid = item.Ssid;
+            KeyPasswordsFound = item.KeyPasswordsFound;
+            AnalysisStatus = item.AnalysisStatus;
+            ParserVersion = item.ParserVersion;
+            FileSizeBytes = item.FileSizeBytes;
+            Sha256 = item.Sha256;
+            IsDeleted = item.IsDeleted;
+        }
+
         public Guid Id { get; }
-        public string OriginalFileName { get; }
-        public DateTimeOffset UploadedAtUtc { get; }
-        public string? UserProvidedVin { get; }
-        public string? DetectedVin { get; }
-        public string? RegistrationNumber { get; }
-        public string? CustomerName { get; }
-        public string DetectedFormat { get; }
-        public string? EisType { get; }
-        public string? McuType { get; }
-        public int? KeyCount { get; }
-        public string? EisPassword { get; }
-        public string? Ssid { get; }
-        public int KeyPasswordsFound { get; }
-        public string AnalysisStatus { get; }
-        public string ParserVersion { get; }
-        public long FileSizeBytes { get; }
-        public string Sha256 { get; }
-        public bool IsDeleted { get; }
+        public string OriginalFileName { get; private set; }
+        public DateTimeOffset UploadedAtUtc { get; private set; }
+        public string? UserProvidedVin { get; private set; }
+        public string? DetectedVin { get; private set; }
+        public string? RegistrationNumber { get; private set; }
+        public string? CustomerName { get; private set; }
+        public string DetectedFormat { get; private set; }
+        public string? EisType { get; private set; }
+        public string? McuType { get; private set; }
+        public int? KeyCount { get; private set; }
+        public string? EisPassword { get; private set; }
+        public string? Ssid { get; private set; }
+        public int KeyPasswordsFound { get; private set; }
+        public string AnalysisStatus { get; private set; }
+        public string ParserVersion { get; private set; }
+        public long FileSizeBytes { get; private set; }
+        public string Sha256 { get; private set; }
+        public bool IsDeleted { get; private set; }
+        public string EffectiveVin => UserProvidedVin ?? DetectedVin ?? string.Empty;
+        public string KeyCountDisplay => KeyCount.HasValue ? KeyCount.Value.ToString() : string.Empty;
+        public string PasswordDisplay => string.IsNullOrWhiteSpace(EisPassword) ? string.Empty : EisPassword;
+        public string UploadedAtDisplay => UploadedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
     }
 
     private sealed class ResearchFolderAnalysis
