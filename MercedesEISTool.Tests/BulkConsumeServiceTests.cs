@@ -51,6 +51,49 @@ public sealed class BulkConsumeServiceTests
         Assert.Equal("EIS dump", response.Items[0].Classification);
     }
 
+    [Fact]
+    public async Task PreviewAsync_GroupsFilesBySourceFolderAndIncludesChildRows()
+    {
+        using var tempRoot = new TempDirectory();
+        var vehicleOnePath = Path.Combine(tempRoot.Path, "vehicle-1");
+        var vehicleTwoPath = Path.Combine(tempRoot.Path, "vehicle-2");
+        Directory.CreateDirectory(vehicleOnePath);
+        Directory.CreateDirectory(vehicleTwoPath);
+
+        await File.WriteAllBytesAsync(Path.Combine(vehicleOnePath, "dump.bin"), new byte[256]);
+        await File.WriteAllTextAsync(Path.Combine(vehicleOnePath, "notes.txt"), "ignore me");
+        await File.WriteAllBytesAsync(Path.Combine(vehicleTwoPath, "key.bin"), new byte[160]);
+
+        var service = new BulkConsumeService(
+            new FakeUploadedDumpStore(),
+            new EisAnalysisService(),
+            new KeyFileAnalysisService(),
+            NullLogger<BulkConsumeService>.Instance);
+
+        var response = await service.PreviewAsync(tempRoot.Path, includeSubdirectories: true);
+
+        Assert.Equal(2, response.Groups.Count);
+        Assert.Contains(response.Groups, group => group.DisplayName.Contains("vehicle-1", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.Groups, group => group.DisplayName.Contains("vehicle-2", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.Groups.SelectMany(group => group.Children), child => child.Classification == "EIS dump");
+        Assert.Contains(response.Groups.SelectMany(group => group.Children), child => child.Classification == "CGMB key file");
+    }
+
+    [Fact]
+    public void DetectorRegistry_DetectsKeyAndDumpFilesFromContent()
+    {
+        var registry = new BulkConsumeFileDetectorRegistry();
+        registry.Register(new SizeBasedBulkConsumeDetector());
+
+        var dumpResult = registry.Detect(new byte[256], "dump.bin");
+        var keyResult = registry.Detect(new byte[160], "key.bin");
+
+        Assert.Equal("EIS dump", dumpResult.DetectedFormat);
+        Assert.True(dumpResult.Confidence > 0.5);
+        Assert.Equal("CGMB key file", keyResult.DetectedFormat);
+        Assert.True(keyResult.Confidence > 0.5);
+    }
+
     private sealed class FakeUploadedDumpStore : IUploadedDumpStore
     {
         public Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null)

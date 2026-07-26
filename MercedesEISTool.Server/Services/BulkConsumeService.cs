@@ -11,6 +11,7 @@ public sealed class BulkConsumeService
     private readonly IEisAnalysisService _analysisService;
     private readonly IKeyFileAnalysisService _keyFileAnalysisService;
     private readonly ILogger<BulkConsumeService> _logger;
+    private readonly BulkConsumeFileDetectorRegistry _detectorRegistry;
 
     public BulkConsumeService(
         IUploadedDumpStore uploadedDumpStore,
@@ -22,6 +23,8 @@ public sealed class BulkConsumeService
         _analysisService = analysisService;
         _keyFileAnalysisService = keyFileAnalysisService;
         _logger = logger;
+        _detectorRegistry = new BulkConsumeFileDetectorRegistry();
+        _detectorRegistry.Register(new SizeBasedBulkConsumeDetector());
     }
 
     public async Task<BulkConsumePreviewResponse> PreviewAsync(string sourceFolderPath, bool includeSubdirectories)
@@ -40,10 +43,12 @@ public sealed class BulkConsumeService
             .ToList();
 
         var items = new List<BulkConsumePreviewItemDto>();
+        var groups = new Dictionary<string, BulkConsumePreviewGroupDto>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in files)
         {
             var bytes = await File.ReadAllBytesAsync(file.FullName);
-            var classification = Classify(bytes, file.Name);
+            var detection = _detectorRegistry.Detect(bytes, file.Name);
+            var classification = detection.DetectedFormat;
             if (!string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase) && !string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -56,7 +61,7 @@ public sealed class BulkConsumeService
                 ? _keyFileAnalysisService.Analyze(bytes, file.Name)
                 : null;
 
-            items.Add(new BulkConsumePreviewItemDto
+            var item = new BulkConsumePreviewItemDto
             {
                 SourcePath = file.FullName,
                 FileName = file.Name,
@@ -71,7 +76,23 @@ public sealed class BulkConsumeService
                 Action = "Import",
                 Notes = keyFileAnalysis is not null ? $"Key analysis confidence: {keyFileAnalysis.DetectionConfidence}" : string.Empty,
                 IsSelected = true
-            });
+            };
+
+            items.Add(item);
+
+            var groupKey = GetGroupKey(resolvedPath, file.FullName);
+            if (!groups.TryGetValue(groupKey, out var group))
+            {
+                var displayName = string.IsNullOrWhiteSpace(groupKey) ? Path.GetFileName(resolvedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) : groupKey;
+                group = new BulkConsumePreviewGroupDto
+                {
+                    DisplayName = displayName,
+                    GroupKey = groupKey
+                };
+                groups[groupKey] = group;
+            }
+
+            group.Children.Add(item);
         }
 
         return new BulkConsumePreviewResponse
@@ -79,6 +100,7 @@ public sealed class BulkConsumeService
             SourceFolderPath = resolvedPath,
             IncludeSubdirectories = includeSubdirectories,
             Items = items,
+            Groups = groups.Values.ToList(),
             TotalFiles = items.Count,
             Summary = $"{items.Count} supported files ready to import."
         };
@@ -151,19 +173,18 @@ public sealed class BulkConsumeService
         return sourceFolderPath.Trim();
     }
 
-    private static string Classify(byte[] bytes, string fileName)
+    private static string GetGroupKey(string sourceRootPath, string filePath)
     {
-        if (bytes.Length == 256)
+        var relativePath = Path.GetRelativePath(sourceRootPath, filePath);
+        var segments = relativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length <= 1)
         {
-            return "EIS dump";
+            return string.IsNullOrWhiteSpace(Path.GetFileName(sourceRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
+                ? "Root"
+                : Path.GetFileName(sourceRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         }
 
-        if (bytes.Length == 160 && string.Equals(Path.GetExtension(fileName), ".bin", StringComparison.OrdinalIgnoreCase))
-        {
-            return "CGMB key file";
-        }
-
-        return "Unsupported";
+        return segments[0];
     }
 
     private static string ComputeSha256(byte[] bytes)

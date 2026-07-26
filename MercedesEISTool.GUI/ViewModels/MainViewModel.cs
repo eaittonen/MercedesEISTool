@@ -177,6 +177,9 @@ public partial class MainViewModel : ViewModelBase
     private ObservableCollection<BulkConsumePreviewItemDto> _bulkConsumeItems = new();
 
     [ObservableProperty]
+    private ObservableCollection<BulkConsumePreviewGroupDto> _bulkConsumeGroups = new();
+
+    [ObservableProperty]
     private string _bulkConsumeSummary = string.Empty;
 
     [ObservableProperty]
@@ -1386,6 +1389,7 @@ public partial class MainViewModel : ViewModelBase
         {
             var preview = await ScanBulkConsumeLocallyAsync(BulkConsumeSourceFolder, BulkConsumeIncludeSubdirectories);
             BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(preview.Items);
+            BulkConsumeGroups = new ObservableCollection<BulkConsumePreviewGroupDto>(preview.Groups);
             BulkConsumeSummary = preview.Summary;
             Status = preview.Summary;
         }
@@ -1406,6 +1410,7 @@ public partial class MainViewModel : ViewModelBase
         IsBulkConsumeWizardOpen = false;
         BulkConsumeSummary = string.Empty;
         BulkConsumeItems.Clear();
+        BulkConsumeGroups.Clear();
     }
 
     [RelayCommand]
@@ -1420,7 +1425,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             IsBulkConsumeBusy = true;
-            var selectedItems = BulkConsumeItems.Where(item => item.IsSelected).ToList();
+            var selectedItems = BulkConsumeGroups.SelectMany(group => group.Children).Where(item => item.IsSelected).ToList();
             if (selectedItems.Count == 0)
             {
                 BulkConsumeSummary = "No supported files were selected for import.";
@@ -1464,6 +1469,7 @@ public partial class MainViewModel : ViewModelBase
             .ToList();
 
         var items = new List<BulkConsumePreviewItemDto>();
+        var groups = new Dictionary<string, BulkConsumePreviewGroupDto>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in files)
         {
             await using var stream = File.OpenRead(file.FullName);
@@ -1478,7 +1484,7 @@ public partial class MainViewModel : ViewModelBase
             var registrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty);
             var detectedVin = ExtractVinFromFileName(file.Name);
 
-            items.Add(new BulkConsumePreviewItemDto
+            var item = new BulkConsumePreviewItemDto
             {
                 SourcePath = file.FullName,
                 FileName = file.Name,
@@ -1493,7 +1499,22 @@ public partial class MainViewModel : ViewModelBase
                 IsSelected = true,
                 OriginalSourceFolderName = Path.GetFileName(sourceFolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
                 OriginalRelativePath = Path.GetRelativePath(sourceFolderPath, file.FullName)
-            });
+            };
+
+            items.Add(item);
+
+            var groupKey = GetGroupKey(sourceFolderPath, file.FullName);
+            if (!groups.TryGetValue(groupKey, out var group))
+            {
+                group = new BulkConsumePreviewGroupDto
+                {
+                    DisplayName = groupKey,
+                    GroupKey = groupKey
+                };
+                groups[groupKey] = group;
+            }
+
+            group.Children.Add(item);
         }
 
         return new BulkConsumePreviewResponse
@@ -1501,6 +1522,7 @@ public partial class MainViewModel : ViewModelBase
             SourceFolderPath = sourceFolderPath,
             IncludeSubdirectories = includeSubdirectories,
             Items = items,
+            Groups = groups.Values.ToList(),
             TotalFiles = items.Count,
             Summary = $"{items.Count} supported files ready to import."
         };
@@ -1540,6 +1562,20 @@ public partial class MainViewModel : ViewModelBase
         }
 
         return "Unsupported";
+    }
+
+    private static string GetGroupKey(string sourceRootPath, string filePath)
+    {
+        var relativePath = Path.GetRelativePath(sourceRootPath, filePath);
+        var segments = relativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length <= 1)
+        {
+            return string.IsNullOrWhiteSpace(Path.GetFileName(sourceRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
+                ? "Root"
+                : Path.GetFileName(sourceRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        }
+
+        return segments[0];
     }
 
     private static string ExtractRegistrationNumber(string path)

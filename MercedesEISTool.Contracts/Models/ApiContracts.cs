@@ -398,11 +398,19 @@ public sealed class BulkConsumePreviewItemDto
     public bool IsSelected { get; set; } = true;
 }
 
+public sealed class BulkConsumePreviewGroupDto
+{
+    public string DisplayName { get; set; } = string.Empty;
+    public string GroupKey { get; set; } = string.Empty;
+    public List<BulkConsumePreviewItemDto> Children { get; set; } = new();
+}
+
 public sealed class BulkConsumePreviewResponse
 {
     public string SourceFolderPath { get; set; } = string.Empty;
     public bool IncludeSubdirectories { get; set; }
     public List<BulkConsumePreviewItemDto> Items { get; set; } = new();
+    public List<BulkConsumePreviewGroupDto> Groups { get; set; } = new();
     public int TotalFiles { get; set; }
     public string Summary { get; set; } = string.Empty;
 }
