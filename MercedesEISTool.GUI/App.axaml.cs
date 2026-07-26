@@ -46,7 +46,7 @@ public partial class App : Application
         services.AddSingleton<IMercedesEisApiClient>(_ =>
             new MercedesEisApiClient(new HttpClient
             {
-                BaseAddress = new Uri(configuration["Api:BaseUrl"] ?? "https://tool.mestariverkko.fi"),
+                BaseAddress = new Uri(ResolveApiBaseUrl(configuration)),
                 Timeout = TimeSpan.FromSeconds(5)
             }));
 
@@ -65,6 +65,17 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static string ResolveApiBaseUrl(IConfiguration configuration)
+    {
+        var configuredBaseUrl = configuration["Api:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(configuredBaseUrl))
+        {
+            return configuredBaseUrl;
+        }
+
+        return "https://tool.mestariverkko.fi";
     }
 
     public void ShowMainWindow(IMercedesEisApiClient apiClient)
