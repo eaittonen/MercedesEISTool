@@ -158,31 +158,26 @@
                             <Border Padding="8" CornerRadius="4" Background="#303030">
                                 <Grid RowDefinitions="Auto,*">
                                     <TextBlock Margin="0,0,0,6" Text="Workshop file list" FontWeight="SemiBold" />
-                                    <DataGrid Grid.Row="1"
-                                              ItemsSource="{Binding StoredFiles}"
-                                              SelectedItem="{Binding SelectedStoredFile}"
-                                              SelectionMode="Single"
-                                              IsReadOnly="True"
-                                              CanUserResizeColumns="True"
-                                              CanUserSortColumns="True"
-                                              GridLinesVisibility="Horizontal"
-                                              HeadersVisibility="Column"
-                                              MinHeight="280"
-                                              VerticalScrollBarVisibility="Auto"
-                                              HorizontalScrollBarVisibility="Auto"
-                                              AutoGenerateColumns="False"
-                                              DoubleTapped="DataGrid_DoubleTapped"
-                                              KeyDown="DataGrid_KeyDown">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Registration" Binding="{Binding RegistrationNumber}" Width="140" />
-                                            <DataGridTextColumn Header="VIN" Binding="{Binding EffectiveVin}" Width="180" />
-                                            <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="160" />
-                                            <DataGridTextColumn Header="Key count" Binding="{Binding KeyCountDisplay}" Width="90" />
-                                            <DataGridTextColumn Header="Password" Binding="{Binding PasswordDisplay}" Width="140" />
-                                            <DataGridTextColumn Header="Uploaded" Binding="{Binding UploadedAtDisplay}" Width="140" />
-                                            <DataGridTextColumn Header="Filename" Binding="{Binding OriginalFileName}" Width="*" />
-                                        </DataGrid.Columns>
-                                    </DataGrid>
+                                    <ListBox Grid.Row="1"
+                                             ItemsSource="{Binding StoredFiles}"
+                                             SelectedItem="{Binding SelectedStoredFile}"
+                                             SelectionMode="Single"
+                                             MinHeight="280"
+                                             DoubleTapped="ListBox_DoubleTapped"
+                                             KeyDown="ListBox_KeyDown">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="6" CornerRadius="4" Background="#3a3a3a">
+                                                    <StackPanel Spacing="2">
+                                                        <TextBlock Text="{Binding OriginalFileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding EffectiveVin}" Opacity="0.8" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding RegistrationNumber}" Opacity="0.75" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding UploadedAtDisplay}" Opacity="0.65" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
                                 </Grid>
                             </Border>
 

@@ -110,9 +110,9 @@ public partial class MainWindow : Window
         SaveWindowState();
     }
 
-    private void DataGrid_DoubleTapped(object? sender, TappedEventArgs e)
+    private void ListBox_DoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is DataGrid dataGrid && dataGrid.SelectedItem is MainViewModel.StoredFileListItemViewModel item)
+        if (sender is ListBox listBox && listBox.SelectedItem is MainViewModel.StoredFileListItemViewModel item)
         {
             if (DataContext is MainViewModel viewModel)
             {
@@ -122,9 +122,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DataGrid_KeyDown(object? sender, KeyEventArgs e)
+    private void ListBox_KeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key is Key.Enter && sender is DataGrid dataGrid && dataGrid.SelectedItem is MainViewModel.StoredFileListItemViewModel item)
+        if (e.Key is Key.Enter && sender is ListBox listBox && listBox.SelectedItem is MainViewModel.StoredFileListItemViewModel item)
         {
             if (DataContext is MainViewModel viewModel)
             {

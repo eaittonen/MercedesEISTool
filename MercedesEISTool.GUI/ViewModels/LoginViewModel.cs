@@ -29,16 +29,23 @@ public partial class LoginViewModel : ObservableObject
     {
         _configuration = configuration;
         var storedEnvironment = LoadSelectedEnvironment();
+        var savedCredentials = LoadSavedCredentials();
         SelectedEnvironment = storedEnvironment;
         SelectedServerDisplay = GetBaseUrl(storedEnvironment);
+        if (savedCredentials is not null)
+        {
+            Email = savedCredentials.Email;
+            Password = savedCredentials.Password;
+            RememberMe = true;
+        }
         _apiClient = CreateApiClient(GetBaseUrl(storedEnvironment));
     }
 
     [ObservableProperty]
-    private string _email = "admin@example.local";
+    private string _email = string.Empty;
 
     [ObservableProperty]
-    private string _password = "development-only-password";
+    private string _password = string.Empty;
 
     [ObservableProperty]
     private string _status = string.Empty;
@@ -51,6 +58,9 @@ public partial class LoginViewModel : ObservableObject
 
     [ObservableProperty]
     private string _selectedServerDisplay = ProductionBaseUrl;
+
+    [ObservableProperty]
+    private bool _rememberMe;
 
     partial void OnSelectedEnvironmentChanged(string value)
     {
@@ -103,8 +113,49 @@ public partial class LoginViewModel : ObservableObject
             Directory.CreateDirectory(directory);
         }
 
-        var settings = new LoginSettings { SelectedEnvironment = environmentName };
+        var settings = LoadSettings();
+        settings.SelectedEnvironment = environmentName;
+        SaveSettings(settings);
+    }
+
+    private LoginSettings LoadSettings()
+    {
+        if (!File.Exists(SettingsPath))
+        {
+            return new LoginSettings();
+        }
+
+        try
+        {
+            var json = File.ReadAllText(SettingsPath);
+            return JsonSerializer.Deserialize<LoginSettings>(json) ?? new LoginSettings();
+        }
+        catch
+        {
+            return new LoginSettings();
+        }
+    }
+
+    private void SaveSettings(LoginSettings settings)
+    {
+        var directory = Path.GetDirectoryName(SettingsPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
         File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private LoginSettings? LoadSavedCredentials()
+    {
+        var settings = LoadSettings();
+        if (!settings.RememberMe || string.IsNullOrWhiteSpace(settings.Email))
+        {
+            return null;
+        }
+
+        return settings;
     }
 
     [RelayCommand]
@@ -116,6 +167,14 @@ public partial class LoginViewModel : ObservableObject
             _apiClient = CreateApiClient(GetBaseUrl(_selectedEnvironment));
             var response = await _apiClient.LoginAsync(Email, Password);
             _apiClient.SetAccessToken(response.AccessToken);
+
+            var settings = LoadSettings();
+            settings.SelectedEnvironment = _selectedEnvironment;
+            settings.Email = RememberMe ? Email : string.Empty;
+            settings.Password = RememberMe ? Password : string.Empty;
+            settings.RememberMe = RememberMe;
+            SaveSettings(settings);
+
             Status = $"Signed in as {response.DisplayName}";
             if (App.Current is App app)
             {
@@ -131,5 +190,8 @@ public partial class LoginViewModel : ObservableObject
     private sealed class LoginSettings
     {
         public string SelectedEnvironment { get; set; } = "Production";
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public bool RememberMe { get; set; }
     }
 }
