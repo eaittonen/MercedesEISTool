@@ -1600,7 +1600,7 @@ public partial class MainViewModel : ViewModelBase
         content.Add(new StringContent(item.EditedRegistrationNumber ?? item.RegistrationNumber ?? string.Empty), "registrationNumber");
         content.Add(new StringContent(item.EditedCustomerName ?? item.CustomerName ?? string.Empty), "customerName");
         content.Add(new StringContent(item.FolderIdentifier ?? string.Empty), "folderIdentifier");
-        content.Add(new StringContent(item.MetadataConfidence ?? string.Empty), "metadataConfidence");
+        content.Add(new StringContent(item.MetadataConfidence?.ToString() ?? string.Empty), "metadataConfidence");
         content.Add(new StringContent(Path.GetFileName(BulkConsumeSourceFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? string.Empty), "originalSourceFolderName");
         content.Add(new StringContent(Path.GetRelativePath(BulkConsumeSourceFolder, item.SourcePath)), "originalSourceRelativePath");
         content.Add(new StringContent(item.Sha256), "sha256");
@@ -1649,11 +1649,11 @@ public partial class MainViewModel : ViewModelBase
         var fileName = Path.GetFileNameWithoutExtension(file.Name);
         var parsedVin = string.Empty;
         var parsedEisPassword = string.Empty;
-        var vinConfidence = "Low";
-        var registrationConfidence = "Low";
-        var customerConfidence = "Low";
-        var folderIdentifierConfidence = "Low";
-        var metadataConfidence = "Low";
+        var vinConfidence = MetadataConfidence.Low;
+        var registrationConfidence = MetadataConfidence.Low;
+        var customerConfidence = MetadataConfidence.Low;
+        var folderIdentifierConfidence = MetadataConfidence.Low;
+        var metadataConfidence = MetadataConfidence.Low;
         var reason = new List<string>();
         var fileNameCandidates = new List<string> { file.Name, fileName };
 
@@ -1665,7 +1665,7 @@ public partial class MainViewModel : ViewModelBase
                 if (!string.IsNullOrWhiteSpace(dump.VIN))
                 {
                     parsedVin = dump.VIN;
-                    vinConfidence = "High";
+                    vinConfidence = MetadataConfidence.High;
                     reason.Add("parsed from EIS contents");
                 }
             }
@@ -1678,7 +1678,7 @@ public partial class MainViewModel : ViewModelBase
                 parsedVin = ExtractVinFromFileName(file.Name);
                 if (!string.IsNullOrWhiteSpace(parsedVin))
                 {
-                    vinConfidence = "Medium";
+                    vinConfidence = MetadataConfidence.Medium;
                     reason.Add("extracted from filename");
                 }
             }
@@ -1689,7 +1689,7 @@ public partial class MainViewModel : ViewModelBase
             parsedVin = ExtractVinFromFileName(file.Name);
             if (!string.IsNullOrWhiteSpace(parsedVin))
             {
-                vinConfidence = "Medium";
+                vinConfidence = MetadataConfidence.Medium;
                 reason.Add("extracted from filename");
             }
         }
@@ -1699,7 +1699,7 @@ public partial class MainViewModel : ViewModelBase
             parsedVin = ExtractVinFromSegments(allSegments);
             if (!string.IsNullOrWhiteSpace(parsedVin))
             {
-                vinConfidence = "Medium";
+                vinConfidence = MetadataConfidence.Medium;
                 reason.Add("extracted from parent directory names");
             }
         }
@@ -1707,7 +1707,7 @@ public partial class MainViewModel : ViewModelBase
         var registration = ExtractRegistrationFromSegments(allSegments);
         if (!string.IsNullOrWhiteSpace(registration))
         {
-            registrationConfidence = "Medium";
+            registrationConfidence = MetadataConfidence.Medium;
             reason.Add("normalized from directory names");
         }
 
@@ -1718,30 +1718,30 @@ public partial class MainViewModel : ViewModelBase
         if (IsPhoneNumber(customerCandidate))
         {
             customerIdentifier = customerCandidate;
-            customerConfidence = "Low";
+            customerConfidence = MetadataConfidence.Low;
             effectiveCustomer = customerIdentifier;
-            folderIdentifierConfidence = "Low";
+            folderIdentifierConfidence = MetadataConfidence.Low;
         }
         else if (LooksLikePersonName(customerCandidate))
         {
             customerName = customerCandidate;
-            customerConfidence = "Low";
+            customerConfidence = MetadataConfidence.Low;
             effectiveCustomer = customerName;
-            folderIdentifierConfidence = "Low";
+            folderIdentifierConfidence = MetadataConfidence.Low;
         }
         else if (!string.IsNullOrWhiteSpace(customerCandidate) && string.IsNullOrWhiteSpace(registration) && string.IsNullOrWhiteSpace(parsedVin))
         {
             customerIdentifier = customerCandidate;
-            customerConfidence = "Low";
+            customerConfidence = MetadataConfidence.Low;
             effectiveCustomer = customerIdentifier;
-            folderIdentifierConfidence = "Low";
+            folderIdentifierConfidence = MetadataConfidence.Low;
         }
 
         var folderIdentifier = SelectFolderIdentifier(allSegments, registration, parsedVin, customerIdentifier, customerName);
         if (string.IsNullOrWhiteSpace(folderIdentifier) && !string.IsNullOrWhiteSpace(customerCandidate))
         {
             folderIdentifier = customerCandidate;
-            folderIdentifierConfidence = "Low";
+            folderIdentifierConfidence = MetadataConfidence.Low;
         }
 
         var password = string.Empty;
@@ -1759,7 +1759,7 @@ public partial class MainViewModel : ViewModelBase
 
         if (!string.IsNullOrWhiteSpace(parsedVin) || !string.IsNullOrWhiteSpace(registration) || !string.IsNullOrWhiteSpace(customerName) || !string.IsNullOrWhiteSpace(customerIdentifier) || !string.IsNullOrWhiteSpace(folderIdentifier))
         {
-            metadataConfidence = parsedVin is not null && parsedVin.Length > 0 ? "High" : registration is not null && registration.Length > 0 ? "Medium" : "Low";
+            metadataConfidence = parsedVin is not null && parsedVin.Length > 0 ? MetadataConfidence.High : registration is not null && registration.Length > 0 ? MetadataConfidence.Medium : MetadataConfidence.Low;
         }
 
         var score = new List<string>();

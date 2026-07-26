@@ -401,11 +401,11 @@ public sealed class BulkConsumePreviewItemDto
     public string? CustomerName { get; set; }
     public string? CustomerIdentifier { get; set; }
     public string? FolderIdentifier { get; set; }
-    public string? VinConfidence { get; set; }
-    public string? RegistrationConfidence { get; set; }
-    public string? CustomerConfidence { get; set; }
-    public string? FolderIdentifierConfidence { get; set; }
-    public string? MetadataConfidence { get; set; }
+    public MetadataConfidence? VinConfidence { get; set; }
+    public MetadataConfidence? RegistrationConfidence { get; set; }
+    public MetadataConfidence? CustomerConfidence { get; set; }
+    public MetadataConfidence? FolderIdentifierConfidence { get; set; }
+    public MetadataConfidence? MetadataConfidence { get; set; }
     public string? Password { get; set; }
     public string? Score { get; set; }
     public string? Reason { get; set; }
@@ -449,7 +449,7 @@ public sealed class BulkConsumeImportItemRequest
     public string? RegistrationNumber { get; set; }
     public string? CustomerName { get; set; }
     public string? FolderIdentifier { get; set; }
-    public string? MetadataConfidence { get; set; }
+    public MetadataConfidence? MetadataConfidence { get; set; }
 }
 
 public sealed class BulkConsumeImportRequest
