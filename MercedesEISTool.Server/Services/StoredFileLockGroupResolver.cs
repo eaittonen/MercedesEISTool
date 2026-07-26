@@ -8,8 +8,8 @@ public sealed class StoredFileLockGroup
     public string LockGroupKey { get; init; } = string.Empty;
     public List<UploadedDumpRecord> Versions { get; init; } = new();
     public Guid? PreferredVersionId { get; set; }
-    public int MetadataCompletenessScore { get; init; }
-    public bool HasEisPassword { get; init; }
+    public int MetadataCompletenessScore { get; set; }
+    public bool HasEisPassword { get; set; }
     public bool HasMultipleVersions => Versions.Count > 1;
 }
 

@@ -1523,6 +1523,21 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    private static string ClassifyBulkConsumeFile(string fileName, long fileSizeBytes)
+    {
+        if (fileSizeBytes == 256)
+        {
+            return "EIS dump";
+        }
+
+        if (fileSizeBytes == 160 && string.Equals(Path.GetExtension(fileName), ".bin", StringComparison.OrdinalIgnoreCase))
+        {
+            return "CGMB key file";
+        }
+
+        return "Unsupported";
+    }
+
     private async Task<HttpResponseMessage> UploadBulkConsumeItemAsync(BulkConsumePreviewItemDto item)
     {
         if (item is null || string.IsNullOrWhiteSpace(item.SourcePath) || !File.Exists(item.SourcePath))
