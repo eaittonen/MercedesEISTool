@@ -31,6 +31,26 @@ public sealed class BulkConsumeServiceTests
         Assert.True(response.Items[0].IsSelected);
     }
 
+    [Fact]
+    public async Task PreviewAsync_ResolvesFileUriPaths()
+    {
+        using var tempRoot = new TempDirectory();
+        var dumpPath = Path.Combine(tempRoot.Path, "dump.bin");
+        await File.WriteAllBytesAsync(dumpPath, new byte[256]);
+
+        var service = new BulkConsumeService(
+            new FakeUploadedDumpStore(),
+            new EisAnalysisService(),
+            new KeyFileAnalysisService(),
+            NullLogger<BulkConsumeService>.Instance);
+
+        var uriPath = new Uri(tempRoot.Path).AbsoluteUri;
+        var response = await service.PreviewAsync(uriPath, includeSubdirectories: false);
+
+        Assert.Single(response.Items);
+        Assert.Equal("EIS dump", response.Items[0].Classification);
+    }
+
     private sealed class FakeUploadedDumpStore : IUploadedDumpStore
     {
         public Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null)

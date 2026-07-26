@@ -26,13 +26,14 @@ public sealed class BulkConsumeService
 
     public async Task<BulkConsumePreviewResponse> PreviewAsync(string sourceFolderPath, bool includeSubdirectories)
     {
-        if (string.IsNullOrWhiteSpace(sourceFolderPath) || !Directory.Exists(sourceFolderPath))
+        var resolvedPath = ResolveSourceFolderPath(sourceFolderPath);
+        if (string.IsNullOrWhiteSpace(resolvedPath) || !Directory.Exists(resolvedPath))
         {
             throw new DirectoryNotFoundException("The selected source folder does not exist.");
         }
 
         var searchOption = includeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = Directory.EnumerateFiles(sourceFolderPath, "*", searchOption)
+        var files = Directory.EnumerateFiles(resolvedPath, "*", searchOption)
             .Where(path => File.Exists(path))
             .Select(path => new FileInfo(path))
             .OrderBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
@@ -72,7 +73,7 @@ public sealed class BulkConsumeService
 
         return new BulkConsumePreviewResponse
         {
-            SourceFolderPath = sourceFolderPath,
+            SourceFolderPath = resolvedPath,
             IncludeSubdirectories = includeSubdirectories,
             Items = items,
             TotalFiles = items.Count,
@@ -119,6 +120,26 @@ public sealed class BulkConsumeService
             Results = results,
             Message = $"Imported {results.Count} file(s)."
         };
+    }
+
+    private static string ResolveSourceFolderPath(string sourceFolderPath)
+    {
+        if (string.IsNullOrWhiteSpace(sourceFolderPath))
+        {
+            return string.Empty;
+        }
+
+        if (Uri.TryCreate(sourceFolderPath, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeFile || uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            if (uri.IsFile)
+            {
+                return uri.LocalPath;
+            }
+
+            return string.Empty;
+        }
+
+        return sourceFolderPath.Trim();
     }
 
     private static string Classify(byte[] bytes, string fileName)
