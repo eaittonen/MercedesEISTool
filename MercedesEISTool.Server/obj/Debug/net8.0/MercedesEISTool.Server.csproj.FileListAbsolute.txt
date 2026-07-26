@@ -1,6 +1,5 @@
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Contracts.dll
-C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.exe
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\Microsoft.Data.Sqlite.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.dll
@@ -141,3 +140,4 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\obj\D
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\obj\Debug\net8.0\MercedesEISTool.Server.genruntimeconfig.cache
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\obj\Debug\net8.0\ref\MercedesEISTool.Server.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\appsettings.Production.json
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Server\bin\Debug\net8.0\MercedesEISTool.Server.exe

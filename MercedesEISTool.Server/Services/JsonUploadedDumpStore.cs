@@ -192,7 +192,18 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
             return true;
         }
 
-        return string.Equals(record.UploadedByUserId, currentUser.UserId, StringComparison.OrdinalIgnoreCase) || string.Equals(currentUser.UserId, "development", StringComparison.OrdinalIgnoreCase);
+        var currentUserId = currentUser.UserId;
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            return true;
+        }
+
+        var isDevelopmentUser = string.Equals(currentUserId, "development", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(currentUser.DisplayName, "Development", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(record.UploadedByUserId, "development", StringComparison.OrdinalIgnoreCase);
+
+        return isDevelopmentUser
+            || string.Equals(record.UploadedByUserId, currentUserId, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<List<UploadedDumpRecord>> LoadRecordsAsync()
@@ -216,57 +227,108 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
 
     private void MigrateLegacyStorageIfNeeded()
     {
-        var legacyRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "App_Data", "uploads"));
-        if (string.Equals(_rootPath, legacyRoot, StringComparison.OrdinalIgnoreCase))
+        var existingFiles = Directory.EnumerateFiles(_rootPath)
+            .Where(path => !string.Equals(Path.GetFileName(path), ".write-test", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (File.Exists(_indexPath) || existingFiles.Count > 0)
         {
             return;
         }
 
-        var legacyIndexPath = Path.Combine(legacyRoot, "index.json");
-        if (!File.Exists(legacyIndexPath) && !Directory.Exists(legacyRoot))
+        var legacyRootCandidates = GetLegacyRootCandidates().ToList();
+        foreach (var legacyRoot in legacyRootCandidates)
         {
-            return;
-        }
-
-        if (File.Exists(_indexPath) || Directory.EnumerateFiles(_rootPath).Any())
-        {
-            return;
-        }
-
-        try
-        {
-            Directory.CreateDirectory(_rootPath);
+            var legacyIndexPath = Path.Combine(legacyRoot, "index.json");
             if (!File.Exists(legacyIndexPath))
             {
+                continue;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(_rootPath);
+                using var stream = File.OpenRead(legacyIndexPath);
+                var records = JsonSerializer.Deserialize<List<UploadedDumpRecord>>(stream) ?? new List<UploadedDumpRecord>();
+                foreach (var record in records)
+                {
+                    if (string.IsNullOrWhiteSpace(record.StoredFilePath))
+                    {
+                        continue;
+                    }
+
+                    var sourcePath = record.StoredFilePath;
+                    if (!File.Exists(sourcePath))
+                    {
+                        var legacySourcePath = Path.Combine(legacyRoot, Path.GetFileName(sourcePath));
+                        if (File.Exists(legacySourcePath))
+                        {
+                            sourcePath = legacySourcePath;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    var destinationPath = Path.Combine(_rootPath, Path.GetFileName(sourcePath));
+                    File.Copy(sourcePath, destinationPath, overwrite: true);
+                    record.StoredFilePath = destinationPath;
+                }
+
+                File.WriteAllText(_indexPath, JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true }));
                 return;
             }
-
-            using var stream = File.OpenRead(legacyIndexPath);
-            var records = JsonSerializer.Deserialize<List<UploadedDumpRecord>>(stream) ?? new List<UploadedDumpRecord>();
-            foreach (var record in records)
+            catch
             {
-                if (string.IsNullOrWhiteSpace(record.StoredFilePath))
-                {
-                    continue;
-                }
-
-                var sourcePath = record.StoredFilePath;
-                if (!File.Exists(sourcePath))
-                {
-                    continue;
-                }
-
-                var destinationPath = Path.Combine(_rootPath, Path.GetFileName(sourcePath));
-                File.Copy(sourcePath, destinationPath, overwrite: true);
-                record.StoredFilePath = destinationPath;
+                // Best-effort migration. The next startup will retry if the directory is still empty.
             }
+        }
+    }
 
-            File.WriteAllText(_indexPath, JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true }));
-        }
-        catch
+    private IEnumerable<string> GetLegacyRootCandidates()
+    {
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var searchRoots = new[]
         {
-            // Best-effort migration. The next startup will retry if the directory is still empty.
+            AppContext.BaseDirectory,
+            Directory.GetCurrentDirectory()
+        };
+
+        foreach (var searchRoot in searchRoots)
+        {
+            AddCandidate(candidates, searchRoot);
+            AddCandidate(candidates, Path.Combine(searchRoot, "App_Data", "uploads"));
+            AddCandidate(candidates, Path.Combine(searchRoot, "App_Data", "uploads", "uploads"));
+            AddCandidate(candidates, Path.Combine(searchRoot, "Configuration", "uploads"));
+            AddCandidate(candidates, Path.Combine(searchRoot, "Configuration", "uploads", "uploads"));
+            AddCandidate(candidates, Path.Combine(searchRoot, "bin", "Debug", "net8.0", "App_Data", "uploads"));
+            AddCandidate(candidates, Path.Combine(searchRoot, "bin", "Debug", "net8.0", "App_Data", "uploads", "uploads"));
+            AddCandidate(candidates, Path.Combine(searchRoot, "bin", "Release", "net8.0", "App_Data", "uploads"));
+            AddCandidate(candidates, Path.Combine(searchRoot, "bin", "Release", "net8.0", "App_Data", "uploads", "uploads"));
+
+            var parent = Directory.GetParent(searchRoot);
+            while (parent is not null)
+            {
+                AddCandidate(candidates, Path.Combine(parent.FullName, "App_Data", "uploads"));
+                AddCandidate(candidates, Path.Combine(parent.FullName, "App_Data", "uploads", "uploads"));
+                AddCandidate(candidates, Path.Combine(parent.FullName, "Configuration", "uploads"));
+                AddCandidate(candidates, Path.Combine(parent.FullName, "Configuration", "uploads", "uploads"));
+                parent = parent.Parent;
+            }
         }
+
+        return candidates.OrderBy(candidate => candidate.Length);
+    }
+
+    private static void AddCandidate(HashSet<string> candidates, string candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return;
+        }
+
+        candidates.Add(Path.GetFullPath(candidate));
     }
 
     private static string SanitizeFileName(string fileName)

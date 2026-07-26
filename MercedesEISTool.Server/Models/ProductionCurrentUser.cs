@@ -9,7 +9,9 @@ public sealed class ProductionCurrentUser : ICurrentUser
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public string UserId => _httpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "production";
+    public string UserId => _httpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? _httpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+        ?? "development";
 
-    public string DisplayName => _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "Production";
+    public string DisplayName => _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "Development";
 }

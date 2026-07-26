@@ -98,7 +98,17 @@ public sealed class DevelopmentBootstrapService
 
     private async Task EnsureUserAsync(string email, string password, string role, bool isAdmin, string displayName, string organizationId)
     {
-        var existing = await _userManager.FindByEmailAsync(email);
+        ApplicationUser? existing;
+        try
+        {
+            existing = await _userManager.FindByEmailAsync(email);
+        }
+        catch (Exception ex) when (ex.Message.Contains("NULL") || ex.Message.Contains("ordinal"))
+        {
+            _logger.LogWarning(ex, "Bootstrap user lookup encountered a legacy SQLite nullability issue for {Email}; continuing with compatibility recovery.", email);
+            existing = null;
+        }
+
         if (existing is not null)
         {
             existing.IsEnabled = true;
@@ -141,7 +151,22 @@ public sealed class DevelopmentBootstrapService
             OrganizationId = organizationId
         };
 
-        var result = await _userManager.CreateAsync(user, password);
+        IdentityResult result;
+        try
+        {
+            result = await _userManager.CreateAsync(user, password);
+        }
+        catch (Exception ex) when (ex.Message.Contains("NULL") || ex.Message.Contains("ordinal"))
+        {
+            _logger.LogWarning(ex, "Bootstrap user creation encountered a legacy SQLite nullability issue for {Email}; attempting to recover by creating a minimal user record.", email);
+            user.LockoutEnabled = true;
+            user.AccessFailedCount = 0;
+            user.PhoneNumberConfirmed = false;
+            user.TwoFactorEnabled = false;
+            user.MustChangePassword = false;
+            result = await _userManager.CreateAsync(user, password);
+        }
+
         if (!result.Succeeded)
         {
             throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));

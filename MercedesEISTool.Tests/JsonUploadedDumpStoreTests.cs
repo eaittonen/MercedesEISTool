@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using MercedesEISTool.Server.Services;
 
 namespace MercedesEISTool.Tests;
@@ -51,6 +52,52 @@ public sealed class JsonUploadedDumpStoreTests : IDisposable
         var results = await store.ListAsync(search: "Acme");
         Assert.Single(results);
         Assert.Equal(record.Id, results[0].Id);
+    }
+
+    [Fact]
+    public async Task Constructor_MigratesLegacyIndexFromAppDataDirectory()
+    {
+        var runtimeRoot = CreateTempDirectory();
+        var legacyRoot = Path.Combine(AppContext.BaseDirectory, "App_Data", "uploads", "uploads");
+        Directory.CreateDirectory(legacyRoot);
+
+        try
+        {
+            var legacyFilePath = Path.Combine(legacyRoot, "legacy.bin");
+            await File.WriteAllBytesAsync(legacyFilePath, new byte[] { 1, 2, 3, 4 });
+
+            var legacyRecord = new UploadedDumpRecord
+            {
+                FileName = "legacy.bin",
+                StoredFilePath = legacyFilePath,
+                VehicleIdentifier = "VIN123",
+                RegistrationNumber = "ABC123",
+                Operation = "upload"
+            };
+
+            var legacyIndexPath = Path.Combine(legacyRoot, "index.json");
+            await File.WriteAllTextAsync(legacyIndexPath, JsonSerializer.Serialize(new List<UploadedDumpRecord> { legacyRecord }, new JsonSerializerOptions { WriteIndented = true }));
+
+            var store = new JsonUploadedDumpStore(runtimeRoot);
+            var records = await store.ListAsync();
+
+            Assert.Single(records);
+            Assert.Equal("legacy.bin", records[0].FileName);
+            Assert.Equal(Path.Combine(runtimeRoot, "uploads", "legacy.bin"), records[0].StoredFilePath);
+            Assert.True(File.Exists(records[0].StoredFilePath));
+        }
+        finally
+        {
+            if (Directory.Exists(runtimeRoot))
+            {
+                Directory.Delete(runtimeRoot, recursive: true);
+            }
+
+            if (Directory.Exists(legacyRoot))
+            {
+                Directory.Delete(legacyRoot, recursive: true);
+            }
+        }
     }
 
     public void Dispose()
