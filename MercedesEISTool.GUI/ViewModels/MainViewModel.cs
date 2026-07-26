@@ -397,7 +397,14 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel(IMercedesEisApiClient? apiClient = null, IConfiguration? configuration = null)
     {
-        ApiBaseUrl = "https://tool.mestariverkko.fi";
+        var configuredBaseUrl = configuration?["Api:BaseUrl"];
+        var fallbackBaseUrl = Environment.GetEnvironmentVariable("MERCEDES_EIS_API_BASE_URL")
+            ?? configuration?["Environments:Production:BaseUrl"]
+            ?? configuration?["Environments:QA:BaseUrl"]
+            ?? "https://tool.mestariverkko.fi";
+        var resolvedBaseUrl = string.IsNullOrWhiteSpace(configuredBaseUrl) ? fallbackBaseUrl : configuredBaseUrl;
+
+        ApiBaseUrl = resolvedBaseUrl;
         _apiClient = apiClient ?? CreateApiClient(ApiBaseUrl);
         ConnectionUrl = ApiBaseUrl;
         _ = RefreshServerStatusAsync();
@@ -2146,15 +2153,19 @@ public partial class MainViewModel : ViewModelBase
         {
             var response = await _apiClient.GetStoredFilesAsync(MyFilesSearchText, 1, 50);
             var selectedItemId = SelectedStoredFile?.Id;
-            _allStoredFiles = response.Items.Select(item => new StoredFileListItemViewModel(item)).ToList();
+            var newItems = response.Items.Select(item => new StoredFileListItemViewModel(item)).ToList();
+            _allStoredFiles = newItems;
             ApplyStoredFilesFilter();
-            SelectedStoredFile = StoredFiles.FirstOrDefault(item => item.Id == selectedItemId) ?? StoredFiles.FirstOrDefault();
+            var restoredSelection = StoredFiles.FirstOrDefault(item => item.Id == selectedItemId);
+            SelectedStoredFile = restoredSelection ?? StoredFiles.FirstOrDefault();
             var lines = response.Items.Select(item => $"{item.Id:N} | {item.OriginalFileName} | VIN={item.UserProvidedVin ?? item.DetectedVin ?? ""} | REG={item.RegistrationNumber ?? ""} | CUST={item.CustomerName ?? ""} | {item.AnalysisStatus} | {item.FileSizeBytes} bytes").ToList();
             UploadedFilesSummary = lines.Any() ? string.Join(Environment.NewLine, lines) : "No uploaded files yet.";
+            MyFilesDetails = response.Items.Any() ? $"Loaded {response.Items.Count} stored files from the server." : "No stored files were returned by the server.";
         }
         catch (Exception ex)
         {
             UploadedFilesSummary = $"Unable to load uploads: {ex.Message}";
+            MyFilesDetails = $"Unable to load uploads: {ex.Message}";
         }
     }
 
@@ -2215,7 +2226,17 @@ public partial class MainViewModel : ViewModelBase
 
         var visibleItems = items.OrderByDescending(item => item.UploadedAtUtc).ToList();
         var selectedId = SelectedStoredFile?.Id;
-        StoredFiles = new ObservableCollection<StoredFileListItemViewModel>(visibleItems);
+        if (StoredFiles is null)
+        {
+            StoredFiles = new ObservableCollection<StoredFileListItemViewModel>();
+        }
+
+        StoredFiles.Clear();
+        foreach (var item in visibleItems)
+        {
+            StoredFiles.Add(item);
+        }
+
         SelectedStoredFile = StoredFiles.FirstOrDefault(item => item.Id == selectedId) ?? StoredFiles.FirstOrDefault();
         UpdateStoredFileCommandStates();
     }

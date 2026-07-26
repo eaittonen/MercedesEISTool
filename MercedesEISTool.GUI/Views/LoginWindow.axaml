@@ -3,6 +3,7 @@
         xmlns:vm="using:MercedesEISTool.GUI.ViewModels"
         x:Class="MercedesEISTool.GUI.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
+        Icon="/App icon.png"
         Title="Sign in"
         Width="420"
         Height="320"

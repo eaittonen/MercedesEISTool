@@ -7,7 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
         x:Class="MercedesEISTool.GUI.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/App icon.png"
         Title="Mercedes EIS Toolkit">
 
     <Design.DataContext>
