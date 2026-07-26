@@ -170,8 +170,6 @@
                                               MinHeight="280"
                                               VerticalScrollBarVisibility="Auto"
                                               HorizontalScrollBarVisibility="Auto"
-                                              EnableColumnVirtualization="True"
-                                              EnableRowVirtualization="True"
                                               AutoGenerateColumns="False"
                                               DoubleTapped="DataGrid_DoubleTapped"
                                               KeyDown="DataGrid_KeyDown">
