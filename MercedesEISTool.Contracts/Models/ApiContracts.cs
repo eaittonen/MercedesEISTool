@@ -398,11 +398,28 @@ public sealed class BulkConsumePreviewItemDto
     public string? RegistrationNumber { get; set; }
     public string? OriginalSourceFolderName { get; set; }
     public string? OriginalRelativePath { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerIdentifier { get; set; }
+    public string? FolderIdentifier { get; set; }
+    public string? VinConfidence { get; set; }
+    public string? RegistrationConfidence { get; set; }
+    public string? CustomerConfidence { get; set; }
+    public string? FolderIdentifierConfidence { get; set; }
+    public string? MetadataConfidence { get; set; }
+    public string? Password { get; set; }
+    public string? Score { get; set; }
+    public string? Reason { get; set; }
+    public string? EditedVin { get; set; }
+    public string? EditedRegistrationNumber { get; set; }
+    public string? EditedCustomerName { get; set; }
+    public string? GroupingKey { get; set; }
+    public string? GroupingLabel { get; set; }
     public string Action { get; set; } = "Import";
     public string Notes { get; set; } = string.Empty;
     public bool IsSelected { get; set; } = true;
     public bool IsImportable { get; set; } = true;
     public bool IsIgnored { get; set; }
+    public bool HasPassword { get; set; }
 }
 
 public sealed class BulkConsumePreviewGroupDto
@@ -428,8 +445,11 @@ public sealed class BulkConsumeImportItemRequest
     public string FileName { get; set; } = string.Empty;
     public string Classification { get; set; } = string.Empty;
     public string? VehicleIdentifier { get; set; }
+    public string? DetectedVin { get; set; }
     public string? RegistrationNumber { get; set; }
     public string? CustomerName { get; set; }
+    public string? FolderIdentifier { get; set; }
+    public string? MetadataConfidence { get; set; }
 }
 
 public sealed class BulkConsumeImportRequest

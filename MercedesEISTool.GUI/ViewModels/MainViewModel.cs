@@ -16,8 +16,11 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using MercedesEISTool.ApiClient;
 using MercedesEISTool.Contracts.Models;
+using MercedesEISTool.Core.Models;
+using MercedesEISTool.Core.Services;
 using MercedesEISTool.GUI.Configuration;
 using MercedesEISTool.GUI.Services;
 
@@ -1483,12 +1486,13 @@ public partial class MainViewModel : ViewModelBase
             var canonicalItems = new List<BulkConsumePreviewItemDto>();
             foreach (var file in files)
             {
-                await using var stream = File.OpenRead(file.FullName);
-                using var sha = SHA256.Create();
-                var hash = Convert.ToHexString(sha.ComputeHash(stream));
+                var bytes = await File.ReadAllBytesAsync(file.FullName);
+                var hash = Convert.ToHexString(SHA256.HashData(bytes));
                 var classification = ClassifyBulkConsumeFile(file.Name, file.Length);
                 var isIgnored = string.Equals(classification, "CGMB key (ignored)", StringComparison.OrdinalIgnoreCase);
                 var isImportable = string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase);
+                var metadata = ExtractBulkConsumeMetadata(bytes, file, BulkConsumeSourceFolder);
+
                 var item = new BulkConsumePreviewItemDto
                 {
                     SourcePath = file.FullName,
@@ -1497,15 +1501,32 @@ public partial class MainViewModel : ViewModelBase
                     Sha256 = hash,
                     Classification = classification,
                     DetectedFormat = isIgnored ? "CGMB key file" : classification,
-                    DetectedVin = ExtractVinFromFileName(file.Name),
-                    RegistrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty),
+                    DetectedVin = metadata.DetectedVin,
+                    RegistrationNumber = metadata.RegistrationNumber,
+                    CustomerName = metadata.CustomerName,
+                    CustomerIdentifier = metadata.CustomerIdentifier,
+                    FolderIdentifier = metadata.FolderIdentifier,
+                    VinConfidence = metadata.VinConfidence,
+                    RegistrationConfidence = metadata.RegistrationConfidence,
+                    CustomerConfidence = metadata.CustomerConfidence,
+                    FolderIdentifierConfidence = metadata.FolderIdentifierConfidence,
+                    MetadataConfidence = metadata.MetadataConfidence,
+                    Password = metadata.Password,
+                    Score = metadata.Score,
+                    Reason = metadata.Reason,
+                    HasPassword = metadata.HasPassword,
                     OriginalSourceFolderName = Path.GetFileName(BulkConsumeSourceFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
                     OriginalRelativePath = Path.GetRelativePath(BulkConsumeSourceFolder, file.FullName),
                     Action = isImportable ? "Import" : isIgnored ? "Ignore" : "Skip",
                     Notes = isIgnored ? "CGMB key files are currently ignored during the CGDI phase." : string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase) ? "Unsupported file" : string.Empty,
+                    EditedVin = metadata.DetectedVin,
+                    EditedRegistrationNumber = metadata.RegistrationNumber,
+                    EditedCustomerName = string.IsNullOrWhiteSpace(metadata.CustomerName) ? metadata.CustomerIdentifier : metadata.CustomerName,
                     IsSelected = isImportable,
                     IsImportable = isImportable,
-                    IsIgnored = isIgnored
+                    IsIgnored = isIgnored,
+                    GroupingKey = BuildGroupingKey(metadata),
+                    GroupingLabel = BuildGroupingLabel(metadata)
                 };
 
                 canonicalItems.Add(item);
@@ -1516,11 +1537,11 @@ public partial class MainViewModel : ViewModelBase
                 : canonicalItems.Where(item => item.IsImportable).ToList();
 
             var groupedItems = new ObservableCollection<BulkConsumePreviewGroupDto>();
-            foreach (var group in visibleItems.GroupBy(item => GetGroupKey(BulkConsumeSourceFolder, item.SourcePath), StringComparer.OrdinalIgnoreCase))
+            foreach (var group in visibleItems.GroupBy(item => item.GroupingKey ?? GetGroupKey(BulkConsumeSourceFolder, item.SourcePath), StringComparer.OrdinalIgnoreCase))
             {
                 groupedItems.Add(new BulkConsumePreviewGroupDto
                 {
-                    DisplayName = group.Key,
+                    DisplayName = group.First().GroupingLabel ?? group.Key,
                     GroupKey = group.Key,
                     Children = group.ToList()
                 });
@@ -1575,9 +1596,11 @@ public partial class MainViewModel : ViewModelBase
         using var content = new MultipartFormDataContent();
         using var fileContent = new ByteArrayContent(bytes);
         content.Add(fileContent, "file", item.FileName);
-        content.Add(new StringContent(VehicleIdentifier ?? string.Empty), "vehicleIdentifier");
-        content.Add(new StringContent(RegistrationNumber ?? string.Empty), "registrationNumber");
-        content.Add(new StringContent(CustomerName ?? string.Empty), "customerName");
+        content.Add(new StringContent(item.EditedVin ?? item.DetectedVin ?? string.Empty), "vehicleIdentifier");
+        content.Add(new StringContent(item.EditedRegistrationNumber ?? item.RegistrationNumber ?? string.Empty), "registrationNumber");
+        content.Add(new StringContent(item.EditedCustomerName ?? item.CustomerName ?? string.Empty), "customerName");
+        content.Add(new StringContent(item.FolderIdentifier ?? string.Empty), "folderIdentifier");
+        content.Add(new StringContent(item.MetadataConfidence ?? string.Empty), "metadataConfidence");
         content.Add(new StringContent(Path.GetFileName(BulkConsumeSourceFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? string.Empty), "originalSourceFolderName");
         content.Add(new StringContent(Path.GetRelativePath(BulkConsumeSourceFolder, item.SourcePath)), "originalSourceRelativePath");
         content.Add(new StringContent(item.Sha256), "sha256");
@@ -1618,16 +1641,353 @@ public partial class MainViewModel : ViewModelBase
         return segments[0];
     }
 
-    private static string ExtractRegistrationNumber(string path)
+    private static BulkConsumeMetadata ExtractBulkConsumeMetadata(byte[] data, FileInfo file, string sourceRoot)
     {
-        var segments = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
-        return segments.LastOrDefault() ?? string.Empty;
+        var relativePath = Path.GetRelativePath(sourceRoot, file.FullName);
+        var directorySegments = relativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        var allSegments = directorySegments.Take(directorySegments.Length - 1).ToList();
+        var fileName = Path.GetFileNameWithoutExtension(file.Name);
+        var parsedVin = string.Empty;
+        var parsedEisPassword = string.Empty;
+        var vinConfidence = "Low";
+        var registrationConfidence = "Low";
+        var customerConfidence = "Low";
+        var folderIdentifierConfidence = "Low";
+        var metadataConfidence = "Low";
+        var reason = new List<string>();
+        var fileNameCandidates = new List<string> { file.Name, fileName };
+
+        if (data.Length == 256)
+        {
+            try
+            {
+                var dump = new EisDumpService().ParseDump(data);
+                if (!string.IsNullOrWhiteSpace(dump.VIN))
+                {
+                    parsedVin = dump.VIN;
+                    vinConfidence = "High";
+                    reason.Add("parsed from EIS contents");
+                }
+            }
+            catch
+            {
+            }
+
+            if (string.IsNullOrWhiteSpace(parsedVin))
+            {
+                parsedVin = ExtractVinFromFileName(file.Name);
+                if (!string.IsNullOrWhiteSpace(parsedVin))
+                {
+                    vinConfidence = "Medium";
+                    reason.Add("extracted from filename");
+                }
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(parsedVin))
+        {
+            parsedVin = ExtractVinFromFileName(file.Name);
+            if (!string.IsNullOrWhiteSpace(parsedVin))
+            {
+                vinConfidence = "Medium";
+                reason.Add("extracted from filename");
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(parsedVin))
+        {
+            parsedVin = ExtractVinFromSegments(allSegments);
+            if (!string.IsNullOrWhiteSpace(parsedVin))
+            {
+                vinConfidence = "Medium";
+                reason.Add("extracted from parent directory names");
+            }
+        }
+
+        var registration = ExtractRegistrationFromSegments(allSegments);
+        if (!string.IsNullOrWhiteSpace(registration))
+        {
+            registrationConfidence = "Medium";
+            reason.Add("normalized from directory names");
+        }
+
+        var customerCandidate = ExtractCustomerCandidate(allSegments, fileNameCandidates);
+        var customerName = string.Empty;
+        var customerIdentifier = string.Empty;
+        var effectiveCustomer = string.Empty;
+        if (IsPhoneNumber(customerCandidate))
+        {
+            customerIdentifier = customerCandidate;
+            customerConfidence = "Low";
+            effectiveCustomer = customerIdentifier;
+            folderIdentifierConfidence = "Low";
+        }
+        else if (LooksLikePersonName(customerCandidate))
+        {
+            customerName = customerCandidate;
+            customerConfidence = "Low";
+            effectiveCustomer = customerName;
+            folderIdentifierConfidence = "Low";
+        }
+        else if (!string.IsNullOrWhiteSpace(customerCandidate) && string.IsNullOrWhiteSpace(registration) && string.IsNullOrWhiteSpace(parsedVin))
+        {
+            customerIdentifier = customerCandidate;
+            customerConfidence = "Low";
+            effectiveCustomer = customerIdentifier;
+            folderIdentifierConfidence = "Low";
+        }
+
+        var folderIdentifier = SelectFolderIdentifier(allSegments, registration, parsedVin, customerIdentifier, customerName);
+        if (string.IsNullOrWhiteSpace(folderIdentifier) && !string.IsNullOrWhiteSpace(customerCandidate))
+        {
+            folderIdentifier = customerCandidate;
+            folderIdentifierConfidence = "Low";
+        }
+
+        var password = string.Empty;
+        if (data.Length == 256)
+        {
+            try
+            {
+                var dump = new EisDumpService().ParseDump(data);
+                password = string.Empty;
+            }
+            catch
+            {
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(parsedVin) || !string.IsNullOrWhiteSpace(registration) || !string.IsNullOrWhiteSpace(customerName) || !string.IsNullOrWhiteSpace(customerIdentifier) || !string.IsNullOrWhiteSpace(folderIdentifier))
+        {
+            metadataConfidence = parsedVin is not null && parsedVin.Length > 0 ? "High" : registration is not null && registration.Length > 0 ? "Medium" : "Low";
+        }
+
+        var score = new List<string>();
+        if (!string.IsNullOrWhiteSpace(parsedVin)) score.Add("vin");
+        if (!string.IsNullOrWhiteSpace(registration)) score.Add("reg");
+        if (!string.IsNullOrWhiteSpace(customerName) || !string.IsNullOrWhiteSpace(customerIdentifier)) score.Add("customer");
+        if (!string.IsNullOrWhiteSpace(folderIdentifier)) score.Add("folder");
+
+        var metadataReason = reason.Count > 0 ? string.Join(", ", reason) : "inferred from folder hierarchy";
+
+        return new BulkConsumeMetadata
+        {
+            DetectedVin = parsedVin,
+            RegistrationNumber = registration,
+            CustomerName = customerName,
+            CustomerIdentifier = customerIdentifier,
+            FolderIdentifier = folderIdentifier,
+            VinConfidence = vinConfidence,
+            RegistrationConfidence = registrationConfidence,
+            CustomerConfidence = customerConfidence,
+            FolderIdentifierConfidence = folderIdentifierConfidence,
+            MetadataConfidence = metadataConfidence,
+            Password = password,
+            Score = score.Count == 0 ? "0/4" : $"{score.Count}/4",
+            Reason = metadataReason,
+            SourcePath = file.FullName,
+            FileName = file.Name,
+            HasPassword = !string.IsNullOrWhiteSpace(password)
+        };
+    }
+
+    private static string ExtractRegistrationFromSegments(IReadOnlyList<string> segments)
+    {
+        foreach (var segment in segments.Reverse())
+        {
+            var normalized = NormalizeRegistrationCandidate(segment);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                return normalized;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string NormalizeRegistrationCandidate(string value)
+    {
+        var trimmed = value.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return string.Empty;
+        }
+
+        var withoutDescription = Regex.Replace(trimmed, "\\s+.*$", string.Empty);
+        var cleaned = Regex.Replace(withoutDescription, "[^A-Za-z0-9]", string.Empty).ToUpperInvariant();
+        if (cleaned.Length < 3)
+        {
+            return string.Empty;
+        }
+
+        if (cleaned.Length == 3 && char.IsLetter(cleaned[0]) && char.IsLetter(cleaned[1]) && char.IsDigit(cleaned[2]))
+        {
+            return $"{cleaned[0]}{cleaned[1]}-{cleaned[2]}";
+        }
+
+        if (cleaned.Length == 6 && cleaned[0] is >= 'A' and <= 'Z' && cleaned[1] is >= 'A' and <= 'Z' && cleaned[2] is >= 'A' and <= 'Z' && cleaned[3] is >= '0' and <= '9' && cleaned[4] is >= '0' and <= '9' && cleaned[5] is >= '0' and <= '9')
+        {
+            return $"{cleaned[0]}{cleaned[1]}{cleaned[2]}-{cleaned[3]}{cleaned[4]}{cleaned[5]}";
+        }
+
+        if (cleaned.Length >= 3)
+        {
+            var letters = new StringBuilder();
+            var digits = new StringBuilder();
+            foreach (var ch in cleaned)
+            {
+                if (char.IsDigit(ch)) digits.Append(ch);
+                else letters.Append(ch);
+            }
+
+            if (letters.Length > 0 && digits.Length > 0)
+            {
+                return $"{letters.ToString().Substring(0, Math.Min(3, letters.Length))}-{digits.ToString().Substring(0, Math.Min(3, digits.Length))}";
+            }
+        }
+
+        return cleaned.Length >= 3 ? cleaned : string.Empty;
+    }
+
+    private static string ExtractVinFromSegments(IReadOnlyList<string> segments)
+    {
+        foreach (var segment in segments.Reverse())
+        {
+            var vin = ExtractVinFromFileName(segment);
+            if (!string.IsNullOrWhiteSpace(vin))
+            {
+                return vin;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ExtractCustomerCandidate(IReadOnlyList<string> segments, IEnumerable<string> fileNameCandidates)
+    {
+        foreach (var segment in segments.Reverse())
+        {
+            var trimmed = segment.Trim();
+            if (!string.IsNullOrWhiteSpace(trimmed) && !LooksLikeRegistration(trimmed) && !ExtractVinFromFileName(trimmed).Any())
+            {
+                return trimmed;
+            }
+        }
+
+        foreach (var candidate in fileNameCandidates)
+        {
+            var trimmed = candidate.Trim();
+            if (!string.IsNullOrWhiteSpace(trimmed) && !LooksLikeRegistration(trimmed) && !ExtractVinFromFileName(trimmed).Any())
+            {
+                return trimmed;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string SelectFolderIdentifier(IReadOnlyList<string> segments, string registration, string vin, string customerIdentifier, string customerName)
+    {
+        if (!string.IsNullOrWhiteSpace(customerIdentifier)) return customerIdentifier;
+        if (!string.IsNullOrWhiteSpace(customerName)) return customerName;
+        foreach (var segment in segments.Reverse())
+        {
+            var trimmed = segment.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) continue;
+            if (string.Equals(trimmed, registration, StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(trimmed, vin, StringComparison.OrdinalIgnoreCase)) continue;
+            if (LooksLikeRegistration(trimmed)) continue;
+            return trimmed;
+        }
+
+        return string.Empty;
+    }
+
+    private static bool LooksLikeRegistration(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && !string.IsNullOrWhiteSpace(NormalizeRegistrationCandidate(value));
+    }
+
+    private static bool IsPhoneNumber(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        if (digits.Length == 11 && digits.StartsWith("358", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return digits.Length == 10 && digits.StartsWith("0", StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikePersonName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        if (value.Contains(Path.DirectorySeparatorChar) || value.Contains(Path.AltDirectorySeparatorChar)) return false;
+        if (LooksLikeRegistration(value) || ExtractVinFromFileName(value).Any()) return false;
+        if (value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length < 2 && value.Split('-', StringSplitOptions.RemoveEmptyEntries).Length < 2) return false;
+        return value.Any(char.IsLetter);
     }
 
     private static string ExtractVinFromFileName(string fileName)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(fileName, "[A-HJ-NPR-Z0-9]{17}");
+        var match = Regex.Match(fileName, "[A-HJ-NPR-Z0-9]{17}");
         return match.Success ? match.Value : string.Empty;
+    }
+
+    private static string BuildGroupingKey(BulkConsumeMetadata metadata)
+    {
+        if (!string.IsNullOrWhiteSpace(metadata.DetectedVin))
+        {
+            return $"vin:{metadata.DetectedVin}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.RegistrationNumber))
+        {
+            return $"reg:{metadata.RegistrationNumber}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.CustomerIdentifier))
+        {
+            return $"customer:{metadata.CustomerIdentifier}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.CustomerName))
+        {
+            return $"customer:{metadata.CustomerName}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.FolderIdentifier))
+        {
+            return $"folder:{metadata.FolderIdentifier}";
+        }
+
+        return $"folder:{Path.GetFileName(metadata.SourcePath ?? string.Empty)}";
+    }
+
+    private static string BuildGroupingLabel(BulkConsumeMetadata metadata)
+    {
+        if (!string.IsNullOrWhiteSpace(metadata.DetectedVin))
+        {
+            return $"VIN {metadata.DetectedVin}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.RegistrationNumber))
+        {
+            return $"Registration {metadata.RegistrationNumber}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.CustomerIdentifier))
+        {
+            return $"Customer {metadata.CustomerIdentifier}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.CustomerName))
+        {
+            return $"Customer {metadata.CustomerName}";
+        }
+
+        return "Folder";
     }
 
     [RelayCommand(CanExecute = nameof(CanCompareStoredFile))]

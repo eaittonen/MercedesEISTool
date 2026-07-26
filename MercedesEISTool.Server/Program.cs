@@ -1136,7 +1136,7 @@ app.MapPost("/api/bulk-consume/import", async Task<IResult> (BulkConsumeImportRe
     });
 });
 
-app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [FromForm] string? registrationNumber, [FromForm] string? vehicleIdentifier, [FromForm] string? customerName, [FromForm] string? originalSourceFolderName, [FromForm] string? originalSourceRelativePath, [FromForm] string? sha256, [FromForm] string? classification, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
+app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [FromForm] string? registrationNumber, [FromForm] string? vehicleIdentifier, [FromForm] string? customerName, [FromForm] string? folderIdentifier, [FromForm] string? metadataConfidence, [FromForm] string? originalSourceFolderName, [FromForm] string? originalSourceRelativePath, [FromForm] string? sha256, [FromForm] string? classification, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {

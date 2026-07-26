@@ -484,10 +484,25 @@
                                                                         <Border Padding="6" Margin="0,0,0,6" CornerRadius="4" Background="#4a4a4a">
                                                                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                                                                 <CheckBox Grid.Column="0" IsVisible="{Binding IsImportable}" IsChecked="{Binding IsSelected}" Content="" />
-                                                                                <StackPanel Grid.Column="1" Spacing="2">
+                                                                                <StackPanel Grid.Column="1" Spacing="4">
                                                                                     <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" />
                                                                                     <TextBlock Text="{Binding Classification}" Opacity="0.9" />
                                                                                     <TextBlock Text="{Binding DetectedFormat}" Opacity="0.7" />
+                                                                                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                                                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="VIN" Opacity="0.8" />
+                                                                                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding EditedVin}" />
+                                                                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Registration" Opacity="0.8" />
+                                                                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditedRegistrationNumber}" />
+                                                                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Customer" Opacity="0.8" />
+                                                                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditedCustomerName}" />
+                                                                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Format" Opacity="0.8" />
+                                                                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DetectedFormat}" />
+                                                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Password" Opacity="0.8" />
+                                                                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Password}" />
+                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Score / reason" Opacity="0.8" />
+                                                                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Score}" />
+                                                                                    </Grid>
+                                                                                    <TextBlock Text="{Binding Reason}" Opacity="0.75" TextWrapping="Wrap" />
                                                                                     <TextBlock Text="{Binding Notes}" Opacity="0.75" TextWrapping="Wrap" />
                                                                                 </StackPanel>
                                                                             </Grid>
