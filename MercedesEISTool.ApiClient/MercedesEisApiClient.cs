@@ -245,6 +245,7 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<CompareDumpsResponse>(cancellationToken: cancellationToken) ?? new CompareDumpsResponse();
     }
 
+    [Obsolete("Bulk-consume preview is deprecated. The client should scan local files and upload them with UploadBulkConsumeFileAsync.")]
     public async Task<BulkConsumePreviewResponse> PreviewBulkConsumeAsync(string sourceFolderPath, bool includeSubdirectories, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsJsonAsync("/api/bulk-consume/preview", new { sourceFolderPath, includeSubdirectories }, cancellationToken);
@@ -252,6 +253,7 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<BulkConsumePreviewResponse>(cancellationToken: cancellationToken) ?? new BulkConsumePreviewResponse();
     }
 
+    [Obsolete("Bulk-consume import is deprecated. The client should upload each selected file independently with UploadBulkConsumeFileAsync.")]
     public async Task<BulkConsumeImportResponse> ImportBulkConsumeAsync(BulkConsumeImportRequest request, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsJsonAsync("/api/bulk-consume/import", request, cancellationToken);

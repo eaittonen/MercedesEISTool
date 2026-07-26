@@ -12,6 +12,7 @@ using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Configuration;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -1406,32 +1407,35 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             IsBulkConsumeBusy = true;
-            var selectedItems = BulkConsumeItems.Where(item => item.IsSelected).ToList();
+            var selectedItems = BulkConsumeItems.Where(item => item.IsSelected && !string.Equals(item.Classification, "Unsupported", StringComparison.OrdinalIgnoreCase)).ToList();
             if (selectedItems.Count == 0)
             {
                 BulkConsumeSummary = "No supported files were selected for import.";
                 return;
             }
 
-            var request = new BulkConsumeImportRequest
+            var results = new List<string>();
+            var importedCount = 0;
+            foreach (var item in selectedItems)
             {
-                SourceFolderPath = BulkConsumeSourceFolder,
-                IncludeSubdirectories = BulkConsumeIncludeSubdirectories,
-                Items = selectedItems.Select(item => new BulkConsumeImportItemRequest
+                var response = await UploadBulkConsumeItemAsync(item);
+                if (response.IsSuccessStatusCode)
                 {
-                    SourcePath = item.SourcePath,
-                    FileName = item.FileName,
-                    Classification = item.Classification,
-                    VehicleIdentifier = item.DetectedVin,
-                    RegistrationNumber = item.RegistrationNumber,
-                    CustomerName = string.Empty
-                }).ToList()
-            };
+                    importedCount++;
+                    results.Add($"Uploaded {item.FileName}");
+                    continue;
+                }
 
-            var response = await _apiClient.ImportBulkConsumeAsync(request);
-            BulkConsumeSummary = response.Message;
-            Status = response.Message;
-            await RefreshUploadedFilesAsync();
+                var errorBody = await TryReadResponseBodyAsync(response);
+                results.Add($"{item.FileName}: {errorBody}");
+            }
+
+            BulkConsumeSummary = string.Join(" | ", results);
+            Status = BulkConsumeSummary;
+            if (importedCount > 0)
+            {
+                await RefreshUploadedFilesAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -1458,27 +1462,55 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            var preview = await _apiClient.PreviewBulkConsumeAsync(BulkConsumeSourceFolder, BulkConsumeIncludeSubdirectories);
-            var canonicalItems = preview.Items.ToList();
-            var groupedItems = new ObservableCollection<BulkConsumePreviewGroupDto>();
-            foreach (var group in preview.Groups)
-            {
-                var children = group.Children
-                    .Select(child => canonicalItems.FirstOrDefault(item => string.Equals(item.SourcePath, child.SourcePath, StringComparison.OrdinalIgnoreCase)) ?? child)
-                    .ToList();
+            var searchOption = BulkConsumeIncludeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+            var files = Directory.EnumerateFiles(BulkConsumeSourceFolder, "*", searchOption)
+                .Where(path => File.Exists(path))
+                .Select(path => new FileInfo(path))
+                .OrderBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
+            var canonicalItems = new List<BulkConsumePreviewItemDto>();
+            foreach (var file in files)
+            {
+                await using var stream = File.OpenRead(file.FullName);
+                using var sha = SHA256.Create();
+                var hash = Convert.ToHexString(sha.ComputeHash(stream));
+                var classification = ClassifyBulkConsumeFile(file.Name, file.Length);
+                var item = new BulkConsumePreviewItemDto
+                {
+                    SourcePath = file.FullName,
+                    FileName = file.Name,
+                    SizeBytes = file.Length,
+                    Sha256 = hash,
+                    Classification = classification,
+                    DetectedFormat = classification,
+                    DetectedVin = ExtractVinFromFileName(file.Name),
+                    RegistrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty),
+                    OriginalSourceFolderName = Path.GetFileName(BulkConsumeSourceFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                    OriginalRelativePath = Path.GetRelativePath(BulkConsumeSourceFolder, file.FullName),
+                    Action = string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase) ? "Skip" : "Upload",
+                    Notes = string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase) ? "Unsupported file" : string.Empty,
+                    IsSelected = !string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase)
+                };
+
+                canonicalItems.Add(item);
+            }
+
+            var groupedItems = new ObservableCollection<BulkConsumePreviewGroupDto>();
+            foreach (var group in canonicalItems.GroupBy(item => GetGroupKey(BulkConsumeSourceFolder, item.SourcePath), StringComparer.OrdinalIgnoreCase))
+            {
                 groupedItems.Add(new BulkConsumePreviewGroupDto
                 {
-                    DisplayName = group.DisplayName,
-                    GroupKey = group.GroupKey,
-                    Children = children
+                    DisplayName = group.Key,
+                    GroupKey = group.Key,
+                    Children = group.ToList()
                 });
             }
 
             BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(canonicalItems);
             BulkConsumeGroups = groupedItems;
-            BulkConsumeSummary = preview.Summary;
-            Status = preview.Summary;
+            BulkConsumeSummary = $"{canonicalItems.Count} file(s) scanned; {canonicalItems.Count(item => !string.Equals(item.Classification, "Unsupported", StringComparison.OrdinalIgnoreCase))} supported file(s) ready to import.";
+            Status = BulkConsumeSummary;
         }
         catch (Exception ex)
         {
@@ -1488,6 +1520,49 @@ public partial class MainViewModel : ViewModelBase
         finally
         {
             IsBulkConsumeBusy = false;
+        }
+    }
+
+    private async Task<HttpResponseMessage> UploadBulkConsumeItemAsync(BulkConsumePreviewItemDto item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(item.SourcePath) || !File.Exists(item.SourcePath))
+        {
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent("The selected bulk-consume file is missing.")
+            };
+        }
+
+        var bytes = await File.ReadAllBytesAsync(item.SourcePath);
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(bytes);
+        content.Add(fileContent, "file", item.FileName);
+        content.Add(new StringContent(VehicleIdentifier ?? string.Empty), "vehicleIdentifier");
+        content.Add(new StringContent(RegistrationNumber ?? string.Empty), "registrationNumber");
+        content.Add(new StringContent(CustomerName ?? string.Empty), "customerName");
+        content.Add(new StringContent(Path.GetFileName(BulkConsumeSourceFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? string.Empty), "originalSourceFolderName");
+        content.Add(new StringContent(Path.GetRelativePath(BulkConsumeSourceFolder, item.SourcePath)), "originalSourceRelativePath");
+        content.Add(new StringContent(item.Sha256), "sha256");
+        content.Add(new StringContent(item.Classification), "classification");
+
+        return await _apiClient.UploadBulkConsumeFileAsync(content);
+    }
+
+    private static async Task<string> TryReadResponseBodyAsync(HttpResponseMessage response)
+    {
+        if (response is null)
+        {
+            return "No response received.";
+        }
+
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            return string.IsNullOrWhiteSpace(body) ? $"HTTP {(int)response.StatusCode}" : body;
+        }
+        catch
+        {
+            return $"HTTP {(int)response.StatusCode}";
         }
     }
 

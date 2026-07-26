@@ -224,7 +224,7 @@
                                         <TextBox Text="{Binding BulkConsumeSourceFolder}" />
                                         <CheckBox Content="Include subdirectories" IsChecked="{Binding BulkConsumeIncludeSubdirectories}" />
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button Content="Scan / refresh" Command="{Binding RefreshBulkConsumePreviewAsyncCommand}" />
+                                            <Button Content="Scan / refresh" Command="{Binding RefreshBulkConsumePreviewCommand}" />
                                             <Button Content="Import selected" Command="{Binding ImportBulkConsumeSelectionCommand}" />
                                             <Button Content="Close" Command="{Binding CloseBulkConsumeWizardCommand}" />
                                         </StackPanel>

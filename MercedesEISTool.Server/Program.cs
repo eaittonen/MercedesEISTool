@@ -1118,30 +1118,22 @@ app.MapPost("/api/files/{storedFileId:guid}/reanalyze", async Task<IResult> (Gui
     return Results.Ok(BuildStoredFileDetails(await uploadedDumpStore.GetByIdAsync(storedFileId, currentUser)));
 });
 
-app.MapPost("/api/bulk-consume/preview", async Task<IResult> (BulkConsumePreviewRequest request, BulkConsumeService bulkConsumeService) =>
+app.MapPost("/api/bulk-consume/preview", async Task<IResult> (BulkConsumePreviewRequest request) =>
 {
-    try
+    return Results.BadRequest(new ApiErrorResponse
     {
-        var response = await bulkConsumeService.PreviewAsync(request.SourceFolderPath, request.IncludeSubdirectories);
-        return Results.Ok(response);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "bulk_consume_preview_failed" });
-    }
+        Message = "Bulk-consume preview is deprecated. The Avalonia client should scan local files and upload them with /api/bulk-consume/files.",
+        ErrorCode = "bulk_consume_deprecated"
+    });
 });
 
-app.MapPost("/api/bulk-consume/import", async Task<IResult> (BulkConsumeImportRequest request, BulkConsumeService bulkConsumeService, ICurrentUser currentUser) =>
+app.MapPost("/api/bulk-consume/import", async Task<IResult> (BulkConsumeImportRequest request) =>
 {
-    try
+    return Results.BadRequest(new ApiErrorResponse
     {
-        var response = await bulkConsumeService.ImportAsync(request, currentUser);
-        return Results.Ok(response);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "bulk_consume_import_failed" });
-    }
+        Message = "Bulk-consume import is deprecated. The Avalonia client should upload each selected file independently with /api/bulk-consume/files.",
+        ErrorCode = "bulk_consume_deprecated"
+    });
 });
 
 app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [FromForm] string? registrationNumber, [FromForm] string? vehicleIdentifier, [FromForm] string? customerName, [FromForm] string? originalSourceFolderName, [FromForm] string? originalSourceRelativePath, [FromForm] string? sha256, [FromForm] string? classification, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
