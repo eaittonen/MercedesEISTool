@@ -217,45 +217,8 @@
                                         <Button Content="Copy SSID" Command="{Binding CopySsidCommand}" />
                                     </StackPanel>
                                 </Border>
-                                <Border Padding="8" CornerRadius="4" Background="#303030" IsVisible="{Binding IsBulkConsumeWizardOpen}">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock Text="Bulk consume wizard" FontWeight="SemiBold" />
-                                        <TextBlock Text="Source folder" />
-                                        <TextBox Text="{Binding BulkConsumeSourceFolder}" />
-                                        <CheckBox Content="Include subdirectories" IsChecked="{Binding BulkConsumeIncludeSubdirectories}" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button Content="Scan / refresh" Command="{Binding RefreshBulkConsumePreviewCommand}" />
-                                            <Button Content="Import selected" Command="{Binding ImportBulkConsumeSelectionCommand}" />
-                                            <Button Content="Close" Command="{Binding CloseBulkConsumeWizardCommand}" />
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding BulkConsumeSummary}" TextWrapping="Wrap" />
-                                        <ScrollViewer MaxHeight="260">
-                                            <ItemsControl ItemsSource="{Binding BulkConsumeGroups}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Padding="6" Margin="0,0,0,6" CornerRadius="4" Background="#3a3a3a">
-                                                            <StackPanel Spacing="6">
-                                                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                                                                <ItemsControl ItemsSource="{Binding Children}">
-                                                                    <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <Border Padding="4" Margin="0,0,0,4" CornerRadius="4" Background="#4a4a4a">
-                                                                                <StackPanel Spacing="2">
-                                                                                    <CheckBox Content="{Binding FileName}" IsChecked="{Binding IsSelected}" />
-                                                                                    <TextBlock Text="{Binding Classification}" Opacity="0.8" />
-                                                                                    <TextBlock Text="{Binding DetectedFormat}" Opacity="0.7" />
-                                                                                </StackPanel>
-                                                                            </Border>
-                                                                        </DataTemplate>
-                                                                    </ItemsControl.ItemTemplate>
-                                                                </ItemsControl>
-                                                            </StackPanel>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
-                                    </StackPanel>
+                                <Border Padding="8" CornerRadius="4" Background="#303030">
+                                    <TextBlock Text="The bulk consume workflow now opens in a dedicated overlay above the workspace panel." TextWrapping="Wrap" />
                                 </Border>
                             </StackPanel>
                         </Grid>
@@ -483,6 +446,81 @@
         </TabControl>
 
         <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,8,0,0" />
+
+        <Border Grid.RowSpan="3" IsVisible="{Binding IsBulkConsumeWizardOpen}" Background="#000000CC" ZIndex="100">
+            <Grid Margin="24">
+                <Border MaxWidth="980" MaxHeight="760" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="12" Background="#202020">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Bulk consume" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="Select a source folder and review files before importing. Only EIS dumps are importable during the current CGDI implementation." TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="*,Auto,Auto,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding BulkConsumeSourceFolder}" />
+                            <CheckBox Grid.Column="1" Margin="8,0,0,0" Content="Include subdirectories" IsChecked="{Binding BulkConsumeIncludeSubdirectories}" />
+                            <CheckBox Grid.Column="2" Margin="8,0,0,0" Content="Show ignored/unsupported" IsChecked="{Binding ShowIgnoredAndUnsupportedFiles}" />
+                            <Button Grid.Column="3" Margin="8,0,0,0" Content="Close" Command="{Binding CloseBulkConsumeWizardCommand}" />
+                        </Grid>
+
+                        <Grid Grid.Row="2" Margin="0,12,0,0" ColumnDefinitions="*,260" ColumnSpacing="12">
+                            <Border Padding="12" CornerRadius="8" Background="#2d2d2d">
+                                <Grid RowDefinitions="Auto,Auto,*">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                                        <Button Content="Scan / refresh" Command="{Binding RefreshBulkConsumePreviewCommand}" />
+                                        <Button Content="Import selected" Command="{Binding ImportBulkConsumeSelectionCommand}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="1" Margin="0,0,0,8" Text="{Binding BulkConsumeSummary}" TextWrapping="Wrap" />
+                                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl ItemsSource="{Binding BulkConsumeGroups}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Padding="8" Margin="0,0,0,8" CornerRadius="6" Background="#3a3a3a">
+                                                        <StackPanel Spacing="6">
+                                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                                            <ItemsControl ItemsSource="{Binding Children}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Padding="6" Margin="0,0,0,6" CornerRadius="4" Background="#4a4a4a">
+                                                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                                                <CheckBox Grid.Column="0" IsVisible="{Binding IsImportable}" IsChecked="{Binding IsSelected}" Content="" />
+                                                                                <StackPanel Grid.Column="1" Spacing="2">
+                                                                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" />
+                                                                                    <TextBlock Text="{Binding Classification}" Opacity="0.9" />
+                                                                                    <TextBlock Text="{Binding DetectedFormat}" Opacity="0.7" />
+                                                                                    <TextBlock Text="{Binding Notes}" Opacity="0.75" TextWrapping="Wrap" />
+                                                                                </StackPanel>
+                                                                            </Grid>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1" Padding="12" CornerRadius="8" Background="#2d2d2d">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Current phase" FontWeight="SemiBold" />
+                                    <TextBlock Text="CGMB keys are detected but ignored until key-file support is implemented." TextWrapping="Wrap" />
+                                    <TextBlock Text="Only EIS dumps are imported." TextWrapping="Wrap" />
+                                    <TextBlock Text="Ignored and unsupported files are hidden by default; use the toggle to show them." TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="3" Margin="0,12,0,0" Padding="8" CornerRadius="6" Background="#303030">
+                            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
 
         <TextBlock Grid.RowSpan="3"
                    Text="Korpidiagnostics"

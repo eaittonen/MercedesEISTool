@@ -28,6 +28,7 @@
     <ProjectReference Include="..\MercedesEISTool.Contracts\MercedesEISTool.Contracts.csproj" />
     <ProjectReference Include="..\MercedesEISTool.ApiClient\MercedesEISTool.ApiClient.csproj" />
     <ProjectReference Include="..\MercedesEISTool.Server\MercedesEISTool.Server.csproj" />
+    <ProjectReference Include="..\MercedesEISTool.GUI\MercedesEISTool.GUI.csproj" />
   </ItemGroup>
 
 </Project>

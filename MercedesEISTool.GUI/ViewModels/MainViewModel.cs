@@ -186,6 +186,9 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isBulkConsumeBusy;
 
+    [ObservableProperty]
+    private bool _showIgnoredAndUnsupportedFiles;
+
     public string SelectedStoredFileRegistration => SelectedStoredFile?.RegistrationNumber ?? string.Empty;
     public bool HasSelectedStoredFileRegistration => !string.IsNullOrWhiteSpace(SelectedStoredFileRegistration);
     public string SelectedStoredFileVin => SelectedStoredFile?.UserProvidedVin ?? SelectedStoredFile?.DetectedVin ?? string.Empty;
@@ -470,6 +473,14 @@ public partial class MainViewModel : ViewModelBase
     {
         UpdateUploadAvailability();
         UpdateStoredFileCommandStates();
+    }
+
+    partial void OnShowIgnoredAndUnsupportedFilesChanged(bool value)
+    {
+        if (IsBulkConsumeWizardOpen)
+        {
+            _ = RefreshBulkConsumePreviewAsync();
+        }
     }
 
     partial void OnSelectedStoredFileChanged(StoredFileListItemViewModel? value)
@@ -1407,10 +1418,10 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             IsBulkConsumeBusy = true;
-            var selectedItems = BulkConsumeItems.Where(item => item.IsSelected && !string.Equals(item.Classification, "Unsupported", StringComparison.OrdinalIgnoreCase)).ToList();
+            var selectedItems = BulkConsumeItems.Where(item => item.IsSelected && item.IsImportable).ToList();
             if (selectedItems.Count == 0)
             {
-                BulkConsumeSummary = "No supported files were selected for import.";
+                BulkConsumeSummary = "No importable EIS dumps were selected for import.";
                 return;
             }
 
@@ -1476,6 +1487,8 @@ public partial class MainViewModel : ViewModelBase
                 using var sha = SHA256.Create();
                 var hash = Convert.ToHexString(sha.ComputeHash(stream));
                 var classification = ClassifyBulkConsumeFile(file.Name, file.Length);
+                var isIgnored = string.Equals(classification, "CGMB key (ignored)", StringComparison.OrdinalIgnoreCase);
+                var isImportable = string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase);
                 var item = new BulkConsumePreviewItemDto
                 {
                     SourcePath = file.FullName,
@@ -1483,21 +1496,27 @@ public partial class MainViewModel : ViewModelBase
                     SizeBytes = file.Length,
                     Sha256 = hash,
                     Classification = classification,
-                    DetectedFormat = classification,
+                    DetectedFormat = isIgnored ? "CGMB key file" : classification,
                     DetectedVin = ExtractVinFromFileName(file.Name),
                     RegistrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty),
                     OriginalSourceFolderName = Path.GetFileName(BulkConsumeSourceFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
                     OriginalRelativePath = Path.GetRelativePath(BulkConsumeSourceFolder, file.FullName),
-                    Action = string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase) ? "Skip" : "Upload",
-                    Notes = string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase) ? "Unsupported file" : string.Empty,
-                    IsSelected = !string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase)
+                    Action = isImportable ? "Import" : isIgnored ? "Ignore" : "Skip",
+                    Notes = isIgnored ? "CGMB key files are currently ignored during the CGDI phase." : string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase) ? "Unsupported file" : string.Empty,
+                    IsSelected = isImportable,
+                    IsImportable = isImportable,
+                    IsIgnored = isIgnored
                 };
 
                 canonicalItems.Add(item);
             }
 
+            var visibleItems = ShowIgnoredAndUnsupportedFiles
+                ? canonicalItems
+                : canonicalItems.Where(item => item.IsImportable).ToList();
+
             var groupedItems = new ObservableCollection<BulkConsumePreviewGroupDto>();
-            foreach (var group in canonicalItems.GroupBy(item => GetGroupKey(BulkConsumeSourceFolder, item.SourcePath), StringComparer.OrdinalIgnoreCase))
+            foreach (var group in visibleItems.GroupBy(item => GetGroupKey(BulkConsumeSourceFolder, item.SourcePath), StringComparer.OrdinalIgnoreCase))
             {
                 groupedItems.Add(new BulkConsumePreviewGroupDto
                 {
@@ -1507,9 +1526,13 @@ public partial class MainViewModel : ViewModelBase
                 });
             }
 
-            BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(canonicalItems);
+            BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(visibleItems);
             BulkConsumeGroups = groupedItems;
-            BulkConsumeSummary = $"{canonicalItems.Count} file(s) scanned; {canonicalItems.Count(item => !string.Equals(item.Classification, "Unsupported", StringComparison.OrdinalIgnoreCase))} supported file(s) ready to import.";
+            var importableCount = canonicalItems.Count(item => item.IsImportable);
+            var ignoredCount = canonicalItems.Count(item => item.IsIgnored);
+            var unsupportedCount = canonicalItems.Count(item => string.Equals(item.Classification, "Unsupported", StringComparison.OrdinalIgnoreCase));
+            var duplicateCount = canonicalItems.GroupBy(item => item.Sha256, StringComparer.OrdinalIgnoreCase).Count(group => group.Count() > 1);
+            BulkConsumeSummary = $"{importableCount} EIS dumps ready to import • {ignoredCount} CGMB key ignored • {unsupportedCount} unsupported • {duplicateCount} duplicates";
             Status = BulkConsumeSummary;
         }
         catch (Exception ex)
@@ -1532,7 +1555,7 @@ public partial class MainViewModel : ViewModelBase
 
         if (fileSizeBytes == 160 && string.Equals(Path.GetExtension(fileName), ".bin", StringComparison.OrdinalIgnoreCase))
         {
-            return "CGMB key file";
+            return "CGMB key (ignored)";
         }
 
         return "Unsupported";

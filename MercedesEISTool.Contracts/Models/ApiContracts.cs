@@ -401,6 +401,8 @@ public sealed class BulkConsumePreviewItemDto
     public string Action { get; set; } = "Import";
     public string Notes { get; set; } = string.Empty;
     public bool IsSelected { get; set; } = true;
+    public bool IsImportable { get; set; } = true;
+    public bool IsIgnored { get; set; }
 }
 
 public sealed class BulkConsumePreviewGroupDto
