@@ -1384,10 +1384,10 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            var response = await _apiClient.PreviewBulkConsumeAsync(BulkConsumeSourceFolder, BulkConsumeIncludeSubdirectories);
-            BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(response.Items);
-            BulkConsumeSummary = response.Summary;
-            Status = response.Summary;
+            var preview = await ScanBulkConsumeLocallyAsync(BulkConsumeSourceFolder, BulkConsumeIncludeSubdirectories);
+            BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(preview.Items);
+            BulkConsumeSummary = preview.Summary;
+            Status = preview.Summary;
         }
         catch (Exception ex)
         {
@@ -1420,26 +1420,22 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             IsBulkConsumeBusy = true;
-            var request = new BulkConsumeImportRequest
+            var selectedItems = BulkConsumeItems.Where(item => item.IsSelected).ToList();
+            if (selectedItems.Count == 0)
             {
-                SourceFolderPath = BulkConsumeSourceFolder,
-                IncludeSubdirectories = BulkConsumeIncludeSubdirectories,
-                Items = BulkConsumeItems
-                    .Where(item => item.IsSelected)
-                    .Select(item => new BulkConsumeImportItemRequest
-                    {
-                        SourcePath = item.SourcePath,
-                        FileName = item.FileName,
-                        Classification = item.Classification,
-                        VehicleIdentifier = item.DetectedVin,
-                        RegistrationNumber = string.Empty,
-                        CustomerName = string.Empty
-                    }).ToList()
-            };
+                BulkConsumeSummary = "No supported files were selected for import.";
+                return;
+            }
 
-            var response = await _apiClient.ImportBulkConsumeAsync(request);
-            BulkConsumeSummary = response.Message;
-            Status = response.Message;
+            var batchResults = new List<string>();
+            foreach (var item in selectedItems)
+            {
+                await UploadBulkConsumeItemAsync(item);
+                batchResults.Add($"Imported {item.FileName}");
+            }
+
+            BulkConsumeSummary = string.Join(" | ", batchResults);
+            Status = BulkConsumeSummary;
             await RefreshUploadedFilesAsync();
         }
         catch (Exception ex)
@@ -1451,6 +1447,110 @@ public partial class MainViewModel : ViewModelBase
         {
             IsBulkConsumeBusy = false;
         }
+    }
+
+    private async Task<BulkConsumePreviewResponse> ScanBulkConsumeLocallyAsync(string sourceFolderPath, bool includeSubdirectories)
+    {
+        if (string.IsNullOrWhiteSpace(sourceFolderPath) || !Directory.Exists(sourceFolderPath))
+        {
+            throw new DirectoryNotFoundException("The selected source folder does not exist.");
+        }
+
+        var searchOption = includeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        var files = Directory.EnumerateFiles(sourceFolderPath, "*", searchOption)
+            .Where(path => File.Exists(path))
+            .Select(path => new FileInfo(path))
+            .OrderBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var items = new List<BulkConsumePreviewItemDto>();
+        foreach (var file in files)
+        {
+            await using var stream = File.OpenRead(file.FullName);
+            using var sha = SHA256.Create();
+            var hash = Convert.ToHexString(sha.ComputeHash(stream));
+            var classification = ClassifyBulkConsumeFile(file.Name, file.Length, hash);
+            if (!string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase) && !string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var registrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty);
+            var detectedVin = ExtractVinFromFileName(file.Name);
+
+            items.Add(new BulkConsumePreviewItemDto
+            {
+                SourcePath = file.FullName,
+                FileName = file.Name,
+                SizeBytes = file.Length,
+                Sha256 = hash,
+                Classification = classification,
+                DetectedFormat = classification == "CGMB key file" ? "CGMB key file" : "Unknown",
+                DetectedVin = detectedVin,
+                Action = "Import",
+                Notes = string.Empty,
+                IsSelected = true,
+                OriginalSourceFolderName = Path.GetFileName(sourceFolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                OriginalRelativePath = Path.GetRelativePath(sourceFolderPath, file.FullName)
+            });
+        }
+
+        return new BulkConsumePreviewResponse
+        {
+            SourceFolderPath = sourceFolderPath,
+            IncludeSubdirectories = includeSubdirectories,
+            Items = items,
+            TotalFiles = items.Count,
+            Summary = $"{items.Count} supported files ready to import."
+        };
+    }
+
+    private async Task UploadBulkConsumeItemAsync(BulkConsumePreviewItemDto item)
+    {
+        await using var stream = File.OpenRead(item.SourcePath);
+        using var content = new StreamContent(stream);
+        using var form = new MultipartFormDataContent();
+        form.Add(content, "file", item.FileName);
+        form.Add(new StringContent(item.RegistrationNumber ?? string.Empty), "registrationNumber");
+        form.Add(new StringContent(item.DetectedVin ?? string.Empty), "vehicleIdentifier");
+        form.Add(new StringContent(string.Empty), "customerName");
+        form.Add(new StringContent(item.OriginalSourceFolderName ?? string.Empty), "originalSourceFolderName");
+        form.Add(new StringContent(item.OriginalRelativePath ?? string.Empty), "originalSourceRelativePath");
+        form.Add(new StringContent(item.Sha256), "sha256");
+        form.Add(new StringContent(item.Classification), "classification");
+
+        using var response = await _apiClient.UploadBulkConsumeFileAsync(form);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Bulk import failed for {item.FileName}");
+        }
+    }
+
+    private static string ClassifyBulkConsumeFile(string fileName, long sizeBytes, string sha256)
+    {
+        if (sizeBytes == 256)
+        {
+            return "EIS dump";
+        }
+
+        if (sizeBytes == 160 && string.Equals(Path.GetExtension(fileName), ".bin", StringComparison.OrdinalIgnoreCase))
+        {
+            return "CGMB key file";
+        }
+
+        return "Unsupported";
+    }
+
+    private static string ExtractRegistrationNumber(string path)
+    {
+        var segments = path.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        return segments.LastOrDefault() ?? string.Empty;
+    }
+
+    private static string ExtractVinFromFileName(string fileName)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(fileName, "[A-HJ-NPR-Z0-9]{17}");
+        return match.Success ? match.Value : string.Empty;
     }
 
     [RelayCommand(CanExecute = nameof(CanCompareStoredFile))]

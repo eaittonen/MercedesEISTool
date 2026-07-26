@@ -259,6 +259,11 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<BulkConsumeImportResponse>(cancellationToken: cancellationToken) ?? new BulkConsumeImportResponse();
     }
 
+    public async Task<HttpResponseMessage> UploadBulkConsumeFileAsync(MultipartFormDataContent content, CancellationToken cancellationToken = default)
+    {
+        return await _httpClient.PostAsync("/api/bulk-consume/files", content, cancellationToken);
+    }
+
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)

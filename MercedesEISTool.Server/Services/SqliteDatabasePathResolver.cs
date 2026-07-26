@@ -33,7 +33,7 @@ public sealed class SqliteDatabasePathResolver
             throw new InvalidOperationException($"SQLite database path '{fullDataSourcePath}' does not have a parent directory that can be created or written to.");
         }
 
-        if (TryEnsureWritableDirectory(directory, canWrite))
+        if (TryEnsureWritableDirectory(directory, canWrite, honorCustomValidator: true))
         {
             return fullDataSourcePath;
         }
@@ -42,7 +42,7 @@ public sealed class SqliteDatabasePathResolver
         var fallbackPath = Path.Combine(fallbackDirectory, Path.GetFileName(fullDataSourcePath));
         logger.LogWarning("Configured SQLite database directory '{ConfiguredDirectory}' is not writable. Falling back to '{FallbackPath}'.", directory, fallbackPath);
 
-        if (!TryEnsureWritableDirectory(fallbackDirectory, canWrite))
+        if (!TryEnsureWritableDirectory(fallbackDirectory, canWrite, honorCustomValidator: false))
         {
             throw new InvalidOperationException($"Unable to create or write to SQLite database directory '{fallbackDirectory}' for database '{fallbackPath}'.");
         }
@@ -50,7 +50,7 @@ public sealed class SqliteDatabasePathResolver
         return Path.GetFullPath(fallbackPath, basePath);
     }
 
-    private static bool TryEnsureWritableDirectory(string directory, Func<string, bool>? canWrite)
+    private static bool TryEnsureWritableDirectory(string directory, Func<string, bool>? canWrite, bool honorCustomValidator)
     {
         try
         {
@@ -61,7 +61,7 @@ public sealed class SqliteDatabasePathResolver
             return false;
         }
 
-        if (canWrite is not null)
+        if (honorCustomValidator && canWrite is not null)
         {
             return canWrite(directory);
         }

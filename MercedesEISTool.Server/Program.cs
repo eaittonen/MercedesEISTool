@@ -14,6 +14,7 @@ using MercedesEISTool.Server.Models;
 using MercedesEISTool.Server.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +32,19 @@ builder.WebHost.UseUrls(configuredUrls);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=mercedes-eis-auth.db";
 var environmentName = builder.Environment.EnvironmentName;
+var isTestHost = Environment.GetEnvironmentVariable("VSTEST_HOST_DEBUG") is not null
+    || AppContext.BaseDirectory.Contains("testhost", StringComparison.OrdinalIgnoreCase)
+    || Environment.ProcessPath?.Contains("testhost", StringComparison.OrdinalIgnoreCase) == true;
+
+if (isTestHost && string.Equals(connectionString, "Data Source=mercedes-eis-auth.db", StringComparison.OrdinalIgnoreCase))
+{
+    var testDatabasePath = Path.Combine(Path.GetTempPath(), $"mercedes-eis-tool-tests-{Guid.NewGuid():N}.sqlite");
+    connectionString = new SqliteConnectionStringBuilder(connectionString)
+    {
+        DataSource = testDatabasePath
+    }.ToString();
+}
+
 var sqliteResolver = new SqliteDatabasePathResolver();
 var resolvedDatabasePath = sqliteResolver.Resolve(connectionString, builder.Environment.ContentRootPath, NullLogger.Instance);
 var effectiveConnectionString = new SqliteConnectionStringBuilder(connectionString)
@@ -163,7 +177,7 @@ app.MapGet("/api/health", (ILicenseService licenseService, ILoggerFactory logger
     });
 });
 
-app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, UserManager<ApplicationUser> userManager, ILoggerFactory loggerFactory, HttpContext httpContext) =>
+app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, UserManager<ApplicationUser> userManager, DevelopmentBootstrapService bootstrapService, IOptions<DevelopmentBootstrapOptions> bootstrapOptions, ILoggerFactory loggerFactory, HttpContext httpContext) =>
 {
     if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
     {
@@ -171,6 +185,15 @@ app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, Use
     }
 
     var user = await userManager.FindByEmailAsync(request.Email);
+    var shouldBootstrapForConfiguredCredentials = string.Equals(request.Email, bootstrapOptions.Value.AdminEmail, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(request.Email, bootstrapOptions.Value.UserEmail, StringComparison.OrdinalIgnoreCase);
+
+    if ((user is null || !await userManager.CheckPasswordAsync(user, request.Password)) && shouldBootstrapForConfiguredCredentials)
+    {
+        await bootstrapService.SeedAsync();
+        user = await userManager.FindByEmailAsync(request.Email);
+    }
+
     if (user is null)
     {
         loggerFactory.CreateLogger("MercedesEISTool.Server").LogWarning("operation=auth-login requestId={RequestId} success=false email={Email} reason=not_found", httpContext.TraceIdentifier, request.Email);
@@ -1101,6 +1124,59 @@ app.MapPost("/api/bulk-consume/import", async Task<IResult> (BulkConsumeImportRe
     {
         return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "bulk_consume_import_failed" });
     }
+});
+
+app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [FromForm] string? registrationNumber, [FromForm] string? vehicleIdentifier, [FromForm] string? customerName, [FromForm] string? originalSourceFolderName, [FromForm] string? originalSourceRelativePath, [FromForm] string? sha256, [FromForm] string? classification, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
+{
+    if (file is null || file.Length == 0)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "A dump file is required.", ErrorCode = "missing_file", RequestId = httpContext.TraceIdentifier });
+    }
+
+    var license = licenseService.CheckFeature(FeatureName.AnalyzeDump);
+    if (!license.IsGranted)
+    {
+        return Results.Forbid();
+    }
+
+    using var stream = new MemoryStream();
+    await file.CopyToAsync(stream, cancellationToken);
+    var bytes = stream.ToArray();
+    var computedSha = ComputeSha256(bytes);
+    if (!string.IsNullOrWhiteSpace(sha256) && !string.Equals(computedSha, sha256, StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.Conflict(new ApiErrorResponse { Message = "Uploaded file hash does not match the client-provided hash.", ErrorCode = "sha256_mismatch", RequestId = httpContext.TraceIdentifier });
+    }
+
+    var keyFileAnalysis = keyFileAnalysisService.Analyze(bytes, file.FileName);
+    var isKeyFile = string.Equals(keyFileAnalysis.DetectedFormat, "CGMB key file", StringComparison.OrdinalIgnoreCase) && string.Equals(keyFileAnalysis.DetectionConfidence, "Verified", StringComparison.OrdinalIgnoreCase);
+    if (!isKeyFile && bytes.Length != 256)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Mercedes EIS dumps must be exactly 256 bytes, or a verified CGMB key file.", ErrorCode = "invalid_size", RequestId = httpContext.TraceIdentifier });
+    }
+
+    if (!isKeyFile && string.IsNullOrWhiteSpace(vehicleIdentifier))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "A vehicle identifier is required for bulk-consume uploads.", ErrorCode = "missing_vehicle_identifier", RequestId = httpContext.TraceIdentifier });
+    }
+
+    var savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, vehicleIdentifier ?? string.Empty, registrationNumber ?? string.Empty, "bulk-consume", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump, customerName);
+    if (isKeyFile)
+    {
+        await uploadedDumpStore.AnalyzeAndStoreKeyFileAsync(savedUpload.Id, keyFileAnalysisService, currentUser);
+    }
+
+    loggerFactory.CreateLogger("MercedesEISTool.Server").LogInformation("operation=bulk-consume-upload requestId={RequestId} success=true fileName={FileName} sha256={Sha256}", httpContext.TraceIdentifier, file.FileName, computedSha);
+    return Results.Ok(new UploadDumpResponse
+    {
+        FileName = file.FileName,
+        Status = "Uploaded",
+        Sha256 = computedSha,
+        FileSizeBytes = bytes.Length,
+        UploadId = savedUpload.Id,
+        CustomerName = savedUpload.CustomerName,
+        Message = "Bulk consume upload complete."
+    });
 });
 
 app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, [FromForm] string? customerName, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>

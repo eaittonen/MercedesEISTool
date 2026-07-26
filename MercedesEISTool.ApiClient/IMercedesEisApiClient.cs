@@ -33,4 +33,5 @@ public interface IMercedesEisApiClient
     Task<CompareDumpsResponse> CompareDumpsAsync(byte[] left, byte[] right, string leftFileName, string rightFileName, string vehicleIdentifier, string registrationNumber, CancellationToken cancellationToken = default);
     Task<BulkConsumePreviewResponse> PreviewBulkConsumeAsync(string sourceFolderPath, bool includeSubdirectories, CancellationToken cancellationToken = default);
     Task<BulkConsumeImportResponse> ImportBulkConsumeAsync(BulkConsumeImportRequest request, CancellationToken cancellationToken = default);
+    Task<HttpResponseMessage> UploadBulkConsumeFileAsync(MultipartFormDataContent content, CancellationToken cancellationToken = default);
 }

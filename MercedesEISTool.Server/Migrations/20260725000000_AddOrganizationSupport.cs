@@ -117,10 +117,35 @@ public partial class AddOrganizationSupport : Migration
 
         var shouldRebuildUsers = !hasUsersTable || requiredColumns.Any(column => !existingColumns.Contains(column));
 
+        if (hasUsersTable)
+        {
+            migrationBuilder.Sql(@"
+                UPDATE AspNetUsers
+                SET UserName = COALESCE(UserName, ''),
+                    NormalizedUserName = COALESCE(NormalizedUserName, ''),
+                    Email = COALESCE(Email, ''),
+                    NormalizedEmail = COALESCE(NormalizedEmail, ''),
+                    DisplayName = COALESCE(DisplayName, ''),
+                    SecurityStamp = COALESCE(SecurityStamp, ''),
+                    ConcurrencyStamp = COALESCE(ConcurrencyStamp, ''),
+                    PhoneNumber = COALESCE(PhoneNumber, ''),
+                    EmailConfirmed = COALESCE(EmailConfirmed, 0),
+                    PhoneNumberConfirmed = COALESCE(PhoneNumberConfirmed, 0),
+                    TwoFactorEnabled = COALESCE(TwoFactorEnabled, 0),
+                    LockoutEnabled = COALESCE(LockoutEnabled, 0),
+                    AccessFailedCount = COALESCE(AccessFailedCount, 0),
+                    CreatedAtUtc = COALESCE(CreatedAtUtc, datetime('now')),
+                    IsEnabled = COALESCE(IsEnabled, 1),
+                    MustChangePassword = COALESCE(MustChangePassword, 0),
+                    OrganizationId = COALESCE(OrganizationId, 'default-org')
+                WHERE (UserName IS NULL OR NormalizedUserName IS NULL OR Email IS NULL OR NormalizedEmail IS NULL OR DisplayName IS NULL OR SecurityStamp IS NULL OR ConcurrencyStamp IS NULL OR PhoneNumber IS NULL OR EmailConfirmed IS NULL OR PhoneNumberConfirmed IS NULL OR TwoFactorEnabled IS NULL OR LockoutEnabled IS NULL OR AccessFailedCount IS NULL OR IsEnabled IS NULL OR MustChangePassword IS NULL OR OrganizationId IS NULL);
+            ");
+        }
+
         if (!hasUsersTable)
         {
             migrationBuilder.Sql(@"
-                CREATE TABLE AspNetUsers (
+                CREATE TABLE IF NOT EXISTS AspNetUsers (
                     Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers PRIMARY KEY,
                     UserName TEXT NULL,
                     NormalizedUserName TEXT NULL,
@@ -155,7 +180,7 @@ public partial class AddOrganizationSupport : Migration
             ");
 
             var createTableSql = @"
-                CREATE TABLE AspNetUsers_new (
+                CREATE TABLE IF NOT EXISTS AspNetUsers_new (
                     Id TEXT NOT NULL CONSTRAINT PK_AspNetUsers_new PRIMARY KEY,
                     UserName TEXT NULL,
                     NormalizedUserName TEXT NULL,
@@ -219,6 +244,10 @@ public partial class AddOrganizationSupport : Migration
                 SELECT {string.Join(", ", selectExpressions)}
                 FROM AspNetUsers;
             ";
+
+            migrationBuilder.Sql(@"
+                DELETE FROM AspNetUsers_new WHERE Id IS NULL;
+            ");
 
             migrationBuilder.Sql(insertSql);
 
@@ -339,7 +368,8 @@ public partial class AddOrganizationSupport : Migration
 
     private static string ResolveConnectionString()
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+        var connectionString = Environment.GetEnvironmentVariable("MercedesEISTool_ActiveConnectionString")
+            ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
             ?? Environment.GetEnvironmentVariable("DefaultConnection")
             ?? Environment.GetEnvironmentVariable("ConnectionString");
 
@@ -365,12 +395,25 @@ public partial class AddOrganizationSupport : Migration
         {
             return columnName switch
             {
-                "DisplayName" => "NULL",
+                "UserName" => "COALESCE(UserName, '')",
+                "NormalizedUserName" => "COALESCE(NormalizedUserName, '')",
+                "Email" => "COALESCE(Email, '')",
+                "NormalizedEmail" => "COALESCE(NormalizedEmail, '')",
+                "DisplayName" => "COALESCE(DisplayName, '')",
+                "PasswordHash" => "COALESCE(PasswordHash, '')",
+                "SecurityStamp" => "COALESCE(SecurityStamp, '')",
+                "ConcurrencyStamp" => "COALESCE(ConcurrencyStamp, '')",
+                "PhoneNumber" => "COALESCE(PhoneNumber, '')",
+                "EmailConfirmed" => "COALESCE(EmailConfirmed, 0)",
+                "PhoneNumberConfirmed" => "COALESCE(PhoneNumberConfirmed, 0)",
+                "TwoFactorEnabled" => "COALESCE(TwoFactorEnabled, 0)",
+                "LockoutEnabled" => "COALESCE(LockoutEnabled, 0)",
+                "AccessFailedCount" => "COALESCE(AccessFailedCount, 0)",
                 "CreatedAtUtc" => "datetime('now')",
-                "IsEnabled" => "1",
+                "IsEnabled" => "COALESCE(IsEnabled, 1)",
                 "LastLoginAtUtc" => "NULL",
                 "OrganizationId" => "'default-org'",
-                "MustChangePassword" => "0",
+                "MustChangePassword" => "COALESCE(MustChangePassword, 0)",
                 _ => "NULL"
             };
         }

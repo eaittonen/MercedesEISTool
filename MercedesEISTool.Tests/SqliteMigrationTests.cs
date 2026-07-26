@@ -1,3 +1,4 @@
+using System.Threading;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MercedesEISTool.Server.Data;
@@ -36,10 +37,7 @@ public class SqliteMigrationTests
         }
         finally
         {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
+            SafeDeleteDatabaseFile(dbPath);
         }
     }
 
@@ -116,10 +114,7 @@ public class SqliteMigrationTests
         }
         finally
         {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
+            SafeDeleteDatabaseFile(dbPath);
         }
     }
 
@@ -185,9 +180,49 @@ public class SqliteMigrationTests
         }
         finally
         {
-            if (File.Exists(dbPath))
+            SafeDeleteDatabaseFile(dbPath);
+        }
+    }
+
+    private static void SafeDeleteDatabaseFile(string dbPath)
+    {
+        try
+        {
+            SqliteConnection.ClearAllPools();
+        }
+        catch
+        {
+            // Best effort cleanup for pooled connections.
+        }
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
             {
-                File.Delete(dbPath);
+                if (File.Exists(dbPath))
+                {
+                    File.Delete(dbPath);
+                }
+
+                var journalPath = dbPath + "-journal";
+                if (File.Exists(journalPath))
+                {
+                    File.Delete(journalPath);
+                }
+
+                var walPath = dbPath + "-wal";
+                if (File.Exists(walPath))
+                {
+                    File.Delete(walPath);
+                }
+
+                return;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                Thread.Sleep(100);
             }
         }
     }

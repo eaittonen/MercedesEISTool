@@ -46,19 +46,22 @@ public sealed class DevelopmentBootstrapService
 
         await EnsureRoleAsync("SystemAdministrator");
         await EnsureRoleAsync("CompanyAdministrator");
+        await EnsureRoleAsync("Administrator");
         await EnsureRoleAsync("Technician");
         await EnsureRoleAsync("Research");
         await EnsureRoleAsync("ReadOnly");
+        await EnsureRoleAsync("User");
 
         var defaultOrganization = await EnsureDefaultOrganizationAsync();
 
         var adminEmail = !string.IsNullOrWhiteSpace(_options.Value.AdminEmail) ? _options.Value.AdminEmail : "admin@example.local";
-        var adminPassword = !string.IsNullOrWhiteSpace(_options.Value.AdminPassword) ? _options.Value.AdminPassword : "Admin123!";
+        var adminPassword = !string.IsNullOrWhiteSpace(_options.Value.AdminPassword) ? _options.Value.AdminPassword : "development-only-password";
         var userEmail = !string.IsNullOrWhiteSpace(_options.Value.UserEmail) ? _options.Value.UserEmail : "user@example.local";
         var userPassword = !string.IsNullOrWhiteSpace(_options.Value.UserPassword) ? _options.Value.UserPassword : "development-only-password";
 
         await EnsureUserAsync(adminEmail, adminPassword, "SystemAdministrator", true, "Administrator", defaultOrganization.Id);
         await EnsureUserAsync(userEmail, userPassword, "ReadOnly", false, "User", defaultOrganization.Id);
+        await EnsureUserAsync(adminEmail, adminPassword, "Administrator", false, "Administrator", defaultOrganization.Id);
 
         _logger.LogInformation("Development bootstrap completed.");
     }
@@ -118,9 +121,15 @@ public sealed class DevelopmentBootstrapService
             await _userManager.UpdateAsync(existing);
 
             var hasPassword = !string.IsNullOrWhiteSpace(existing.PasswordHash);
-            if (!hasPassword)
+            var passwordMatchesLegacyBootstrap = await _userManager.CheckPasswordAsync(existing, "Admin123!");
+            if (!hasPassword || passwordMatchesLegacyBootstrap)
             {
-                var addPasswordResult = await _userManager.AddPasswordAsync(existing, password);
+                var addPasswordResult = await _userManager.RemovePasswordAsync(existing);
+                if (addPasswordResult.Succeeded)
+                {
+                    addPasswordResult = await _userManager.AddPasswordAsync(existing, password);
+                }
+
                 if (!addPasswordResult.Succeeded)
                 {
                     throw new InvalidOperationException(string.Join(", ", addPasswordResult.Errors.Select(error => error.Description)));
@@ -148,7 +157,8 @@ public sealed class DevelopmentBootstrapService
             IsEnabled = true,
             EmailConfirmed = true,
             CreatedAtUtc = DateTimeOffset.UtcNow,
-            OrganizationId = organizationId
+            OrganizationId = organizationId,
+            MustChangePassword = false
         };
 
         IdentityResult result;
