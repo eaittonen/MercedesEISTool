@@ -250,6 +250,11 @@ public sealed class StoredFileListItemDto
     public string Sha256 { get; set; } = string.Empty;
     public bool IsDeleted { get; set; }
     public bool CanViewSensitiveFields { get; set; }
+    public string LockGroupKey { get; set; } = string.Empty;
+    public int MetadataCompletenessScore { get; set; }
+    public bool HasEisPassword { get; set; }
+    public bool IsPreferredVersion { get; set; }
+    public int VersionCount { get; set; }
 }
 
 public sealed class StoredFileListResponse

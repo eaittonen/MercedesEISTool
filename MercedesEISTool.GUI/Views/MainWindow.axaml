@@ -170,9 +170,15 @@
                                             <DataTemplate>
                                                 <Border Padding="6" CornerRadius="4" Background="#3a3a3a">
                                                     <StackPanel Spacing="2">
-                                                        <TextBlock Text="{Binding OriginalFileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Text="{Binding OriginalFileName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                            <Border IsVisible="{Binding IsPreferredVersion}" Padding="3,1" CornerRadius="4" Background="#2f5f2f">
+                                                                <TextBlock Text="{Binding PreferredBadge}" FontSize="11" FontWeight="SemiBold" />
+                                                            </Border>
+                                                        </StackPanel>
                                                         <TextBlock Text="{Binding EffectiveVin}" Opacity="0.8" TextWrapping="Wrap" />
                                                         <TextBlock Text="{Binding RegistrationNumber}" Opacity="0.75" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding GroupSummary}" Opacity="0.75" TextWrapping="Wrap" />
                                                         <TextBlock Text="{Binding UploadedAtDisplay}" Opacity="0.65" TextWrapping="Wrap" />
                                                     </StackPanel>
                                                 </Border>
@@ -217,6 +223,11 @@
                                         <TextBlock Text="Source folder" />
                                         <TextBox Text="{Binding BulkConsumeSourceFolder}" />
                                         <CheckBox Content="Include subdirectories" IsChecked="{Binding BulkConsumeIncludeSubdirectories}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Content="Scan / refresh" Command="{Binding RefreshBulkConsumePreviewAsyncCommand}" />
+                                            <Button Content="Import selected" Command="{Binding ImportBulkConsumeSelectionCommand}" />
+                                            <Button Content="Close" Command="{Binding CloseBulkConsumeWizardCommand}" />
+                                        </StackPanel>
                                         <TextBlock Text="{Binding BulkConsumeSummary}" TextWrapping="Wrap" />
                                         <ScrollViewer MaxHeight="260">
                                             <ItemsControl ItemsSource="{Binding BulkConsumeGroups}">
@@ -244,10 +255,6 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                         </ScrollViewer>
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button Content="Import selected" Command="{Binding ImportBulkConsumeSelectionCommand}" />
-                                            <Button Content="Close" Command="{Binding CloseBulkConsumeWizardCommand}" />
-                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

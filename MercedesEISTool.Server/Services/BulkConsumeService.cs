@@ -24,7 +24,7 @@ public sealed class BulkConsumeService
         _keyFileAnalysisService = keyFileAnalysisService;
         _logger = logger;
         _detectorRegistry = new BulkConsumeFileDetectorRegistry();
-        _detectorRegistry.Register(new SizeBasedBulkConsumeDetector());
+        _detectorRegistry.Register(new AnalysisBasedBulkConsumeDetector(analysisService, keyFileAnalysisService));
     }
 
     public async Task<BulkConsumePreviewResponse> PreviewAsync(string sourceFolderPath, bool includeSubdirectories)
@@ -49,11 +49,6 @@ public sealed class BulkConsumeService
             var bytes = await File.ReadAllBytesAsync(file.FullName);
             var detection = _detectorRegistry.Detect(bytes, file.Name);
             var classification = detection.DetectedFormat;
-            if (!string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase) && !string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
             var analysis = _analysisService.Analyze(bytes, file.Name);
             var detectedVin = analysis.DetectedVin;
             var detectedFormat = analysis.DetectedFormat;
@@ -73,9 +68,9 @@ public sealed class BulkConsumeService
                 RegistrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty),
                 OriginalSourceFolderName = Path.GetFileName(resolvedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
                 OriginalRelativePath = Path.GetRelativePath(resolvedPath, file.FullName),
-                Action = "Import",
+                Action = string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase) ? "Skip" : "Import",
                 Notes = keyFileAnalysis is not null ? $"Key analysis confidence: {keyFileAnalysis.DetectionConfidence}" : string.Empty,
-                IsSelected = true
+                IsSelected = !string.Equals(classification, "Unsupported", StringComparison.OrdinalIgnoreCase)
             };
 
             items.Add(item);
@@ -102,7 +97,7 @@ public sealed class BulkConsumeService
             Items = items,
             Groups = groups.Values.ToList(),
             TotalFiles = items.Count,
-            Summary = $"{items.Count} supported files ready to import."
+            Summary = $"{items.Count} file(s) scanned; {items.Count(item => !string.Equals(item.Classification, "Unsupported", StringComparison.OrdinalIgnoreCase))} supported file(s) ready to import."
         };
     }
 
@@ -116,34 +111,75 @@ public sealed class BulkConsumeService
         var results = new List<BulkConsumeImportResultDto>();
         foreach (var item in request.Items)
         {
-            var bytes = await File.ReadAllBytesAsync(item.SourcePath);
-            var uploadedDump = await _uploadedDumpStore.PersistAsync(
-                bytes,
-                item.FileName,
-                item.VehicleIdentifier ?? string.Empty,
-                item.RegistrationNumber ?? string.Empty,
-                "bulk-consume",
-                _analysisService,
-                currentUser,
-                string.Equals(item.Classification, "CGMB key file", StringComparison.OrdinalIgnoreCase) ? FileCategory.KeyFile : FileCategory.EisDump,
-                item.CustomerName);
-
-            results.Add(new BulkConsumeImportResultDto
+            try
             {
-                SourcePath = item.SourcePath,
-                FileName = item.FileName,
-                StoredFileId = uploadedDump.Id,
-                Status = "Imported",
-                Message = $"Imported {item.FileName}"
-            });
+                if (string.IsNullOrWhiteSpace(item.SourcePath) || !File.Exists(item.SourcePath))
+                {
+                    results.Add(new BulkConsumeImportResultDto
+                    {
+                        SourcePath = item.SourcePath,
+                        FileName = item.FileName,
+                        Status = "Failed",
+                        Message = "Source file was not found."
+                    });
+                    continue;
+                }
+
+                var bytes = await File.ReadAllBytesAsync(item.SourcePath);
+                var detection = _detectorRegistry.Detect(bytes, item.FileName);
+                var classification = detection.DetectedFormat;
+                var isSupported = string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase);
+                if (!isSupported)
+                {
+                    results.Add(new BulkConsumeImportResultDto
+                    {
+                        SourcePath = item.SourcePath,
+                        FileName = item.FileName,
+                        Status = "Skipped",
+                        Message = "File was not recognized as a supported EIS dump or CGMB key file."
+                    });
+                    continue;
+                }
+
+                var uploadedDump = await _uploadedDumpStore.PersistAsync(
+                    bytes,
+                    item.FileName,
+                    item.VehicleIdentifier ?? string.Empty,
+                    item.RegistrationNumber ?? string.Empty,
+                    "bulk-consume",
+                    _analysisService,
+                    currentUser,
+                    string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase) ? FileCategory.KeyFile : FileCategory.EisDump,
+                    item.CustomerName);
+
+                results.Add(new BulkConsumeImportResultDto
+                {
+                    SourcePath = item.SourcePath,
+                    FileName = item.FileName,
+                    StoredFileId = uploadedDump.Id,
+                    Status = "Imported",
+                    Message = $"Imported {item.FileName}"
+                });
+            }
+            catch (Exception ex)
+            {
+                results.Add(new BulkConsumeImportResultDto
+                {
+                    SourcePath = item.SourcePath,
+                    FileName = item.FileName,
+                    Status = "Failed",
+                    Message = ex.Message
+                });
+            }
         }
 
         return new BulkConsumeImportResponse
         {
             BatchId = Guid.NewGuid(),
-            ImportedCount = results.Count,
+            ImportedCount = results.Count(result => string.Equals(result.Status, "Imported", StringComparison.OrdinalIgnoreCase)),
             Results = results,
-            Message = $"Imported {results.Count} file(s)."
+            Message = $"Imported {results.Count(result => string.Equals(result.Status, "Imported", StringComparison.OrdinalIgnoreCase))} file(s); {results.Count(result => string.Equals(result.Status, "Failed", StringComparison.OrdinalIgnoreCase))} failed."
         };
     }
 

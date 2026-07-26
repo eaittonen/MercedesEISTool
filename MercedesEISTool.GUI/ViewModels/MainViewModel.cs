@@ -171,7 +171,7 @@ public partial class MainViewModel : ViewModelBase
     private string _bulkConsumeSourceFolder = string.Empty;
 
     [ObservableProperty]
-    private bool _bulkConsumeIncludeSubdirectories;
+    private bool _bulkConsumeIncludeSubdirectories = true;
 
     [ObservableProperty]
     private ObservableCollection<BulkConsumePreviewItemDto> _bulkConsumeItems = new();
@@ -1382,26 +1382,7 @@ public partial class MainViewModel : ViewModelBase
 
         BulkConsumeSourceFolder = selectedFolder.Path.LocalPath;
         IsBulkConsumeWizardOpen = true;
-        BulkConsumeSummary = "Scanning source folder...";
-        IsBulkConsumeBusy = true;
-
-        try
-        {
-            var preview = await ScanBulkConsumeLocallyAsync(BulkConsumeSourceFolder, BulkConsumeIncludeSubdirectories);
-            BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(preview.Items);
-            BulkConsumeGroups = new ObservableCollection<BulkConsumePreviewGroupDto>(preview.Groups);
-            BulkConsumeSummary = preview.Summary;
-            Status = preview.Summary;
-        }
-        catch (Exception ex)
-        {
-            BulkConsumeSummary = $"Preview failed: {ex.Message}";
-            Status = ex.Message;
-        }
-        finally
-        {
-            IsBulkConsumeBusy = false;
-        }
+        await RefreshBulkConsumePreviewAsync();
     }
 
     [RelayCommand]
@@ -1418,29 +1399,38 @@ public partial class MainViewModel : ViewModelBase
     {
         if (BulkConsumeItems.Count == 0)
         {
-            BulkConsumeSummary = "No supported files were selected for import.";
+            BulkConsumeSummary = "No files were scanned for import.";
             return;
         }
 
         try
         {
             IsBulkConsumeBusy = true;
-            var selectedItems = BulkConsumeGroups.SelectMany(group => group.Children).Where(item => item.IsSelected).ToList();
+            var selectedItems = BulkConsumeItems.Where(item => item.IsSelected).ToList();
             if (selectedItems.Count == 0)
             {
                 BulkConsumeSummary = "No supported files were selected for import.";
                 return;
             }
 
-            var batchResults = new List<string>();
-            foreach (var item in selectedItems)
+            var request = new BulkConsumeImportRequest
             {
-                await UploadBulkConsumeItemAsync(item);
-                batchResults.Add($"Imported {item.FileName}");
-            }
+                SourceFolderPath = BulkConsumeSourceFolder,
+                IncludeSubdirectories = BulkConsumeIncludeSubdirectories,
+                Items = selectedItems.Select(item => new BulkConsumeImportItemRequest
+                {
+                    SourcePath = item.SourcePath,
+                    FileName = item.FileName,
+                    Classification = item.Classification,
+                    VehicleIdentifier = item.DetectedVin,
+                    RegistrationNumber = item.RegistrationNumber,
+                    CustomerName = string.Empty
+                }).ToList()
+            };
 
-            BulkConsumeSummary = string.Join(" | ", batchResults);
-            Status = BulkConsumeSummary;
+            var response = await _apiClient.ImportBulkConsumeAsync(request);
+            BulkConsumeSummary = response.Message;
+            Status = response.Message;
             await RefreshUploadedFilesAsync();
         }
         catch (Exception ex)
@@ -1454,114 +1444,51 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task<BulkConsumePreviewResponse> ScanBulkConsumeLocallyAsync(string sourceFolderPath, bool includeSubdirectories)
+    [RelayCommand]
+    private async Task RefreshBulkConsumePreviewAsync()
     {
-        if (string.IsNullOrWhiteSpace(sourceFolderPath) || !Directory.Exists(sourceFolderPath))
+        if (string.IsNullOrWhiteSpace(BulkConsumeSourceFolder) || !Directory.Exists(BulkConsumeSourceFolder))
         {
-            throw new DirectoryNotFoundException("The selected source folder does not exist.");
+            BulkConsumeSummary = "Select a source folder before scanning.";
+            return;
         }
 
-        var searchOption = includeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var files = Directory.EnumerateFiles(sourceFolderPath, "*", searchOption)
-            .Where(path => File.Exists(path))
-            .Select(path => new FileInfo(path))
-            .OrderBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        BulkConsumeSummary = "Scanning source folder...";
+        IsBulkConsumeBusy = true;
 
-        var items = new List<BulkConsumePreviewItemDto>();
-        var groups = new Dictionary<string, BulkConsumePreviewGroupDto>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in files)
+        try
         {
-            await using var stream = File.OpenRead(file.FullName);
-            using var sha = SHA256.Create();
-            var hash = Convert.ToHexString(sha.ComputeHash(stream));
-            var classification = ClassifyBulkConsumeFile(file.Name, file.Length, hash);
-            if (!string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase) && !string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase))
+            var preview = await _apiClient.PreviewBulkConsumeAsync(BulkConsumeSourceFolder, BulkConsumeIncludeSubdirectories);
+            var canonicalItems = preview.Items.ToList();
+            var groupedItems = new ObservableCollection<BulkConsumePreviewGroupDto>();
+            foreach (var group in preview.Groups)
             {
-                continue;
-            }
+                var children = group.Children
+                    .Select(child => canonicalItems.FirstOrDefault(item => string.Equals(item.SourcePath, child.SourcePath, StringComparison.OrdinalIgnoreCase)) ?? child)
+                    .ToList();
 
-            var registrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty);
-            var detectedVin = ExtractVinFromFileName(file.Name);
-
-            var item = new BulkConsumePreviewItemDto
-            {
-                SourcePath = file.FullName,
-                FileName = file.Name,
-                SizeBytes = file.Length,
-                Sha256 = hash,
-                Classification = classification,
-                DetectedFormat = classification == "CGMB key file" ? "CGMB key file" : "Unknown",
-                DetectedVin = detectedVin,
-                RegistrationNumber = registrationNumber,
-                Action = "Import",
-                Notes = string.Empty,
-                IsSelected = true,
-                OriginalSourceFolderName = Path.GetFileName(sourceFolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
-                OriginalRelativePath = Path.GetRelativePath(sourceFolderPath, file.FullName)
-            };
-
-            items.Add(item);
-
-            var groupKey = GetGroupKey(sourceFolderPath, file.FullName);
-            if (!groups.TryGetValue(groupKey, out var group))
-            {
-                group = new BulkConsumePreviewGroupDto
+                groupedItems.Add(new BulkConsumePreviewGroupDto
                 {
-                    DisplayName = groupKey,
-                    GroupKey = groupKey
-                };
-                groups[groupKey] = group;
+                    DisplayName = group.DisplayName,
+                    GroupKey = group.GroupKey,
+                    Children = children
+                });
             }
 
-            group.Children.Add(item);
+            BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(canonicalItems);
+            BulkConsumeGroups = groupedItems;
+            BulkConsumeSummary = preview.Summary;
+            Status = preview.Summary;
         }
-
-        return new BulkConsumePreviewResponse
+        catch (Exception ex)
         {
-            SourceFolderPath = sourceFolderPath,
-            IncludeSubdirectories = includeSubdirectories,
-            Items = items,
-            Groups = groups.Values.ToList(),
-            TotalFiles = items.Count,
-            Summary = $"{items.Count} supported files ready to import."
-        };
-    }
-
-    private async Task UploadBulkConsumeItemAsync(BulkConsumePreviewItemDto item)
-    {
-        await using var stream = File.OpenRead(item.SourcePath);
-        using var content = new StreamContent(stream);
-        using var form = new MultipartFormDataContent();
-        form.Add(content, "file", item.FileName);
-        form.Add(new StringContent(item.RegistrationNumber ?? string.Empty), "registrationNumber");
-        form.Add(new StringContent(item.DetectedVin ?? string.Empty), "vehicleIdentifier");
-        form.Add(new StringContent(string.Empty), "customerName");
-        form.Add(new StringContent(item.OriginalSourceFolderName ?? string.Empty), "originalSourceFolderName");
-        form.Add(new StringContent(item.OriginalRelativePath ?? string.Empty), "originalSourceRelativePath");
-        form.Add(new StringContent(item.Sha256), "sha256");
-        form.Add(new StringContent(item.Classification), "classification");
-
-        using var response = await _apiClient.UploadBulkConsumeFileAsync(form);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new HttpRequestException($"Bulk import failed for {item.FileName}");
+            BulkConsumeSummary = $"Preview failed: {ex.Message}";
+            Status = ex.Message;
         }
-    }
-
-    private static string ClassifyBulkConsumeFile(string fileName, long sizeBytes, string sha256)
-    {
-        if (sizeBytes == 256)
+        finally
         {
-            return "EIS dump";
+            IsBulkConsumeBusy = false;
         }
-
-        if (sizeBytes == 160 && string.Equals(Path.GetExtension(fileName), ".bin", StringComparison.OrdinalIgnoreCase))
-        {
-            return "CGMB key file";
-        }
-
-        return "Unsupported";
     }
 
     private static string GetGroupKey(string sourceRootPath, string filePath)
@@ -2488,7 +2415,11 @@ public partial class MainViewModel : ViewModelBase
             StoredFiles.Add(item);
         }
 
-        SelectedStoredFile = StoredFiles.FirstOrDefault(item => item.Id == selectedId) ?? StoredFiles.FirstOrDefault();
+        var preferredVisibleItem = StoredFiles.FirstOrDefault(item => item.IsPreferredVersion);
+        var restoredSelection = selectedId is not null ? StoredFiles.FirstOrDefault(item => item.Id == selectedId) : null;
+        SelectedStoredFile = restoredSelection is not null && restoredSelection.IsPreferredVersion
+            ? restoredSelection
+            : preferredVisibleItem ?? restoredSelection ?? StoredFiles.FirstOrDefault();
         UpdateStoredFileCommandStates();
     }
 
@@ -2780,6 +2711,11 @@ public partial class MainViewModel : ViewModelBase
             FileSizeBytes = item.FileSizeBytes;
             Sha256 = item.Sha256;
             IsDeleted = item.IsDeleted;
+            LockGroupKey = item.LockGroupKey;
+            MetadataCompletenessScore = item.MetadataCompletenessScore;
+            HasEisPassword = item.HasEisPassword;
+            IsPreferredVersion = item.IsPreferredVersion;
+            VersionCount = item.VersionCount;
         }
 
         public void UpdateFromDto(StoredFileListItemDto item)
@@ -2802,6 +2738,11 @@ public partial class MainViewModel : ViewModelBase
             FileSizeBytes = item.FileSizeBytes;
             Sha256 = item.Sha256;
             IsDeleted = item.IsDeleted;
+            LockGroupKey = item.LockGroupKey;
+            MetadataCompletenessScore = item.MetadataCompletenessScore;
+            HasEisPassword = item.HasEisPassword;
+            IsPreferredVersion = item.IsPreferredVersion;
+            VersionCount = item.VersionCount;
         }
 
         public Guid Id { get; }
@@ -2823,10 +2764,17 @@ public partial class MainViewModel : ViewModelBase
         public long FileSizeBytes { get; private set; }
         public string Sha256 { get; private set; }
         public bool IsDeleted { get; private set; }
+        public string LockGroupKey { get; private set; } = string.Empty;
+        public int MetadataCompletenessScore { get; private set; }
+        public bool HasEisPassword { get; private set; }
+        public bool IsPreferredVersion { get; private set; }
+        public int VersionCount { get; private set; }
         public string EffectiveVin => UserProvidedVin ?? DetectedVin ?? string.Empty;
         public string KeyCountDisplay => KeyCount.HasValue ? KeyCount.Value.ToString() : string.Empty;
         public string PasswordDisplay => string.IsNullOrWhiteSpace(EisPassword) ? string.Empty : EisPassword;
         public string UploadedAtDisplay => UploadedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
+        public string GroupSummary => VersionCount > 1 ? $"{VersionCount} versions • {(HasEisPassword ? "password present" : "no password")}" : (HasEisPassword ? "password present" : "single version");
+        public string PreferredBadge => IsPreferredVersion ? "Preferred" : string.Empty;
     }
 
     private sealed class ResearchFolderAnalysis

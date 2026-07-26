@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-
 namespace MercedesEISTool.Server.Services;
 
 public sealed class BulkConsumeDetectorResult
@@ -38,6 +36,62 @@ public sealed class BulkConsumeFileDetectorRegistry
             {
                 return result;
             }
+        }
+
+        return new BulkConsumeDetectorResult { DetectedFormat = "Unsupported", Confidence = 0d };
+    }
+}
+
+public sealed class AnalysisBasedBulkConsumeDetector : IBulkConsumeDetector
+{
+    private readonly IEisAnalysisService _analysisService;
+    private readonly IKeyFileAnalysisService _keyFileAnalysisService;
+
+    public AnalysisBasedBulkConsumeDetector(IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService)
+    {
+        _analysisService = analysisService ?? throw new ArgumentNullException(nameof(analysisService));
+        _keyFileAnalysisService = keyFileAnalysisService ?? throw new ArgumentNullException(nameof(keyFileAnalysisService));
+    }
+
+    public string Name => "analysis-based";
+
+    public BulkConsumeDetectorResult Detect(byte[] data, string fileName)
+    {
+        if (data is null || data.Length == 0)
+        {
+            return new BulkConsumeDetectorResult { DetectedFormat = "Unsupported", Confidence = 0d };
+        }
+
+        var keyAnalysis = _keyFileAnalysisService.Analyze(data, fileName);
+        if (string.Equals(keyAnalysis.DetectedFormat, "CGMB key file", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(keyAnalysis.DetectionConfidence, "Verified", StringComparison.OrdinalIgnoreCase))
+        {
+            return new BulkConsumeDetectorResult
+            {
+                DetectedFormat = "CGMB key file",
+                Confidence = 1d,
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["reason"] = "verified-key-file",
+                    ["confidence"] = keyAnalysis.DetectionConfidence
+                }
+            };
+        }
+
+        var analysis = _analysisService.Analyze(data, fileName);
+        if (string.Equals(analysis.DetectedFormat, "CGDI MB", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(analysis.DetectedFormat, "VVDI MB Tool", StringComparison.OrdinalIgnoreCase))
+        {
+            return new BulkConsumeDetectorResult
+            {
+                DetectedFormat = "EIS dump",
+                Confidence = 0.82,
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["reason"] = "verified-eis-analysis",
+                    ["detectedFormat"] = analysis.DetectedFormat
+                }
+            };
         }
 
         return new BulkConsumeDetectorResult { DetectedFormat = "Unsupported", Confidence = 0d };

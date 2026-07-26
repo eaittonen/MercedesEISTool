@@ -1045,11 +1045,29 @@ app.MapGet("/api/files", async (string? search, int? page, int? pageSize, IUploa
     var pageSizeValue = Math.Clamp(pageSize ?? 50, 1, 200);
     var allRecords = await uploadedDumpStore.ListAsync(currentUser, search, 1, int.MaxValue);
     var records = await uploadedDumpStore.ListAsync(currentUser, search, pageNumber, pageSizeValue);
-    var items = records.Select(record => BuildStoredFileListItem(record)).ToList();
+    var groups = StoredFileLockGroupResolver.BuildGroups(allRecords);
+    var groupedRecords = records
+        .Select(record =>
+        {
+            var group = groups.FirstOrDefault(item => item.LockGroupKey == record.LockGroupKey);
+            if (group is null)
+            {
+                return BuildStoredFileListItem(record);
+            }
+
+            var item = BuildStoredFileListItem(record);
+            item.LockGroupKey = group.LockGroupKey;
+            item.VersionCount = group.Versions.Count;
+            item.MetadataCompletenessScore = group.MetadataCompletenessScore;
+            item.HasEisPassword = group.HasEisPassword;
+            item.IsPreferredVersion = group.PreferredVersionId == record.Id;
+            return item;
+        })
+        .ToList();
     var totalCount = allRecords.Count;
     return Results.Ok(new StoredFileListResponse
     {
-        Items = items,
+        Items = groupedRecords,
         Page = pageNumber,
         PageSize = pageSizeValue,
         TotalCount = totalCount,
@@ -1560,7 +1578,12 @@ static StoredFileListItemDto BuildStoredFileListItem(UploadedDumpRecord record)
         FileSizeBytes = record.SizeBytes,
         Sha256 = ComputeSha256(File.ReadAllBytes(record.StoredFilePath)),
         IsDeleted = false,
-        CanViewSensitiveFields = true
+        CanViewSensitiveFields = true,
+        LockGroupKey = record.LockGroupKey,
+        MetadataCompletenessScore = record.MetadataCompletenessScore,
+        HasEisPassword = record.HasEisPassword,
+        IsPreferredVersion = record.IsPreferredVersion,
+        VersionCount = 0
     };
 }
 

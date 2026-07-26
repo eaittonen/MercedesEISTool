@@ -37,6 +37,10 @@ public class UploadedDumpRecord
     public StoredFileAnalysisSnapshot? LatestAnalysis { get; set; }
     public List<StoredFileAnalysisSnapshot> AnalysisHistory { get; set; } = new();
     public CgmbKeyFileAnalysisDto? KeyFileAnalysis { get; set; }
+    public string LockGroupKey { get; set; } = string.Empty;
+    public int MetadataCompletenessScore { get; set; }
+    public bool HasEisPassword { get; set; }
+    public bool IsPreferredVersion { get; set; }
 }
 
 public class StoredFileAnalysisSnapshot
