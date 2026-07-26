@@ -1487,6 +1487,7 @@ public partial class MainViewModel : ViewModelBase
                 Classification = classification,
                 DetectedFormat = classification == "CGMB key file" ? "CGMB key file" : "Unknown",
                 DetectedVin = detectedVin,
+                RegistrationNumber = registrationNumber,
                 Action = "Import",
                 Notes = string.Empty,
                 IsSelected = true,
@@ -1543,7 +1544,7 @@ public partial class MainViewModel : ViewModelBase
 
     private static string ExtractRegistrationNumber(string path)
     {
-        var segments = path.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        var segments = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
         return segments.LastOrDefault() ?? string.Empty;
     }
 

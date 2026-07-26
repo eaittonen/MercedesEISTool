@@ -65,6 +65,9 @@ public sealed class BulkConsumeService
                 Classification = classification,
                 DetectedFormat = detectedFormat,
                 DetectedVin = detectedVin,
+                RegistrationNumber = ExtractRegistrationNumber(file.DirectoryName ?? string.Empty),
+                OriginalSourceFolderName = Path.GetFileName(resolvedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                OriginalRelativePath = Path.GetRelativePath(resolvedPath, file.FullName),
                 Action = "Import",
                 Notes = keyFileAnalysis is not null ? $"Key analysis confidence: {keyFileAnalysis.DetectionConfidence}" : string.Empty,
                 IsSelected = true
@@ -120,6 +123,12 @@ public sealed class BulkConsumeService
             Results = results,
             Message = $"Imported {results.Count} file(s)."
         };
+    }
+
+    private static string ExtractRegistrationNumber(string path)
+    {
+        var segments = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        return segments.LastOrDefault() ?? string.Empty;
     }
 
     private static string ResolveSourceFolderPath(string sourceFolderPath)

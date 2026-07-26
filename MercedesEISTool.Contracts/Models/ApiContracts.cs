@@ -390,6 +390,9 @@ public sealed class BulkConsumePreviewItemDto
     public string Classification { get; set; } = string.Empty;
     public string DetectedFormat { get; set; } = string.Empty;
     public string? DetectedVin { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? OriginalSourceFolderName { get; set; }
+    public string? OriginalRelativePath { get; set; }
     public string Action { get; set; } = "Import";
     public string Notes { get; set; } = string.Empty;
     public bool IsSelected { get; set; } = true;
