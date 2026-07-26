@@ -42,6 +42,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IUploadedDumpStore, JsonUploadedDumpStore>();
 builder.Services.AddSingleton<IEisAnalysisService, EisAnalysisService>();
 builder.Services.AddSingleton<IKeyFileAnalysisService, KeyFileAnalysisService>();
+builder.Services.AddSingleton<BulkConsumeService>();
 builder.Services.AddAntiforgery();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(effectiveConnectionString));
@@ -1074,6 +1075,32 @@ app.MapPost("/api/files/{storedFileId:guid}/reanalyze", async Task<IResult> (Gui
 
     await uploadedDumpStore.AnalyzeAndStoreAsync(storedFileId, analysisService);
     return Results.Ok(BuildStoredFileDetails(await uploadedDumpStore.GetByIdAsync(storedFileId, currentUser)));
+});
+
+app.MapPost("/api/bulk-consume/preview", async Task<IResult> (BulkConsumePreviewRequest request, BulkConsumeService bulkConsumeService) =>
+{
+    try
+    {
+        var response = await bulkConsumeService.PreviewAsync(request.SourceFolderPath, request.IncludeSubdirectories);
+        return Results.Ok(response);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "bulk_consume_preview_failed" });
+    }
+});
+
+app.MapPost("/api/bulk-consume/import", async Task<IResult> (BulkConsumeImportRequest request, BulkConsumeService bulkConsumeService, ICurrentUser currentUser) =>
+{
+    try
+    {
+        var response = await bulkConsumeService.ImportAsync(request, currentUser);
+        return Results.Ok(response);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "bulk_consume_import_failed" });
+    }
 });
 
 app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, [FromForm] string? customerName, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>

@@ -381,6 +381,63 @@ public class UploadedDumpListResponse
     public List<UploadedDumpSummary> Uploads { get; set; } = new();
 }
 
+public sealed class BulkConsumePreviewItemDto
+{
+    public string SourcePath { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
+    public string Sha256 { get; set; } = string.Empty;
+    public string Classification { get; set; } = string.Empty;
+    public string DetectedFormat { get; set; } = string.Empty;
+    public string? DetectedVin { get; set; }
+    public string Action { get; set; } = "Import";
+    public string Notes { get; set; } = string.Empty;
+    public bool IsSelected { get; set; } = true;
+}
+
+public sealed class BulkConsumePreviewResponse
+{
+    public string SourceFolderPath { get; set; } = string.Empty;
+    public bool IncludeSubdirectories { get; set; }
+    public List<BulkConsumePreviewItemDto> Items { get; set; } = new();
+    public int TotalFiles { get; set; }
+    public string Summary { get; set; } = string.Empty;
+}
+
+public sealed class BulkConsumeImportItemRequest
+{
+    public string SourcePath { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string Classification { get; set; } = string.Empty;
+    public string? VehicleIdentifier { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? CustomerName { get; set; }
+}
+
+public sealed class BulkConsumeImportRequest
+{
+    public string SourceFolderPath { get; set; } = string.Empty;
+    public bool IncludeSubdirectories { get; set; }
+    public List<BulkConsumeImportItemRequest> Items { get; set; } = new();
+}
+
+public sealed class BulkConsumeImportResultDto
+{
+    public string SourcePath { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public Guid StoredFileId { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}
+
+public sealed class BulkConsumeImportResponse
+{
+    public Guid BatchId { get; set; }
+    public int ImportedCount { get; set; }
+    public List<BulkConsumeImportResultDto> Results { get; set; } = new();
+    public string Message { get; set; } = string.Empty;
+}
+
 public class ApiErrorResponse
 {
     public string Message { get; set; } = string.Empty;

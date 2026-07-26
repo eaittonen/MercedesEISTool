@@ -164,6 +164,24 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string _myFilesDetails = string.Empty;
 
+    [ObservableProperty]
+    private bool _isBulkConsumeWizardOpen;
+
+    [ObservableProperty]
+    private string _bulkConsumeSourceFolder = string.Empty;
+
+    [ObservableProperty]
+    private bool _bulkConsumeIncludeSubdirectories;
+
+    [ObservableProperty]
+    private ObservableCollection<BulkConsumePreviewItemDto> _bulkConsumeItems = new();
+
+    [ObservableProperty]
+    private string _bulkConsumeSummary = string.Empty;
+
+    [ObservableProperty]
+    private bool _isBulkConsumeBusy;
+
     public string SelectedStoredFileRegistration => SelectedStoredFile?.RegistrationNumber ?? string.Empty;
     public bool HasSelectedStoredFileRegistration => !string.IsNullOrWhiteSpace(SelectedStoredFileRegistration);
     public string SelectedStoredFileVin => SelectedStoredFile?.UserProvidedVin ?? SelectedStoredFile?.DetectedVin ?? string.Empty;
@@ -1337,6 +1355,102 @@ public partial class MainViewModel : ViewModelBase
         }
 
         Status = $"Compare A set to {SelectedStoredFile.OriginalFileName}";
+    }
+
+    [RelayCommand]
+    private async Task OpenBulkConsumeWizard()
+    {
+        var window = (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as Window;
+        if (window is null)
+        {
+            return;
+        }
+
+        var folder = await window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select source folder for bulk consume"
+        });
+
+        var selectedFolder = folder.FirstOrDefault();
+        if (selectedFolder is null)
+        {
+            return;
+        }
+
+        BulkConsumeSourceFolder = selectedFolder.Path.LocalPath;
+        IsBulkConsumeWizardOpen = true;
+        BulkConsumeSummary = "Scanning source folder...";
+        IsBulkConsumeBusy = true;
+
+        try
+        {
+            var response = await _apiClient.PreviewBulkConsumeAsync(BulkConsumeSourceFolder, BulkConsumeIncludeSubdirectories);
+            BulkConsumeItems = new ObservableCollection<BulkConsumePreviewItemDto>(response.Items);
+            BulkConsumeSummary = response.Summary;
+            Status = response.Summary;
+        }
+        catch (Exception ex)
+        {
+            BulkConsumeSummary = $"Preview failed: {ex.Message}";
+            Status = ex.Message;
+        }
+        finally
+        {
+            IsBulkConsumeBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseBulkConsumeWizard()
+    {
+        IsBulkConsumeWizardOpen = false;
+        BulkConsumeSummary = string.Empty;
+        BulkConsumeItems.Clear();
+    }
+
+    [RelayCommand]
+    private async Task ImportBulkConsumeSelection()
+    {
+        if (BulkConsumeItems.Count == 0)
+        {
+            BulkConsumeSummary = "No supported files were selected for import.";
+            return;
+        }
+
+        try
+        {
+            IsBulkConsumeBusy = true;
+            var request = new BulkConsumeImportRequest
+            {
+                SourceFolderPath = BulkConsumeSourceFolder,
+                IncludeSubdirectories = BulkConsumeIncludeSubdirectories,
+                Items = BulkConsumeItems
+                    .Where(item => item.IsSelected)
+                    .Select(item => new BulkConsumeImportItemRequest
+                    {
+                        SourcePath = item.SourcePath,
+                        FileName = item.FileName,
+                        Classification = item.Classification,
+                        VehicleIdentifier = item.DetectedVin,
+                        RegistrationNumber = string.Empty,
+                        CustomerName = string.Empty
+                    }).ToList()
+            };
+
+            var response = await _apiClient.ImportBulkConsumeAsync(request);
+            BulkConsumeSummary = response.Message;
+            Status = response.Message;
+            await RefreshUploadedFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            BulkConsumeSummary = $"Import failed: {ex.Message}";
+            Status = ex.Message;
+        }
+        finally
+        {
+            IsBulkConsumeBusy = false;
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanCompareStoredFile))]

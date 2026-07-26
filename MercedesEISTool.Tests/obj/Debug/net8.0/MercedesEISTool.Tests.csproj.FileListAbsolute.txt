@@ -462,3 +462,4 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\obj\De
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\obj\Debug\net8.0\ref\MercedesEISTool.Tests.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\bin\Debug\net8.0\appsettings.Production.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.InMemory.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\bin\Debug\net8.0\MercedesEISTool.Server.exe

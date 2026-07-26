@@ -1,0 +1,144 @@
+using System.Security.Cryptography;
+using Microsoft.Extensions.Logging;
+using MercedesEISTool.Contracts.Models;
+using MercedesEISTool.Server.Models;
+
+namespace MercedesEISTool.Server.Services;
+
+public sealed class BulkConsumeService
+{
+    private readonly IUploadedDumpStore _uploadedDumpStore;
+    private readonly IEisAnalysisService _analysisService;
+    private readonly IKeyFileAnalysisService _keyFileAnalysisService;
+    private readonly ILogger<BulkConsumeService> _logger;
+
+    public BulkConsumeService(
+        IUploadedDumpStore uploadedDumpStore,
+        IEisAnalysisService analysisService,
+        IKeyFileAnalysisService keyFileAnalysisService,
+        ILogger<BulkConsumeService> logger)
+    {
+        _uploadedDumpStore = uploadedDumpStore;
+        _analysisService = analysisService;
+        _keyFileAnalysisService = keyFileAnalysisService;
+        _logger = logger;
+    }
+
+    public async Task<BulkConsumePreviewResponse> PreviewAsync(string sourceFolderPath, bool includeSubdirectories)
+    {
+        if (string.IsNullOrWhiteSpace(sourceFolderPath) || !Directory.Exists(sourceFolderPath))
+        {
+            throw new DirectoryNotFoundException("The selected source folder does not exist.");
+        }
+
+        var searchOption = includeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        var files = Directory.EnumerateFiles(sourceFolderPath, "*", searchOption)
+            .Where(path => File.Exists(path))
+            .Select(path => new FileInfo(path))
+            .OrderBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var items = new List<BulkConsumePreviewItemDto>();
+        foreach (var file in files)
+        {
+            var bytes = await File.ReadAllBytesAsync(file.FullName);
+            var classification = Classify(bytes, file.Name);
+            if (!string.Equals(classification, "EIS dump", StringComparison.OrdinalIgnoreCase) && !string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var analysis = _analysisService.Analyze(bytes, file.Name);
+            var detectedVin = analysis.DetectedVin;
+            var detectedFormat = analysis.DetectedFormat;
+            var keyFileAnalysis = string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase)
+                ? _keyFileAnalysisService.Analyze(bytes, file.Name)
+                : null;
+
+            items.Add(new BulkConsumePreviewItemDto
+            {
+                SourcePath = file.FullName,
+                FileName = file.Name,
+                SizeBytes = file.Length,
+                Sha256 = ComputeSha256(bytes),
+                Classification = classification,
+                DetectedFormat = detectedFormat,
+                DetectedVin = detectedVin,
+                Action = "Import",
+                Notes = keyFileAnalysis is not null ? $"Key analysis confidence: {keyFileAnalysis.DetectionConfidence}" : string.Empty,
+                IsSelected = true
+            });
+        }
+
+        return new BulkConsumePreviewResponse
+        {
+            SourceFolderPath = sourceFolderPath,
+            IncludeSubdirectories = includeSubdirectories,
+            Items = items,
+            TotalFiles = items.Count,
+            Summary = $"{items.Count} supported files ready to import."
+        };
+    }
+
+    public async Task<BulkConsumeImportResponse> ImportAsync(BulkConsumeImportRequest request, ICurrentUser? currentUser = null)
+    {
+        if (request is null || request.Items.Count == 0)
+        {
+            throw new ArgumentException("At least one import item is required.", nameof(request));
+        }
+
+        var results = new List<BulkConsumeImportResultDto>();
+        foreach (var item in request.Items)
+        {
+            var bytes = await File.ReadAllBytesAsync(item.SourcePath);
+            var uploadedDump = await _uploadedDumpStore.PersistAsync(
+                bytes,
+                item.FileName,
+                item.VehicleIdentifier ?? string.Empty,
+                item.RegistrationNumber ?? string.Empty,
+                "bulk-consume",
+                _analysisService,
+                currentUser,
+                string.Equals(item.Classification, "CGMB key file", StringComparison.OrdinalIgnoreCase) ? FileCategory.KeyFile : FileCategory.EisDump,
+                item.CustomerName);
+
+            results.Add(new BulkConsumeImportResultDto
+            {
+                SourcePath = item.SourcePath,
+                FileName = item.FileName,
+                StoredFileId = uploadedDump.Id,
+                Status = "Imported",
+                Message = $"Imported {item.FileName}"
+            });
+        }
+
+        return new BulkConsumeImportResponse
+        {
+            BatchId = Guid.NewGuid(),
+            ImportedCount = results.Count,
+            Results = results,
+            Message = $"Imported {results.Count} file(s)."
+        };
+    }
+
+    private static string Classify(byte[] bytes, string fileName)
+    {
+        if (bytes.Length == 256)
+        {
+            return "EIS dump";
+        }
+
+        if (bytes.Length == 160 && string.Equals(Path.GetExtension(fileName), ".bin", StringComparison.OrdinalIgnoreCase))
+        {
+            return "CGMB key file";
+        }
+
+        return "Unsupported";
+    }
+
+    private static string ComputeSha256(byte[] bytes)
+    {
+        using var sha = SHA256.Create();
+        return Convert.ToHexString(sha.ComputeHash(bytes));
+    }
+}

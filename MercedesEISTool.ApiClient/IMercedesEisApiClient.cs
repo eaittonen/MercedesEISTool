@@ -31,4 +31,6 @@ public interface IMercedesEisApiClient
     Task<byte[]> DownloadStoredFileAsync(Guid storedFileId, CancellationToken cancellationToken = default);
     Task<StoredFileDetailsDto> ReanalyzeStoredFileAsync(Guid storedFileId, CancellationToken cancellationToken = default);
     Task<CompareDumpsResponse> CompareDumpsAsync(byte[] left, byte[] right, string leftFileName, string rightFileName, string vehicleIdentifier, string registrationNumber, CancellationToken cancellationToken = default);
+    Task<BulkConsumePreviewResponse> PreviewBulkConsumeAsync(string sourceFolderPath, bool includeSubdirectories, CancellationToken cancellationToken = default);
+    Task<BulkConsumeImportResponse> ImportBulkConsumeAsync(BulkConsumeImportRequest request, CancellationToken cancellationToken = default);
 }

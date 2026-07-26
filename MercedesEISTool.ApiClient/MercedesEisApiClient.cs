@@ -245,6 +245,20 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<CompareDumpsResponse>(cancellationToken: cancellationToken) ?? new CompareDumpsResponse();
     }
 
+    public async Task<BulkConsumePreviewResponse> PreviewBulkConsumeAsync(string sourceFolderPath, bool includeSubdirectories, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("/api/bulk-consume/preview", new { sourceFolderPath, includeSubdirectories }, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<BulkConsumePreviewResponse>(cancellationToken: cancellationToken) ?? new BulkConsumePreviewResponse();
+    }
+
+    public async Task<BulkConsumeImportResponse> ImportBulkConsumeAsync(BulkConsumeImportRequest request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("/api/bulk-consume/import", request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<BulkConsumeImportResponse>(cancellationToken: cancellationToken) ?? new BulkConsumeImportResponse();
+    }
+
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)
