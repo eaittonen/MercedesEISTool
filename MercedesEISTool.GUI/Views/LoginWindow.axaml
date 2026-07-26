@@ -6,7 +6,7 @@
         Icon="/App icon.png"
         Title="Sign in"
         Width="420"
-        Height="320"
+        Height="380"
         CanResize="False">
   <Design.DataContext>
     <vm:LoginViewModel />
