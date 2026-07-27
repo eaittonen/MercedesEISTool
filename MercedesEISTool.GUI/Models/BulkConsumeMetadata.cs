@@ -7,10 +7,12 @@ public sealed class BulkConsumeMetadata
     public string? CustomerName { get; set; }
     public string? CustomerIdentifier { get; set; }
     public string? FolderIdentifier { get; set; }
+    public string? AdditionalInformation { get; set; }
     public string? VinConfidence { get; set; }
     public string? RegistrationConfidence { get; set; }
     public string? CustomerConfidence { get; set; }
     public string? FolderIdentifierConfidence { get; set; }
+    public string? AdditionalInformationConfidence { get; set; }
     public string? MetadataConfidence { get; set; }
     public string? Password { get; set; }
     public string? Score { get; set; }

@@ -111,3 +111,6 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debu
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\Microsoft.Extensions.FileSystemGlobbing.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\Microsoft.Extensions.Primitives.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\Avalonia.Controls.DataGrid.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\Configuration\FieldMaps.json
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\MercedesEISTool.Core.dll
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Debug\net8.0\MercedesEISTool.Core.pdb

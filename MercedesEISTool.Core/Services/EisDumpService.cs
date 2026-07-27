@@ -8,12 +8,15 @@ public class EisDumpService
 {
     private const string VvdiSignature = "VVDIMBDATA";
     private readonly Dictionary<string, Dictionary<string, FieldDefinition>> _fieldMaps;
+    private readonly List<IEisParser> _parsers = new();
 
     public EisDumpService()
     {
         var configPath = ResolveConfigPath();
         var json = File.ReadAllText(configPath);
         _fieldMaps = LoadFieldMaps(json);
+        _parsers.Add(new CgdiEisParser());
+        _parsers.Add(new VvdiMercedesEisParser());
     }
 
     private static Dictionary<string, Dictionary<string, FieldDefinition>> LoadFieldMaps(string json)
@@ -149,6 +152,24 @@ public class EisDumpService
         return dump;
     }
 
+    public EisParserResult ParseResult(byte[] data)
+    {
+        if (data is null)
+        {
+            throw new ArgumentNullException(nameof(data));
+        }
+
+        foreach (var parser in _parsers)
+        {
+            if (parser.CanHandle(data))
+            {
+                return parser.Parse(data);
+            }
+        }
+
+        return new EisParserResult { Format = "Unknown", DetectionConfidence = "Rejected" };
+    }
+
     public EisDump ConvertDump(EisDump dump, string targetFormat)
     {
         var converted = new EisDump
@@ -177,19 +198,17 @@ public class EisDumpService
 
     public string DetectFormat(byte[] data)
     {
-        if (data.Length != 256)
+        if (data is null || data.Length != 256)
         {
             return "Unknown";
         }
 
-        if (HasVvdiSignature(data))
+        foreach (var parser in _parsers)
         {
-            return "VVDI MB Tool";
-        }
-
-        if (LooksLikeCgdiVin(data))
-        {
-            return "CGDI MB";
+            if (parser.CanHandle(data))
+            {
+                return parser.Format;
+            }
         }
 
         return "Unknown";

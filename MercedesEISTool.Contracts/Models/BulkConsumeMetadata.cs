@@ -15,10 +15,12 @@ public sealed class BulkConsumeMetadata
     public string? CustomerName { get; set; }
     public string? CustomerIdentifier { get; set; }
     public string? FolderIdentifier { get; set; }
+    public string? AdditionalInformation { get; set; }
     public MetadataConfidence VinConfidence { get; set; } = MetadataConfidence.Unknown;
     public MetadataConfidence RegistrationConfidence { get; set; } = MetadataConfidence.Unknown;
     public MetadataConfidence CustomerConfidence { get; set; } = MetadataConfidence.Unknown;
     public MetadataConfidence FolderIdentifierConfidence { get; set; } = MetadataConfidence.Unknown;
+    public MetadataConfidence AdditionalInformationConfidence { get; set; } = MetadataConfidence.Unknown;
     public MetadataConfidence MetadataConfidence { get; set; } = MetadataConfidence.Unknown;
     public string? Password { get; set; }
     public string? Score { get; set; }

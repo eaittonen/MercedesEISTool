@@ -151,7 +151,8 @@ public sealed class BulkConsumeService
                     _analysisService,
                     currentUser,
                     string.Equals(classification, "CGMB key file", StringComparison.OrdinalIgnoreCase) ? FileCategory.KeyFile : FileCategory.EisDump,
-                    item.CustomerName);
+                    item.CustomerName,
+                    item.AdditionalInformation);
 
                 results.Add(new BulkConsumeImportResultDto
                 {

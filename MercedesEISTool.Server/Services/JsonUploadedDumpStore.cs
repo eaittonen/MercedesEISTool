@@ -44,7 +44,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         return Path.GetFullPath(Path.Combine("/var/lib", "mercedes-eis-tool", "uploads"));
     }
 
-    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null)
+    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null, string? additionalInformation = null)
     {
         if (string.IsNullOrWhiteSpace(vehicleIdentifier) && string.IsNullOrWhiteSpace(registrationNumber))
         {
@@ -57,6 +57,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
             VehicleIdentifier = vehicleIdentifier.Trim(),
             RegistrationNumber = registrationNumber.Trim(),
             CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName.Trim(),
+            AdditionalInformation = string.IsNullOrWhiteSpace(additionalInformation) ? null : additionalInformation.Trim(),
             Operation = operation,
             SizeBytes = data.Length,
             UploadedByUserId = currentUser?.UserId ?? "development",

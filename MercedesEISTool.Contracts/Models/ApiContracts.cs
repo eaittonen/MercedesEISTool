@@ -234,6 +234,7 @@ public sealed class StoredFileListItemDto
     public string? DetectedVin { get; set; }
     public string? RegistrationNumber { get; set; }
     public string? CustomerName { get; set; }
+    public string? AdditionalInformation { get; set; }
     public string DetectedFormat { get; set; } = "Unknown";
     public string? EisType { get; set; }
     public string? McuType { get; set; }
@@ -276,6 +277,7 @@ public sealed class StoredFileDetailsDto
     public string VinStatus { get; set; } = "NotMapped";
     public string? RegistrationNumber { get; set; }
     public string? CustomerName { get; set; }
+    public string? AdditionalInformation { get; set; }
     public string DetectedFormat { get; set; } = "Unknown";
     public string? EisType { get; set; }
     public string EisTypeStatus { get; set; } = "NotMapped";
@@ -401,10 +403,12 @@ public sealed class BulkConsumePreviewItemDto
     public string? CustomerName { get; set; }
     public string? CustomerIdentifier { get; set; }
     public string? FolderIdentifier { get; set; }
+    public string? AdditionalInformation { get; set; }
     public MetadataConfidence? VinConfidence { get; set; }
     public MetadataConfidence? RegistrationConfidence { get; set; }
     public MetadataConfidence? CustomerConfidence { get; set; }
     public MetadataConfidence? FolderIdentifierConfidence { get; set; }
+    public MetadataConfidence? AdditionalInformationConfidence { get; set; }
     public MetadataConfidence? MetadataConfidence { get; set; }
     public string? Password { get; set; }
     public string? Score { get; set; }
@@ -412,6 +416,7 @@ public sealed class BulkConsumePreviewItemDto
     public string? EditedVin { get; set; }
     public string? EditedRegistrationNumber { get; set; }
     public string? EditedCustomerName { get; set; }
+    public string? EditedAdditionalInformation { get; set; }
     public string? GroupingKey { get; set; }
     public string? GroupingLabel { get; set; }
     public string Action { get; set; } = "Import";
@@ -449,6 +454,7 @@ public sealed class BulkConsumeImportItemRequest
     public string? RegistrationNumber { get; set; }
     public string? CustomerName { get; set; }
     public string? FolderIdentifier { get; set; }
+    public string? AdditionalInformation { get; set; }
     public MetadataConfidence? MetadataConfidence { get; set; }
 }
 

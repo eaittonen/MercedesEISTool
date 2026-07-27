@@ -495,12 +495,14 @@
                                                                                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditedRegistrationNumber}" />
                                                                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Customer" Opacity="0.8" />
                                                                                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditedCustomerName}" />
-                                                                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Format" Opacity="0.8" />
-                                                                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DetectedFormat}" />
-                                                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Password" Opacity="0.8" />
-                                                                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Password}" />
-                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Score / reason" Opacity="0.8" />
-                                                                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Score}" />
+                                                                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Additional info" Opacity="0.8" />
+                                                                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding EditedAdditionalInformation}" />
+                                                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Format" Opacity="0.8" />
+                                                                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding DetectedFormat}" />
+                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Password" Opacity="0.8" />
+                                                                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Password}" />
+                                                                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Score / reason" Opacity="0.8" />
+                                                                                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Score}" />
                                                                                     </Grid>
                                                                                     <TextBlock Text="{Binding Reason}" Opacity="0.75" TextWrapping="Wrap" />
                                                                                     <TextBlock Text="{Binding Notes}" Opacity="0.75" TextWrapping="Wrap" />

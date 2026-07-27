@@ -1136,7 +1136,7 @@ app.MapPost("/api/bulk-consume/import", async Task<IResult> (BulkConsumeImportRe
     });
 });
 
-app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [FromForm] string? registrationNumber, [FromForm] string? vehicleIdentifier, [FromForm] string? customerName, [FromForm] string? folderIdentifier, [FromForm] string? metadataConfidence, [FromForm] string? originalSourceFolderName, [FromForm] string? originalSourceRelativePath, [FromForm] string? sha256, [FromForm] string? classification, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
+app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [FromForm] string? registrationNumber, [FromForm] string? vehicleIdentifier, [FromForm] string? customerName, [FromForm] string? additionalInformation, [FromForm] string? folderIdentifier, [FromForm] string? metadataConfidence, [FromForm] string? originalSourceFolderName, [FromForm] string? originalSourceRelativePath, [FromForm] string? sha256, [FromForm] string? classification, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
 {
     if (file is null || file.Length == 0)
     {
@@ -1170,7 +1170,7 @@ app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [Fr
         return Results.BadRequest(new ApiErrorResponse { Message = "A vehicle identifier is required for bulk-consume uploads.", ErrorCode = "missing_vehicle_identifier", RequestId = httpContext.TraceIdentifier });
     }
 
-    var savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, vehicleIdentifier ?? string.Empty, registrationNumber ?? string.Empty, "bulk-consume", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump, customerName);
+    var savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, vehicleIdentifier ?? string.Empty, registrationNumber ?? string.Empty, "bulk-consume", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump, customerName, additionalInformation);
     if (isKeyFile)
     {
         await uploadedDumpStore.AnalyzeAndStoreKeyFileAsync(savedUpload.Id, keyFileAnalysisService, currentUser);
@@ -1555,6 +1555,7 @@ static StoredFileListItemDto BuildStoredFileListItem(UploadedDumpRecord record)
         DetectedVin = latest?.DetectedVin,
         RegistrationNumber = string.IsNullOrWhiteSpace(record.RegistrationNumber) ? null : record.RegistrationNumber,
         CustomerName = string.IsNullOrWhiteSpace(record.CustomerName) ? null : record.CustomerName,
+        AdditionalInformation = string.IsNullOrWhiteSpace(record.AdditionalInformation) ? null : record.AdditionalInformation,
         DetectedFormat = latest?.DetectedFormat ?? "Unknown",
         EisType = latest?.EisType,
         McuType = latest?.McuType,
@@ -1597,6 +1598,7 @@ static StoredFileDetailsDto BuildStoredFileDetails(UploadedDumpRecord? record)
         VinStatus = latest?.VinStatus ?? "NotMapped",
         RegistrationNumber = string.IsNullOrWhiteSpace(record.RegistrationNumber) ? null : record.RegistrationNumber,
         CustomerName = string.IsNullOrWhiteSpace(record.CustomerName) ? null : record.CustomerName,
+        AdditionalInformation = string.IsNullOrWhiteSpace(record.AdditionalInformation) ? null : record.AdditionalInformation,
         DetectedFormat = latest?.DetectedFormat ?? "Unknown",
         EisType = latest?.EisType,
         EisTypeStatus = latest?.EisTypeStatus.ToString() ?? "NotMapped",

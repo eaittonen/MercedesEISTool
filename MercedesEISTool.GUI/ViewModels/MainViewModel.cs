@@ -1506,10 +1506,12 @@ public partial class MainViewModel : ViewModelBase
                     CustomerName = metadata.CustomerName,
                     CustomerIdentifier = metadata.CustomerIdentifier,
                     FolderIdentifier = metadata.FolderIdentifier,
+                    AdditionalInformation = metadata.AdditionalInformation,
                     VinConfidence = metadata.VinConfidence,
                     RegistrationConfidence = metadata.RegistrationConfidence,
                     CustomerConfidence = metadata.CustomerConfidence,
                     FolderIdentifierConfidence = metadata.FolderIdentifierConfidence,
+                    AdditionalInformationConfidence = metadata.AdditionalInformationConfidence,
                     MetadataConfidence = metadata.MetadataConfidence,
                     Password = metadata.Password,
                     Score = metadata.Score,
@@ -1522,6 +1524,7 @@ public partial class MainViewModel : ViewModelBase
                     EditedVin = metadata.DetectedVin,
                     EditedRegistrationNumber = metadata.RegistrationNumber,
                     EditedCustomerName = string.IsNullOrWhiteSpace(metadata.CustomerName) ? metadata.CustomerIdentifier : metadata.CustomerName,
+                    EditedAdditionalInformation = metadata.AdditionalInformation,
                     IsSelected = isImportable,
                     IsImportable = isImportable,
                     IsIgnored = isIgnored,
@@ -1600,6 +1603,7 @@ public partial class MainViewModel : ViewModelBase
         content.Add(new StringContent(item.EditedRegistrationNumber ?? item.RegistrationNumber ?? string.Empty), "registrationNumber");
         content.Add(new StringContent(item.EditedCustomerName ?? item.CustomerName ?? string.Empty), "customerName");
         content.Add(new StringContent(item.FolderIdentifier ?? string.Empty), "folderIdentifier");
+        content.Add(new StringContent(item.EditedAdditionalInformation ?? item.AdditionalInformation ?? string.Empty), "additionalInformation");
         content.Add(new StringContent(item.MetadataConfidence?.ToString() ?? string.Empty), "metadataConfidence");
         content.Add(new StringContent(Path.GetFileName(BulkConsumeSourceFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? string.Empty), "originalSourceFolderName");
         content.Add(new StringContent(Path.GetRelativePath(BulkConsumeSourceFolder, item.SourcePath)), "originalSourceRelativePath");
@@ -1653,6 +1657,7 @@ public partial class MainViewModel : ViewModelBase
         var registrationConfidence = MetadataConfidence.Low;
         var customerConfidence = MetadataConfidence.Low;
         var folderIdentifierConfidence = MetadataConfidence.Low;
+        var additionalInformationConfidence = MetadataConfidence.Low;
         var metadataConfidence = MetadataConfidence.Low;
         var reason = new List<string>();
         var fileNameCandidates = new List<string> { file.Name, fileName };
@@ -1705,6 +1710,7 @@ public partial class MainViewModel : ViewModelBase
         }
 
         var registration = ExtractRegistrationFromSegments(allSegments);
+        var additionalInformation = string.Empty;
         if (!string.IsNullOrWhiteSpace(registration))
         {
             registrationConfidence = MetadataConfidence.Medium;
@@ -1714,27 +1720,31 @@ public partial class MainViewModel : ViewModelBase
         var customerCandidate = ExtractCustomerCandidate(allSegments, fileNameCandidates);
         var customerName = string.Empty;
         var customerIdentifier = string.Empty;
-        var effectiveCustomer = string.Empty;
         if (IsPhoneNumber(customerCandidate))
         {
             customerIdentifier = customerCandidate;
             customerConfidence = MetadataConfidence.Low;
-            effectiveCustomer = customerIdentifier;
-            folderIdentifierConfidence = MetadataConfidence.Low;
+            additionalInformation = customerCandidate;
+            additionalInformationConfidence = MetadataConfidence.Low;
         }
         else if (LooksLikePersonName(customerCandidate))
         {
             customerName = customerCandidate;
             customerConfidence = MetadataConfidence.Low;
-            effectiveCustomer = customerName;
-            folderIdentifierConfidence = MetadataConfidence.Low;
         }
         else if (!string.IsNullOrWhiteSpace(customerCandidate) && string.IsNullOrWhiteSpace(registration) && string.IsNullOrWhiteSpace(parsedVin))
         {
             customerIdentifier = customerCandidate;
             customerConfidence = MetadataConfidence.Low;
-            effectiveCustomer = customerIdentifier;
-            folderIdentifierConfidence = MetadataConfidence.Low;
+        }
+
+        if (string.IsNullOrWhiteSpace(additionalInformation))
+        {
+            additionalInformation = ExtractAdditionalInformation(allSegments, registration, parsedVin, customerCandidate);
+            if (!string.IsNullOrWhiteSpace(additionalInformation))
+            {
+                additionalInformationConfidence = MetadataConfidence.Low;
+            }
         }
 
         var folderIdentifier = SelectFolderIdentifier(allSegments, registration, parsedVin, customerIdentifier, customerName);
@@ -1749,17 +1759,28 @@ public partial class MainViewModel : ViewModelBase
         {
             try
             {
-                var dump = new EisDumpService().ParseDump(data);
-                password = string.Empty;
+                var dumpService = new EisDumpService();
+                var parserResult = dumpService.ParseResult(data);
+                if (string.IsNullOrWhiteSpace(parsedVin) && !string.IsNullOrWhiteSpace(parserResult.Vin))
+                {
+                    parsedVin = parserResult.Vin;
+                    vinConfidence = MetadataConfidence.High;
+                    reason.Add("parsed from EIS parser metadata");
+                }
+
+                if (!string.IsNullOrWhiteSpace(parserResult.EisPassword))
+                {
+                    password = parserResult.EisPassword;
+                }
             }
             catch
             {
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(parsedVin) || !string.IsNullOrWhiteSpace(registration) || !string.IsNullOrWhiteSpace(customerName) || !string.IsNullOrWhiteSpace(customerIdentifier) || !string.IsNullOrWhiteSpace(folderIdentifier))
+        if (!string.IsNullOrWhiteSpace(parsedVin) || !string.IsNullOrWhiteSpace(registration) || !string.IsNullOrWhiteSpace(customerName) || !string.IsNullOrWhiteSpace(customerIdentifier) || !string.IsNullOrWhiteSpace(folderIdentifier) || !string.IsNullOrWhiteSpace(additionalInformation))
         {
-            metadataConfidence = parsedVin is not null && parsedVin.Length > 0 ? MetadataConfidence.High : registration is not null && registration.Length > 0 ? MetadataConfidence.Medium : MetadataConfidence.Low;
+            metadataConfidence = !string.IsNullOrWhiteSpace(parsedVin) ? MetadataConfidence.High : !string.IsNullOrWhiteSpace(registration) ? MetadataConfidence.Medium : MetadataConfidence.Low;
         }
 
         var score = new List<string>();
@@ -1777,10 +1798,12 @@ public partial class MainViewModel : ViewModelBase
             CustomerName = customerName,
             CustomerIdentifier = customerIdentifier,
             FolderIdentifier = folderIdentifier,
+            AdditionalInformation = additionalInformation,
             VinConfidence = vinConfidence,
             RegistrationConfidence = registrationConfidence,
             CustomerConfidence = customerConfidence,
             FolderIdentifierConfidence = folderIdentifierConfidence,
+            AdditionalInformationConfidence = additionalInformationConfidence,
             MetadataConfidence = metadataConfidence,
             Password = password,
             Score = score.Count == 0 ? "0/4" : $"{score.Count}/4",
@@ -1830,23 +1853,22 @@ public partial class MainViewModel : ViewModelBase
             return $"{cleaned[0]}{cleaned[1]}{cleaned[2]}-{cleaned[3]}{cleaned[4]}{cleaned[5]}";
         }
 
-        if (cleaned.Length >= 3)
+        var letters = new StringBuilder();
+        var digits = new StringBuilder();
+        foreach (var ch in cleaned)
         {
-            var letters = new StringBuilder();
-            var digits = new StringBuilder();
-            foreach (var ch in cleaned)
-            {
-                if (char.IsDigit(ch)) digits.Append(ch);
-                else letters.Append(ch);
-            }
-
-            if (letters.Length > 0 && digits.Length > 0)
-            {
-                return $"{letters.ToString().Substring(0, Math.Min(3, letters.Length))}-{digits.ToString().Substring(0, Math.Min(3, digits.Length))}";
-            }
+            if (char.IsDigit(ch)) digits.Append(ch);
+            else letters.Append(ch);
         }
 
-        return cleaned.Length >= 3 ? cleaned : string.Empty;
+        if (letters.Length > 0 && digits.Length > 0)
+        {
+            var normalizedLetters = letters.ToString().Substring(0, Math.Min(3, letters.Length));
+            var normalizedDigits = digits.ToString().Substring(0, Math.Min(3, digits.Length));
+            return $"{normalizedLetters}-{normalizedDigits}";
+        }
+
+        return string.Empty;
     }
 
     private static string ExtractVinFromSegments(IReadOnlyList<string> segments)
@@ -1931,8 +1953,142 @@ public partial class MainViewModel : ViewModelBase
 
     private static string ExtractVinFromFileName(string fileName)
     {
-        var match = Regex.Match(fileName, "[A-HJ-NPR-Z0-9]{17}");
-        return match.Success ? match.Value : string.Empty;
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return string.Empty;
+        }
+
+        var candidate = Regex.Match(fileName, "[A-HJ-NPR-Z0-9]{17}");
+        if (!candidate.Success)
+        {
+            return string.Empty;
+        }
+
+        var vin = candidate.Value;
+        if (!IsValidVinValue(vin))
+        {
+            return string.Empty;
+        }
+
+        return vin;
+    }
+
+    private static bool IsValidVinValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length != 17)
+        {
+            return false;
+        }
+
+        var hasLetter = false;
+        foreach (var ch in value)
+        {
+            if (!char.IsLetterOrDigit(ch))
+            {
+                return false;
+            }
+
+            if (ch is 'I' or 'O' or 'Q' or 'i' or 'o' or 'q')
+            {
+                return false;
+            }
+
+            if (char.IsLetter(ch))
+            {
+                hasLetter = true;
+            }
+        }
+
+        if (!hasLetter)
+        {
+            return false;
+        }
+
+        if (value.All(ch => char.IsDigit(ch)))
+        {
+            return false;
+        }
+
+        if (value.Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string ExtractAdditionalInformation(IReadOnlyList<string> segments, string registration, string vin, string customerCandidate)
+    {
+        foreach (var segment in segments.Reverse())
+        {
+            var trimmed = segment.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                continue;
+            }
+
+            if (string.Equals(trimmed, registration, StringComparison.OrdinalIgnoreCase) || string.Equals(trimmed, vin, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (LooksLikeRegistration(trimmed) || ExtractVinFromFileName(trimmed).Length > 0)
+            {
+                continue;
+            }
+
+            if (LooksLikePersonName(trimmed) || IsPhoneNumber(trimmed))
+            {
+                continue;
+            }
+
+            var normalized = NormalizeAdditionalInformation(trimmed);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                return normalized;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(customerCandidate))
+        {
+            var normalizedCustomer = NormalizeAdditionalInformation(customerCandidate);
+            return string.IsNullOrWhiteSpace(normalizedCustomer) ? string.Empty : normalizedCustomer;
+        }
+
+        return string.Empty;
+    }
+
+    private static string NormalizeAdditionalInformation(string value)
+    {
+        var trimmed = value.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return string.Empty;
+        }
+
+        var cleaned = Regex.Replace(trimmed, "^[-_\s]+|[-_\s]+$", string.Empty);
+        if (string.IsNullOrWhiteSpace(cleaned))
+        {
+            return string.Empty;
+        }
+
+        if (LooksLikeRegistration(cleaned) || ExtractVinFromFileName(cleaned).Length > 0 || LooksLikePersonName(cleaned) || IsPhoneNumber(cleaned))
+        {
+            return string.Empty;
+        }
+
+        var words = cleaned.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (words.Length == 1 && words[0].Length <= 3)
+        {
+            return string.Empty;
+        }
+
+        return cleaned;
     }
 
     private static string BuildGroupingKey(BulkConsumeMetadata metadata)
@@ -3011,6 +3167,8 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSelectedStoredFileVin));
         OnPropertyChanged(nameof(SelectedStoredFileCustomer));
         OnPropertyChanged(nameof(HasSelectedStoredFileCustomer));
+        OnPropertyChanged(nameof(SelectedStoredFileAdditionalInformation));
+        OnPropertyChanged(nameof(HasSelectedStoredFileAdditionalInformation));
         OnPropertyChanged(nameof(SelectedStoredFileUploadDate));
         OnPropertyChanged(nameof(HasSelectedStoredFileUploadDate));
         OnPropertyChanged(nameof(SelectedStoredFileFilename));
@@ -3036,6 +3194,7 @@ public partial class MainViewModel : ViewModelBase
         AddDetailLine(lines, "Registration", item.RegistrationNumber);
         AddDetailLine(lines, "VIN", item.UserProvidedVin ?? item.DetectedVin);
         AddDetailLine(lines, "Customer", item.CustomerName);
+        AddDetailLine(lines, "Additional information", item.AdditionalInformation);
         AddDetailLine(lines, "Upload date", item.UploadedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
         AddDetailLine(lines, "Filename", item.OriginalFileName);
         AddDetailLine(lines, "Analysis status", item.AnalysisStatus);
@@ -3055,6 +3214,11 @@ public partial class MainViewModel : ViewModelBase
         if (!string.IsNullOrWhiteSpace(item.CustomerName))
         {
             vehicleInfo.Add($"Customer: {item.CustomerName}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.AdditionalInformation))
+        {
+            vehicleInfo.Add($"Additional info: {item.AdditionalInformation}");
         }
 
         if (vehicleInfo.Count > 0)
@@ -3172,6 +3336,7 @@ public partial class MainViewModel : ViewModelBase
             DetectedVin = item.DetectedVin;
             RegistrationNumber = item.RegistrationNumber;
             CustomerName = item.CustomerName;
+            AdditionalInformation = item.AdditionalInformation;
             DetectedFormat = item.DetectedFormat;
             EisType = item.EisType;
             McuType = item.McuType;
@@ -3199,6 +3364,7 @@ public partial class MainViewModel : ViewModelBase
             DetectedVin = item.DetectedVin;
             RegistrationNumber = item.RegistrationNumber;
             CustomerName = item.CustomerName;
+            AdditionalInformation = item.AdditionalInformation;
             DetectedFormat = item.DetectedFormat;
             EisType = item.EisType;
             McuType = item.McuType;
@@ -3225,6 +3391,7 @@ public partial class MainViewModel : ViewModelBase
         public string? DetectedVin { get; private set; }
         public string? RegistrationNumber { get; private set; }
         public string? CustomerName { get; private set; }
+        public string? AdditionalInformation { get; private set; }
         public string DetectedFormat { get; private set; }
         public string? EisType { get; private set; }
         public string? McuType { get; private set; }

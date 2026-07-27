@@ -17,6 +17,7 @@
           "CommunityToolkit.Mvvm": "8.4.2",
           "MercedesEISTool.ApiClient": "1.0.0",
           "MercedesEISTool.Contracts": "1.0.0",
+          "MercedesEISTool.Core": "1.0.0",
           "Microsoft.Extensions.Configuration": "8.0.0",
           "Microsoft.Extensions.Configuration.Binder": "8.0.0",
           "Microsoft.Extensions.Configuration.EnvironmentVariables": "8.0.0",
@@ -724,6 +725,14 @@
             "fileVersion": "1.0.0.0"
           }
         }
+      },
+      "MercedesEISTool.Core/1.0.0": {
+        "runtime": {
+          "MercedesEISTool.Core.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
       }
     }
   },
@@ -1061,6 +1070,11 @@
       "sha512": ""
     },
     "MercedesEISTool.Contracts/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MercedesEISTool.Core/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

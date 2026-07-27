@@ -54,27 +54,21 @@ public sealed class EisAnalysisService : IEisAnalysisService
         details.EisTypeStatus = FieldValueStatus.NotMapped;
         details.McuTypeStatus = FieldValueStatus.NotMapped;
         details.KeyCountStatus = FieldValueStatus.NotMapped;
-        details.EisPassword = CreateFieldForCgdiPassword(data);
-        details.Ssid = CreateFieldForCgdiSsid(data);
+        var parserResult = _dumpService.ParseResult(data);
+        details.EisPassword = CreateSensitiveField("EIS password", parserResult.EisPassword, parserResult.DetectionConfidence, 0x70, 8, parserResult.Format == "VVDI MB Tool" ? "VVDI mapping" : "CGDI mapping");
+        details.Ssid = CreateSensitiveField("SSID", parserResult.Ssid, parserResult.DetectionConfidence, 0x10, 4, parserResult.Format == "VVDI MB Tool" ? "VVDI mapping" : "CGDI mapping");
 
         if (string.Equals(details.DetectedFormat, "CGDI MB", StringComparison.OrdinalIgnoreCase))
         {
-            var vin = ReadAscii(data, 0, 17);
+            var vin = parserResult.Vin ?? string.Empty;
             details.DetectedVin = vin;
             details.VinStatus = DetermineVinStatus(vin);
         }
         else if (string.Equals(details.DetectedFormat, "VVDI MB Tool", StringComparison.OrdinalIgnoreCase))
         {
-            if (HasVvdiSignature(data))
-            {
-                var vin = ReadAscii(data, 0x90, 17);
-                details.DetectedVin = vin;
-                details.VinStatus = DetermineVinStatus(vin);
-            }
-            else
-            {
-                details.VinStatus = "UnsupportedFormat";
-            }
+            var vin = parserResult.Vin ?? string.Empty;
+            details.DetectedVin = vin;
+            details.VinStatus = DetermineVinStatus(vin);
         }
         else
         {
@@ -92,55 +86,30 @@ public sealed class EisAnalysisService : IEisAnalysisService
         return details;
     }
 
-    private static SensitiveFieldDto CreateNotMappedField(string name)
+    private static SensitiveFieldDto CreateSensitiveField(string name, string? value, string confidence, int offset, int length, string sourceDescription)
     {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return new SensitiveFieldDto
+            {
+                Name = name,
+                Status = FieldValueStatus.NotPresent,
+                SourceDescription = sourceDescription,
+                SourceOffset = offset,
+                Length = length,
+                Confidence = confidence
+            };
+        }
+
         return new SensitiveFieldDto
         {
             Name = name,
-            Status = FieldValueStatus.NotMapped,
-            Confidence = "Unknown"
-        };
-    }
-
-    private static SensitiveFieldDto CreateFieldForCgdiPassword(byte[] data)
-    {
-        if (data.Length != 256)
-        {
-            return CreateInvalidField("EIS password", "Invalid", "UnsupportedFormat");
-        }
-
-        var bytes = ExtractByteSlice(data, 0x38, 8);
-        var status = DetermineSensitiveFieldStatus(bytes);
-        return new SensitiveFieldDto
-        {
-            Name = "EIS password",
-            Value = status == FieldValueStatus.Present ? ReverseAndFormatHex(bytes) : null,
-            Status = status,
-            SourceDescription = "Verified CGDI mapping",
-            SourceOffset = 0x38,
-            Length = 8,
-            Confidence = status == FieldValueStatus.Present ? "Verified" : "Unknown"
-        };
-    }
-
-    private static SensitiveFieldDto CreateFieldForCgdiSsid(byte[] data)
-    {
-        if (data.Length != 256)
-        {
-            return CreateInvalidField("SSID", "Invalid", "UnsupportedFormat");
-        }
-
-        var bytes = ExtractByteSlice(data, 0x28, 4);
-        var status = DetermineSensitiveFieldStatus(bytes);
-        return new SensitiveFieldDto
-        {
-            Name = "SSID",
-            Value = status == FieldValueStatus.Present ? ReverseAndFormatHex(bytes) : null,
-            Status = status,
-            SourceDescription = "Verified CGDI mapping",
-            SourceOffset = 0x28,
-            Length = 4,
-            Confidence = status == FieldValueStatus.Present ? "Verified" : "Unknown"
+            Value = value,
+            Status = FieldValueStatus.Present,
+            SourceDescription = sourceDescription,
+            SourceOffset = offset,
+            Length = length,
+            Confidence = confidence
         };
     }
 
