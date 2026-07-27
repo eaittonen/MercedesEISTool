@@ -48,7 +48,9 @@ public sealed class BulkConsumeService
         {
             var bytes = await File.ReadAllBytesAsync(file.FullName);
             var detection = _detectorRegistry.Detect(bytes, file.Name);
-            var classification = detection.DetectedFormat;
+            var classification = string.Equals(detection.DetectedFormat, "EIS dump", StringComparison.OrdinalIgnoreCase)
+                ? "EIS dump"
+                : detection.DetectedFormat;
             var analysis = _analysisService.Analyze(bytes, file.Name);
             var detectedVin = analysis.DetectedVin;
             var detectedFormat = analysis.DetectedFormat;

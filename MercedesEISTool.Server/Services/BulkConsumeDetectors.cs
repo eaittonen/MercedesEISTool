@@ -94,6 +94,19 @@ public sealed class AnalysisBasedBulkConsumeDetector : IBulkConsumeDetector
             };
         }
 
+        if (data.Length == 256)
+        {
+            return new BulkConsumeDetectorResult
+            {
+                DetectedFormat = "EIS dump",
+                Confidence = 0.6,
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["reason"] = "size-match"
+                }
+            };
+        }
+
         return new BulkConsumeDetectorResult { DetectedFormat = "Unsupported", Confidence = 0d };
     }
 }

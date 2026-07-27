@@ -31,14 +31,17 @@ public sealed class CgdiEisParser : IEisParser
             warnings.Add("VIN does not match the expected format.");
         }
 
+        var ssid = ExtractReversedHex(data, 0x28, 4);
+        var password = ExtractReversedHex(data, 0x38, 8);
+
         return new EisParserResult
         {
             Format = Format,
             Vin = string.IsNullOrWhiteSpace(vin) ? null : vin,
-            Ssid = null,
+            Ssid = string.IsNullOrWhiteSpace(ssid) ? null : ssid,
             EisPartNumber = null,
-            EisPassword = null,
-            DetectionConfidence = "Supported",
+            EisPassword = string.IsNullOrWhiteSpace(password) ? null : password,
+            DetectionConfidence = "Verified",
             Warnings = warnings
         };
     }
@@ -53,9 +56,25 @@ public sealed class CgdiEisParser : IEisParser
         return Encoding.ASCII.GetString(data.Skip(offset).Take(length).ToArray()).Trim('\0', ' ', '\r', '\n', '\t');
     }
 
+    private static string ExtractReversedHex(byte[] data, int offset, int length)
+    {
+        if (offset < 0 || offset + length > data.Length)
+        {
+            return string.Empty;
+        }
+
+        var bytes = data.Skip(offset).Take(length).Reverse().ToArray();
+        if (bytes.All(value => value == 0x00) || bytes.All(value => value == 0xFF))
+        {
+            return string.Empty;
+        }
+
+        return string.Join(" ", bytes.Select(value => value.ToString("X2")));
+    }
+
     private static bool IsValidVin(string? vin)
     {
-        if (string.IsNullOrWhiteSpace(vin) || vin.Length != 17)
+        if (string.IsNullOrWhiteSpace(vin) || (vin.Length != 16 && vin.Length != 17))
         {
             return false;
         }

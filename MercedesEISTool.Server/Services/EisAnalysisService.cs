@@ -55,8 +55,21 @@ public sealed class EisAnalysisService : IEisAnalysisService
         details.McuTypeStatus = FieldValueStatus.NotMapped;
         details.KeyCountStatus = FieldValueStatus.NotMapped;
         var parserResult = _dumpService.ParseResult(data);
-        details.EisPassword = CreateSensitiveField("EIS password", parserResult.EisPassword, parserResult.DetectionConfidence, 0x70, 8, parserResult.Format == "VVDI MB Tool" ? "VVDI mapping" : "CGDI mapping");
-        details.Ssid = CreateSensitiveField("SSID", parserResult.Ssid, parserResult.DetectionConfidence, 0x10, 4, parserResult.Format == "VVDI MB Tool" ? "VVDI mapping" : "CGDI mapping");
+        if (string.Equals(parserResult.Format, "VVDI MB Tool", StringComparison.OrdinalIgnoreCase))
+        {
+            details.EisPassword = CreateSensitiveField("EIS password", parserResult.EisPassword, parserResult.DetectionConfidence, 0x70, 8, "VVDI mapping", forcePresent: true);
+            details.Ssid = CreateSensitiveField("SSID", parserResult.Ssid, parserResult.DetectionConfidence, 0x10, 4, "VVDI mapping", forcePresent: true);
+        }
+        else if (string.Equals(parserResult.Format, "CGDI MB", StringComparison.OrdinalIgnoreCase))
+        {
+            details.EisPassword = CreateSensitiveField("EIS password", parserResult.EisPassword, parserResult.DetectionConfidence, 0x38, 8, "CGDI mapping");
+            details.Ssid = CreateSensitiveField("SSID", parserResult.Ssid, parserResult.DetectionConfidence, 0x28, 4, "CGDI mapping");
+        }
+        else
+        {
+            details.EisPassword = CreateSensitiveField("EIS password", parserResult.EisPassword, parserResult.DetectionConfidence, 0x70, 8, "Unknown mapping");
+            details.Ssid = CreateSensitiveField("SSID", parserResult.Ssid, parserResult.DetectionConfidence, 0x10, 4, "Unknown mapping");
+        }
 
         if (string.Equals(details.DetectedFormat, "CGDI MB", StringComparison.OrdinalIgnoreCase))
         {
@@ -86,9 +99,9 @@ public sealed class EisAnalysisService : IEisAnalysisService
         return details;
     }
 
-    private static SensitiveFieldDto CreateSensitiveField(string name, string? value, string confidence, int offset, int length, string sourceDescription)
+    private static SensitiveFieldDto CreateSensitiveField(string name, string? value, string confidence, int offset, int length, string sourceDescription, bool forcePresent = false)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrWhiteSpace(value) && !forcePresent)
         {
             return new SensitiveFieldDto
             {

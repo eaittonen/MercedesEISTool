@@ -240,7 +240,7 @@ public class EisDumpService
         }
 
         var vin = Encoding.ASCII.GetString(data.Take(17).ToArray()).Trim('\0', ' ', '\r', '\n', '\t');
-        return vin.Length == 17 && IsValidVinCharacters(vin);
+        return (vin.Length == 16 || vin.Length == 17) && IsValidVinCharacters(vin);
     }
 
     private static bool IsValidVinCharacters(string value)

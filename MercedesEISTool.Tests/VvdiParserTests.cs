@@ -91,7 +91,7 @@ public sealed class VvdiParserTests
     {
         var service = new EisDumpService();
         var data = CreateVvdiDump();
-        WriteAscii(data, 0xE0, "@@@"");
+        WriteAscii(data, 0xE0, "@@@");
 
         var result = service.ParseResult(data);
 

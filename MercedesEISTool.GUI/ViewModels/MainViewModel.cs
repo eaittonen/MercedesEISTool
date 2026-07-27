@@ -1867,7 +1867,14 @@ public partial class MainViewModel : ViewModelBase
         {
             var normalizedLetters = letters.ToString().Substring(0, Math.Min(3, letters.Length));
             var normalizedDigits = digits.ToString().Substring(0, Math.Min(3, digits.Length));
-            return $"{normalizedLetters}-{normalizedDigits}";
+            return cleaned[0] is >= '0' and <= '9'
+                ? $"{normalizedDigits}-{normalizedLetters}"
+                : $"{normalizedLetters}-{normalizedDigits}";
+        }
+
+        if (Regex.IsMatch(trimmed, @"^\d{3}-[A-Za-z]{3}$", RegexOptions.IgnoreCase))
+        {
+            return trimmed.ToUpperInvariant();
         }
 
         return string.Empty;
@@ -2034,6 +2041,12 @@ public partial class MainViewModel : ViewModelBase
                 continue;
             }
 
+            var registrationDescription = ExtractDescriptionFromRegistrationSegment(trimmed, registration);
+            if (!string.IsNullOrWhiteSpace(registrationDescription))
+            {
+                return registrationDescription;
+            }
+
             if (LooksLikeRegistration(trimmed) || ExtractVinFromFileName(trimmed).Length > 0)
             {
                 continue;
@@ -2057,7 +2070,34 @@ public partial class MainViewModel : ViewModelBase
             return string.IsNullOrWhiteSpace(normalizedCustomer) ? string.Empty : normalizedCustomer;
         }
 
+        if (segments.Count > 0)
+        {
+            var lastSegment = segments.LastOrDefault();
+            if (!string.IsNullOrWhiteSpace(lastSegment))
+            {
+                var normalizedLastSegment = NormalizeAdditionalInformation(lastSegment);
+                return string.IsNullOrWhiteSpace(normalizedLastSegment) ? string.Empty : normalizedLastSegment;
+            }
+        }
+
         return string.Empty;
+    }
+
+    private static string ExtractDescriptionFromRegistrationSegment(string segment, string registration)
+    {
+        if (string.IsNullOrWhiteSpace(segment) || string.IsNullOrWhiteSpace(registration))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = segment.Trim();
+        var match = Regex.Match(trimmed, $@"^{Regex.Escape(registration)}(?:(?:\s+|[-_])+)(?<description>.+)$", RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return string.Empty;
+        }
+
+        return NormalizeAdditionalInformation(match.Groups["description"].Value);
     }
 
     private static string NormalizeAdditionalInformation(string value)
@@ -2085,7 +2125,7 @@ public partial class MainViewModel : ViewModelBase
             return string.Empty;
         }
 
-        if (words.Length == 1 && words[0].Length <= 3)
+        if (words.Length == 1 && words[0].Length <= 3 && !words[0].All(char.IsLetter))
         {
             return string.Empty;
         }
