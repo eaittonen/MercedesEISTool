@@ -198,6 +198,8 @@ public partial class MainViewModel : ViewModelBase
     public bool HasSelectedStoredFileVin => !string.IsNullOrWhiteSpace(SelectedStoredFileVin);
     public string SelectedStoredFileCustomer => SelectedStoredFile?.CustomerName ?? string.Empty;
     public bool HasSelectedStoredFileCustomer => !string.IsNullOrWhiteSpace(SelectedStoredFileCustomer);
+    public string SelectedStoredFileAdditionalInformation => SelectedStoredFile?.AdditionalInformation ?? string.Empty;
+    public bool HasSelectedStoredFileAdditionalInformation => !string.IsNullOrWhiteSpace(SelectedStoredFileAdditionalInformation);
     public string SelectedStoredFileUploadDate => SelectedStoredFile is null ? string.Empty : SelectedStoredFile.UploadedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
     public bool HasSelectedStoredFileUploadDate => SelectedStoredFile is not null;
     public string SelectedStoredFileFilename => SelectedStoredFile?.OriginalFileName ?? string.Empty;
@@ -2009,7 +2011,7 @@ public partial class MainViewModel : ViewModelBase
             return false;
         }
 
-        if (value.Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1)
+        if (value.Select(ch => char.ToUpperInvariant(ch)).Distinct().Count() == 1)
         {
             return false;
         }
