@@ -2066,7 +2066,7 @@ public partial class MainViewModel : ViewModelBase
             return string.Empty;
         }
 
-        var cleaned = Regex.Replace(trimmed, "^[-_\s]+|[-_\s]+$", string.Empty);
+        var cleaned = Regex.Replace(trimmed, @"^[-_\s]+|[-_\s]+$", string.Empty);
         if (string.IsNullOrWhiteSpace(cleaned))
         {
             return string.Empty;
