@@ -1165,12 +1165,7 @@ app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [Fr
         return Results.BadRequest(new ApiErrorResponse { Message = "Mercedes EIS dumps must be exactly 256 bytes, or a verified CGMB key file.", ErrorCode = "invalid_size", RequestId = httpContext.TraceIdentifier });
     }
 
-    if (!isKeyFile && string.IsNullOrWhiteSpace(vehicleIdentifier))
-    {
-        return Results.BadRequest(new ApiErrorResponse { Message = "A vehicle identifier is required for bulk-consume uploads.", ErrorCode = "missing_vehicle_identifier", RequestId = httpContext.TraceIdentifier });
-    }
-
-    var savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, vehicleIdentifier ?? string.Empty, registrationNumber ?? string.Empty, "bulk-consume", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump, customerName, additionalInformation);
+    var savedUpload = await uploadedDumpStore.PersistAsync(bytes, file.FileName, vehicleIdentifier ?? string.Empty, registrationNumber ?? string.Empty, "bulk-consume", analysisService, currentUser, isKeyFile ? FileCategory.KeyFile : FileCategory.EisDump, customerName, additionalInformation, allowMissingIdentifiers: true);
     if (isKeyFile)
     {
         await uploadedDumpStore.AnalyzeAndStoreKeyFileAsync(savedUpload.Id, keyFileAnalysisService, currentUser);

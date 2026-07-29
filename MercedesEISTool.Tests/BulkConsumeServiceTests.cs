@@ -130,6 +130,34 @@ public sealed class BulkConsumeServiceTests
     }
 
     [Fact]
+    public async Task ImportAsync_RequestsPersistenceForIdentifierlessBulkConsumeUpload()
+    {
+        using var tempRoot = new TempDirectory();
+        var dumpPath = Path.Combine(tempRoot.Path, "dump.bin");
+        await File.WriteAllBytesAsync(dumpPath, CreateValidEisDumpBytes());
+
+        var store = new TrackingUploadedDumpStore();
+        var service = new BulkConsumeService(
+            store,
+            new EisAnalysisService(),
+            new KeyFileAnalysisService(),
+            NullLogger<BulkConsumeService>.Instance);
+
+        var request = new BulkConsumeImportRequest
+        {
+            Items = new List<BulkConsumeImportItemRequest>
+            {
+                new() { SourcePath = dumpPath, FileName = "dump.bin", Classification = "EIS dump", VehicleIdentifier = string.Empty, RegistrationNumber = string.Empty }
+            }
+        };
+
+        var response = await service.ImportAsync(request);
+
+        Assert.Equal(1, response.ImportedCount);
+        Assert.True(store.AllowMissingIdentifiersRequested);
+    }
+
+    [Fact]
     public void DetectorRegistry_DetectsKeyAndDumpFilesFromContent()
     {
         var registry = new BulkConsumeFileDetectorRegistry();
@@ -170,8 +198,37 @@ public sealed class BulkConsumeServiceTests
 
     private sealed class FakeUploadedDumpStore : IUploadedDumpStore
     {
-        public Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null, string? additionalInformation = null)
+        public Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null, string? additionalInformation = null, bool allowMissingIdentifiers = false)
             => Task.FromResult(new UploadedDumpRecord());
+
+        public Task<List<UploadedDumpRecord>> ListAsync(ICurrentUser? currentUser = null, string? search = null, int page = 1, int pageSize = 50)
+            => Task.FromResult(new List<UploadedDumpRecord>());
+
+        public Task<StoredFileAnalysisSnapshot?> GetLatestAnalysisAsync(Guid storedFileId)
+            => Task.FromResult<StoredFileAnalysisSnapshot?>(null);
+
+        public Task<StoredFileAnalysisSnapshot?> AnalyzeAndStoreAsync(Guid storedFileId, IEisAnalysisService analysisService)
+            => Task.FromResult<StoredFileAnalysisSnapshot?>(null);
+
+        public Task<CgmbKeyFileAnalysisDto?> AnalyzeAndStoreKeyFileAsync(Guid storedFileId, IKeyFileAnalysisService analysisService, ICurrentUser? currentUser = null)
+            => Task.FromResult<CgmbKeyFileAnalysisDto?>(null);
+
+        public Task<byte[]> ReadStoredFileAsync(Guid storedFileId, ICurrentUser? currentUser = null)
+            => Task.FromResult(Array.Empty<byte>());
+
+        public Task<UploadedDumpRecord?> GetByIdAsync(Guid storedFileId, ICurrentUser? currentUser = null)
+            => Task.FromResult<UploadedDumpRecord?>(null);
+    }
+
+    private sealed class TrackingUploadedDumpStore : IUploadedDumpStore
+    {
+        public bool AllowMissingIdentifiersRequested { get; private set; }
+
+        public Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null, string? additionalInformation = null, bool allowMissingIdentifiers = false)
+        {
+            AllowMissingIdentifiersRequested = allowMissingIdentifiers;
+            return Task.FromResult(new UploadedDumpRecord());
+        }
 
         public Task<List<UploadedDumpRecord>> ListAsync(ICurrentUser? currentUser = null, string? search = null, int page = 1, int pageSize = 50)
             => Task.FromResult(new List<UploadedDumpRecord>());

@@ -55,6 +55,23 @@ public sealed class JsonUploadedDumpStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task PersistAsync_AllowsMissingIdentifiersWhenExplicitlyRequested()
+    {
+        var configuredRoot = CreateTempDirectory();
+        Environment.SetEnvironmentVariable("MERCEDES_EIS_UPLOAD_ROOT", configuredRoot);
+        Environment.SetEnvironmentVariable("UPLOAD_STORAGE_ROOT", null);
+
+        var store = new JsonUploadedDumpStore();
+        var bytes = Encoding.UTF8.GetBytes("bulk payload");
+
+        var record = await store.PersistAsync(bytes, "sample.bin", string.Empty, string.Empty, "bulk-consume", allowMissingIdentifiers: true);
+
+        Assert.Equal(string.Empty, record.VehicleIdentifier);
+        Assert.Equal(string.Empty, record.RegistrationNumber);
+        Assert.Equal("bulk-consume", record.Operation);
+    }
+
+    [Fact]
     public async Task Constructor_MigratesLegacyIndexFromAppDataDirectory()
     {
         var runtimeRoot = CreateTempDirectory();

@@ -44,9 +44,9 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         return Path.GetFullPath(Path.Combine("/var/lib", "mercedes-eis-tool", "uploads"));
     }
 
-    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null, string? additionalInformation = null)
+    public async Task<UploadedDumpRecord> PersistAsync(byte[] data, string fileName, string vehicleIdentifier, string registrationNumber, string operation, IEisAnalysisService? analysisService = null, ICurrentUser? currentUser = null, FileCategory fileCategory = FileCategory.Unknown, string? customerName = null, string? additionalInformation = null, bool allowMissingIdentifiers = false)
     {
-        if (string.IsNullOrWhiteSpace(vehicleIdentifier) && string.IsNullOrWhiteSpace(registrationNumber))
+        if (!allowMissingIdentifiers && string.IsNullOrWhiteSpace(vehicleIdentifier) && string.IsNullOrWhiteSpace(registrationNumber))
         {
             throw new ArgumentException("At least one identifier is required for uploads.", nameof(vehicleIdentifier));
         }
