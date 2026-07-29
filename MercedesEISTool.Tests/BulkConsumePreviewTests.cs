@@ -88,6 +88,33 @@ public class BulkConsumePreviewTests
     }
 
     [Fact]
+    public void ExtractBulkConsumeMetadata_DoesNotAcceptVinEmbeddedInFreeText()
+    {
+        var extractor = typeof(MainViewModel).GetMethod("ExtractBulkConsumeMetadata", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(extractor);
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        var filePath = Path.Combine(tempRoot, "Varalukko ei tama auto WDD2042081F179893.bin");
+        File.WriteAllBytes(filePath, new byte[256]);
+
+        try
+        {
+            var result = extractor!.Invoke(null, new object?[] { new byte[256], new FileInfo(filePath), tempRoot });
+            var metadata = Assert.IsType<BulkConsumeMetadata>(result);
+
+            Assert.True(string.IsNullOrWhiteSpace(metadata.DetectedVin));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void ExtractBulkConsumeMetadata_StoresRegistrationDescriptionInAdditionalInformation()
     {
         var extractor = typeof(MainViewModel).GetMethod("ExtractBulkConsumeMetadata", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);

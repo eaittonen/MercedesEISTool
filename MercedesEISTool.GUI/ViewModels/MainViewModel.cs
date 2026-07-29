@@ -1967,13 +1967,24 @@ public partial class MainViewModel : ViewModelBase
             return string.Empty;
         }
 
-        var candidate = Regex.Match(fileName, "[A-HJ-NPR-Z0-9]{17}");
-        if (!candidate.Success)
+        var candidate = fileName.Trim();
+        if (candidate.Contains(Path.DirectorySeparatorChar) || candidate.Contains(Path.AltDirectorySeparatorChar))
+        {
+            candidate = Path.GetFileName(candidate);
+        }
+
+        var extension = Path.GetExtension(candidate);
+        if (!string.IsNullOrWhiteSpace(extension))
+        {
+            candidate = Path.GetFileNameWithoutExtension(candidate);
+        }
+
+        if (!Regex.IsMatch(candidate, "^[A-HJ-NPR-Z0-9]{17}$"))
         {
             return string.Empty;
         }
 
-        var vin = candidate.Value;
+        var vin = candidate;
         if (!IsValidVinValue(vin))
         {
             return string.Empty;

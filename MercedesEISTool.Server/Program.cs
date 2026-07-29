@@ -1187,7 +1187,7 @@ app.MapPost("/api/bulk-consume/files", async Task<IResult> (IFormFile? file, [Fr
         CustomerName = savedUpload.CustomerName,
         Message = "Bulk consume upload complete."
     });
-});
+}).DisableAntiforgery();
 
 app.MapPost("/api/files/upload", async Task<IResult> (IFormFile? file, [FromForm] string? userProvidedVin, [FromForm] string? userProvidedRegistrationNumber, [FromForm] bool vehicleIdentifierConfirmed, [FromForm] string? customerName, ILicenseService licenseService, IUploadedDumpStore uploadedDumpStore, IEisAnalysisService analysisService, IKeyFileAnalysisService keyFileAnalysisService, ILoggerFactory loggerFactory, HttpContext httpContext, ICurrentUser currentUser, CancellationToken cancellationToken) =>
 {
