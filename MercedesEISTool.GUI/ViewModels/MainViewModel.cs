@@ -169,6 +169,27 @@ public partial class MainViewModel : ViewModelBase
     private string _myFilesDetails = string.Empty;
 
     [ObservableProperty]
+    private int _myFilesCurrentPage = 1;
+
+    [ObservableProperty]
+    private int _myFilesPageSize = 50;
+
+    [ObservableProperty]
+    private int _myFilesTotalCount;
+
+    [ObservableProperty]
+    private int _myFilesTotalPages;
+
+    [ObservableProperty]
+    private bool _myFilesHasPreviousPage;
+
+    [ObservableProperty]
+    private bool _myFilesHasNextPage;
+
+    [ObservableProperty]
+    private string _myFilesPageStatus = "No page loaded";
+
+    [ObservableProperty]
     private bool _isBulkConsumeWizardOpen;
 
     [ObservableProperty]
@@ -478,6 +499,7 @@ public partial class MainViewModel : ViewModelBase
     {
         UpdateUploadAvailability();
         UpdateStoredFileCommandStates();
+        UpdateMyFilesPaginationCommands();
     }
 
     partial void OnShowIgnoredAndUnsupportedFilesChanged(bool value)
@@ -504,7 +526,18 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnMyFilesSearchTextChanged(string value)
     {
+        MyFilesCurrentPage = 1;
         ApplyStoredFilesFilter();
+    }
+
+    partial void OnMyFilesCurrentPageChanged(int value)
+    {
+        UpdateMyFilesPaginationCommands();
+    }
+
+    partial void OnMyFilesTotalPagesChanged(int value)
+    {
+        UpdateMyFilesPaginationCommands();
     }
 
     partial void OnSelectedOrganizationChanged(OrganizationSummaryDto? value)
@@ -1242,6 +1275,50 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task SearchMyFiles()
     {
+        MyFilesCurrentPage = 1;
+        await RefreshUploadedFilesAsync();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanNavigateToFirstMyFilesPage))]
+    private async Task FirstMyFilesPage()
+    {
+        MyFilesCurrentPage = 1;
+        await RefreshUploadedFilesAsync();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanNavigateToPreviousMyFilesPage))]
+    private async Task PreviousMyFilesPage()
+    {
+        if (MyFilesCurrentPage <= 1)
+        {
+            return;
+        }
+
+        MyFilesCurrentPage -= 1;
+        await RefreshUploadedFilesAsync();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanNavigateToNextMyFilesPage))]
+    private async Task NextMyFilesPage()
+    {
+        if (MyFilesTotalPages <= 0 || MyFilesCurrentPage >= MyFilesTotalPages)
+        {
+            return;
+        }
+
+        MyFilesCurrentPage += 1;
+        await RefreshUploadedFilesAsync();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanNavigateToLastMyFilesPage))]
+    private async Task LastMyFilesPage()
+    {
+        if (MyFilesTotalPages <= 0)
+        {
+            return;
+        }
+
+        MyFilesCurrentPage = MyFilesTotalPages;
         await RefreshUploadedFilesAsync();
     }
 
@@ -1357,6 +1434,7 @@ public partial class MainViewModel : ViewModelBase
             var details = await _apiClient.ReanalyzeStoredFileAsync(SelectedStoredFile.Id);
             MyFilesDetails = $"Reanalyzed: {details.DetectedFormat} | VIN: {details.DetectedVin ?? "Not mapped"}";
             Status = "Stored file reanalyzed.";
+            MyFilesCurrentPage = 1;
             await RefreshUploadedFilesAsync();
         }
         catch (Exception ex)
@@ -1450,6 +1528,7 @@ public partial class MainViewModel : ViewModelBase
             Status = BulkConsumeSummary;
             if (importedCount > 0)
             {
+                MyFilesCurrentPage = 1;
                 await RefreshUploadedFilesAsync();
             }
         }
@@ -3011,16 +3090,29 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            var response = await _apiClient.GetStoredFilesAsync(MyFilesSearchText, 1, 50);
+            var requestPage = Math.Max(1, MyFilesCurrentPage);
+            var response = await _apiClient.GetStoredFilesAsync(MyFilesSearchText, requestPage, MyFilesPageSize);
             var selectedItemId = SelectedStoredFile?.Id;
             var newItems = response.Items.Select(item => new StoredFileListItemViewModel(item)).ToList();
             _allStoredFiles = newItems;
             ApplyStoredFilesFilter();
             var restoredSelection = StoredFiles.FirstOrDefault(item => item.Id == selectedItemId);
             SelectedStoredFile = restoredSelection ?? StoredFiles.FirstOrDefault();
+            MyFilesCurrentPage = Math.Max(1, response.Page);
+            MyFilesPageSize = response.PageSize > 0 ? response.PageSize : MyFilesPageSize;
+            MyFilesTotalCount = response.TotalCount;
+            MyFilesTotalPages = response.TotalPages;
+            MyFilesHasPreviousPage = MyFilesCurrentPage > 1;
+            MyFilesHasNextPage = MyFilesCurrentPage < MyFilesTotalPages;
+            MyFilesPageStatus = MyFilesTotalPages <= 0
+                ? "No pages available"
+                : $"Page {MyFilesCurrentPage} of {MyFilesTotalPages} • {MyFilesTotalCount} total";
             var lines = response.Items.Select(item => $"{item.Id:N} | {item.OriginalFileName} | VIN={item.UserProvidedVin ?? item.DetectedVin ?? ""} | REG={item.RegistrationNumber ?? ""} | CUST={item.CustomerName ?? ""} | {item.AnalysisStatus} | {item.FileSizeBytes} bytes").ToList();
             UploadedFilesSummary = lines.Any() ? string.Join(Environment.NewLine, lines) : "No uploaded files yet.";
-            MyFilesDetails = response.Items.Any() ? $"Loaded {response.Items.Count} stored files from the server." : "No stored files were returned by the server.";
+            MyFilesDetails = response.Items.Any()
+                ? $"Loaded {response.Items.Count} stored files from the server for page {MyFilesCurrentPage} of {MyFilesTotalPages} ({MyFilesTotalCount} total)."
+                : "No stored files were returned by the server.";
+            UpdateMyFilesPaginationCommands();
         }
         catch (Exception ex)
         {
@@ -3194,6 +3286,26 @@ public partial class MainViewModel : ViewModelBase
         return SelectedStoredFile is not null && SelectedStoredFile.IsDeleted && !IsBusy && !IsLoadingStoredFile && ServerStatus.Equals("Connected", StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool CanNavigateToFirstMyFilesPage()
+    {
+        return !IsBusy && MyFilesCurrentPage > 1;
+    }
+
+    private bool CanNavigateToPreviousMyFilesPage()
+    {
+        return !IsBusy && MyFilesCurrentPage > 1;
+    }
+
+    private bool CanNavigateToNextMyFilesPage()
+    {
+        return !IsBusy && MyFilesTotalPages > 0 && MyFilesCurrentPage < MyFilesTotalPages;
+    }
+
+    private bool CanNavigateToLastMyFilesPage()
+    {
+        return !IsBusy && MyFilesTotalPages > 0 && MyFilesCurrentPage < MyFilesTotalPages;
+    }
+
     private void UpdateStoredFileCommandStates()
     {
         OpenDetailsCommand.NotifyCanExecuteChanged();
@@ -3210,6 +3322,14 @@ public partial class MainViewModel : ViewModelBase
         CopyFilenameCommand.NotifyCanExecuteChanged();
         DeleteStoredFileCommand.NotifyCanExecuteChanged();
         RestoreStoredFileCommand.NotifyCanExecuteChanged();
+    }
+
+    private void UpdateMyFilesPaginationCommands()
+    {
+        FirstMyFilesPageCommand.NotifyCanExecuteChanged();
+        PreviousMyFilesPageCommand.NotifyCanExecuteChanged();
+        NextMyFilesPageCommand.NotifyCanExecuteChanged();
+        LastMyFilesPageCommand.NotifyCanExecuteChanged();
     }
 
     private void NotifySelectedStoredFileDetailPropertiesChanged()
