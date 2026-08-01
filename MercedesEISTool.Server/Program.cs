@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +10,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MercedesEISTool.Contracts.Models;
 using MercedesEISTool.Core.Services;
+using MercedesEISTool.Server.Authentication;
 using MercedesEISTool.Server.Data;
 using MercedesEISTool.Server.Middleware;
 using MercedesEISTool.Server.Models;
@@ -70,6 +73,18 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
+builder.Services.AddAuthentication()
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, UserIdBearerAuthenticationHandler>("Bearer", _ => { });
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.ReturnUrlParameter = "returnUrl";
+    options.Cookie.Name = "MercedesEISTool.Auth";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    options.SlidingExpiration = true;
+});
 builder.Services.AddAuthorization();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -162,7 +177,101 @@ using (var scope = app.Services.CreateScope())
 
 app.UseForwardedHeaders();
 app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseAntiforgery();
+
+app.MapGet("/", (HttpContext httpContext) =>
+{
+    if (httpContext.User.Identity?.IsAuthenticated == true)
+    {
+        httpContext.Response.Redirect("/app");
+        return Task.CompletedTask;
+    }
+
+    httpContext.Response.Redirect("/login");
+    return Task.CompletedTask;
+}).AllowAnonymous();
+
+app.MapGet("/login", async (HttpContext httpContext, IWebHostEnvironment environment) =>
+{
+    if (httpContext.User.Identity?.IsAuthenticated == true)
+    {
+        var returnUrl = httpContext.Request.Query["returnUrl"].ToString();
+        var safeReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? "/app" : returnUrl;
+        httpContext.Response.Redirect(safeReturnUrl);
+        return;
+    }
+
+    await httpContext.Response.SendFileAsync(Path.Combine(environment.WebRootPath, "login.html"));
+}).AllowAnonymous();
+
+app.MapGet("/app", async (HttpContext httpContext, IWebHostEnvironment environment) =>
+{
+    if (httpContext.User.Identity?.IsAuthenticated != true)
+    {
+        var returnUrl = Uri.EscapeDataString(httpContext.Request.Path + httpContext.Request.QueryString);
+        httpContext.Response.Redirect($"/login?returnUrl={returnUrl}");
+        return;
+    }
+
+    await httpContext.Response.SendFileAsync(Path.Combine(environment.WebRootPath, "app.html"));
+}).RequireAuthorization();
+
+app.MapGet("/app/{**path:nonfile}", async (HttpContext httpContext, IWebHostEnvironment environment) =>
+{
+    if (httpContext.User.Identity?.IsAuthenticated != true)
+    {
+        var returnUrl = Uri.EscapeDataString(httpContext.Request.Path + httpContext.Request.QueryString);
+        httpContext.Response.Redirect($"/login?returnUrl={returnUrl}");
+        return;
+    }
+
+    await httpContext.Response.SendFileAsync(Path.Combine(environment.WebRootPath, "app.html"));
+}).RequireAuthorization();
+
+app.MapGet("/file/{storedFileId:guid}", async (Guid storedFileId, HttpContext httpContext, IWebHostEnvironment environment) =>
+{
+    if (httpContext.User.Identity?.IsAuthenticated != true)
+    {
+        var returnUrl = Uri.EscapeDataString($"/file/{storedFileId}");
+        httpContext.Response.Redirect($"/login?returnUrl={returnUrl}");
+        return;
+    }
+
+    await httpContext.Response.SendFileAsync(Path.Combine(environment.WebRootPath, "app.html"));
+}).RequireAuthorization();
+
+app.MapPost("/auth/login", async Task<IResult> (LoginRequestDto request, SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Email and password are required.", ErrorCode = "invalid_credentials" });
+    }
+
+    var user = await userManager.FindByEmailAsync(request.Email);
+    if (user is null || !user.IsEnabled)
+    {
+        return Results.Unauthorized();
+    }
+
+    if (!await userManager.CheckPasswordAsync(user, request.Password))
+    {
+        return Results.Unauthorized();
+    }
+
+    await signInManager.SignInAsync(user, request.RememberMe);
+    return Results.Ok(new { redirectUrl = httpContext.Request.Query["returnUrl"].ToString() });
+}).AllowAnonymous();
+
+app.MapPost("/auth/logout", async (HttpContext httpContext, SignInManager<ApplicationUser> signInManager) =>
+{
+    await signInManager.SignOutAsync();
+    httpContext.Response.Redirect("/login");
+    return;
+}).AllowAnonymous();
 
 app.MapGet("/api/health", (ILicenseService licenseService, ILoggerFactory loggerFactory) =>
 {
@@ -228,14 +337,7 @@ app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, Use
 
 app.MapGet("/api/auth/me", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {
-    var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
-    {
-        return Results.Unauthorized();
-    }
-
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var user = await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    var user = await GetCurrentUserAsync(userManager, httpContext);
     if (user is null)
     {
         return Results.Unauthorized();
@@ -1529,13 +1631,21 @@ static string ComputeSha256(byte[] bytes)
 static async Task<ApplicationUser?> GetCurrentUserAsync(UserManager<ApplicationUser> userManager, HttpContext httpContext)
 {
     var authHeader = httpContext.Request.Headers.Authorization.ToString();
-    if (string.IsNullOrWhiteSpace(authHeader))
+    if (!string.IsNullOrWhiteSpace(authHeader))
+    {
+        var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
+        return await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    }
+
+    var userId = httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        ?? httpContext.User?.FindFirst(ClaimTypes.Name)?.Value
+        ?? httpContext.User?.Identity?.Name;
+    if (string.IsNullOrWhiteSpace(userId))
     {
         return null;
     }
 
-    var token = authHeader.Replace("Bearer ", string.Empty, StringComparison.OrdinalIgnoreCase);
-    return await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
+    return await userManager.Users.FirstOrDefaultAsync(u => u.Id == userId || u.UserName == userId || u.Email == userId);
 }
 
 static StoredFileListItemDto BuildStoredFileListItem(UploadedDumpRecord record)
@@ -1551,6 +1661,9 @@ static StoredFileListItemDto BuildStoredFileListItem(UploadedDumpRecord record)
         RegistrationNumber = string.IsNullOrWhiteSpace(record.RegistrationNumber) ? null : record.RegistrationNumber,
         CustomerName = string.IsNullOrWhiteSpace(record.CustomerName) ? null : record.CustomerName,
         AdditionalInformation = string.IsNullOrWhiteSpace(record.AdditionalInformation) ? null : record.AdditionalInformation,
+        OrganizationName = record.OrganizationName,
+        Warnings = record.Warnings,
+        Reason = record.Reason,
         DetectedFormat = latest?.DetectedFormat ?? "Unknown",
         EisType = latest?.EisType,
         McuType = latest?.McuType,
@@ -1600,6 +1713,9 @@ static StoredFileDetailsDto BuildStoredFileDetails(UploadedDumpRecord? record)
         RegistrationNumber = string.IsNullOrWhiteSpace(record.RegistrationNumber) ? null : record.RegistrationNumber,
         CustomerName = string.IsNullOrWhiteSpace(record.CustomerName) ? null : record.CustomerName,
         AdditionalInformation = string.IsNullOrWhiteSpace(record.AdditionalInformation) ? null : record.AdditionalInformation,
+        OrganizationName = record.OrganizationName,
+        Warnings = record.Warnings,
+        Reason = record.Reason,
         DetectedFormat = latest?.DetectedFormat ?? "Unknown",
         EisType = latest?.EisType,
         EisTypeStatus = latest?.EisTypeStatus.ToString() ?? "NotMapped",

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07111f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/app.css" />
+    <title>Sign in · Mercedes EIS Toolkit</title>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="login-box">
+        <h1>Mercedes EIS Toolkit</h1>
+        <p class="hint">Use the same account and password as the desktop application.</p>
+        <form id="loginForm">
+          <input id="email" name="email" type="email" placeholder="Email" autocomplete="username" required />
+          <input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" required />
+          <label><input id="rememberMe" type="checkbox" /> Remember me</label>
+          <button type="submit">Sign in</button>
+        </form>
+        <div id="loginMessage" class="hint"></div>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById('loginForm');
+      const message = document.getElementById('loginMessage');
+      const params = new URLSearchParams(window.location.search);
+      const returnUrl = params.get('returnUrl') || '/app';
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        message.textContent = 'Signing in…';
+        const response = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            rememberMe: document.getElementById('rememberMe').checked
+          })
+        });
+
+        if (response.ok) {
+          const payload = await response.json();
+          window.location.assign(payload.redirectUrl || returnUrl);
+        } else {
+          message.textContent = 'Unable to sign in with those credentials.';
+        }
+      });
+    </script>
+  </body>
+</html>

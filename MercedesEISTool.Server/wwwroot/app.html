@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07111f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/app.css" />
+    <title>Mercedes EIS Toolkit</title>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="mark">E</div>
+          <div>Mercedes EIS Toolkit</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div id="authStatus">Loading…</div>
+          <button id="signOutButton" class="ghost-btn">Sign out</button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <h1>Quick lookup from the workshop</h1>
+        <p>Search VIN, registration, customer, password, SSID or filename across the server index, then open the matching dump in one tap.</p>
+        <div class="search-row">
+          <input id="searchInput" placeholder="Search VIN, registration, customer, password, SSID..." />
+          <button id="searchButton">Search</button>
+        </div>
+        <div id="searchSummary" class="status-line">Search the complete server index.</div>
+      </section>
+
+      <section class="panel">
+        <button id="backButton" class="ghost-btn hidden">Back to search</button>
+        <div id="resultsHost"></div>
+        <div id="detailHost" class="hidden"></div>
+        <div id="dataPanel"></div>
+      </section>
+    </div>
+
+    <div id="qrModal" class="modal" aria-hidden="true">
+      <div class="modal-card">
+        <h3>Open on mobile</h3>
+        <p>Scan this code to open the same record on your phone.</p>
+        <div id="qrBox"></div>
+        <button class="ghost-btn" onclick="document.getElementById('qrModal').classList.remove('active')">Close</button>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="/app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(() => {}));
+      }
+    </script>
+  </body>
+</html>

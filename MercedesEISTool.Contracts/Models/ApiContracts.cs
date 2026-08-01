@@ -14,6 +14,7 @@ public sealed class LoginRequestDto
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public bool RememberMe { get; set; }
 }
 
 public sealed class AuthResponseDto
@@ -241,6 +242,9 @@ public sealed class StoredFileListItemDto
     public string? RegistrationNumber { get; set; }
     public string? CustomerName { get; set; }
     public string? AdditionalInformation { get; set; }
+    public string? OrganizationName { get; set; }
+    public string? Warnings { get; set; }
+    public string? Reason { get; set; }
     public string DetectedFormat { get; set; } = "Unknown";
     public string? EisType { get; set; }
     public string? McuType { get; set; }
@@ -290,6 +294,9 @@ public sealed class StoredFileDetailsDto
     public string? RegistrationNumber { get; set; }
     public string? CustomerName { get; set; }
     public string? AdditionalInformation { get; set; }
+    public string? OrganizationName { get; set; }
+    public string? Warnings { get; set; }
+    public string? Reason { get; set; }
     public string DetectedFormat { get; set; } = "Unknown";
     public string? EisType { get; set; }
     public string EisTypeStatus { get; set; } = "NotMapped";

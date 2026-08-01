@@ -30,6 +30,9 @@ public class UploadedDumpRecord
     public string RegistrationNumber { get; set; } = string.Empty;
     public string? CustomerName { get; set; }
     public string? AdditionalInformation { get; set; }
+    public string? OrganizationName { get; set; }
+    public string? Warnings { get; set; }
+    public string? Reason { get; set; }
     public string Operation { get; set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public long SizeBytes { get; set; }
