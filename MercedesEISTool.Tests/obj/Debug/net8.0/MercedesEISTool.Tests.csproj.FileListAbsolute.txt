@@ -542,3 +542,4 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\bin\De
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\bin\Debug\net8.0\MercedesEISTool.GUI.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\bin\Debug\net8.0\MercedesEISTool.GUI.pdb
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\obj\Debug\net8.0\Avalonia\Resources.Inputs.cache
+C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.Tests\bin\Debug\net8.0\MercedesEISTool.Server.staticwebassets.runtime.json

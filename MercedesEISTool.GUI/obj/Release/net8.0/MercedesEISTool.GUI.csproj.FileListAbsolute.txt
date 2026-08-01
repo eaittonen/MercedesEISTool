@@ -96,7 +96,6 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Rele
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\appsettings.Production.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\MercedesEISTool.GUI.exe
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Avalonia.Controls.DataGrid.dll
-C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\AvaloniaUI.DiagnosticsSupport.Avalonia.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.Configuration.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.Configuration.Abstractions.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.Configuration.Binder.dll
@@ -108,9 +107,7 @@ C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Rele
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.FileProviders.Abstractions.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.FileProviders.Physical.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.FileSystemGlobbing.dll
-C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.Logging.Abstractions.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.Extensions.Primitives.dll
-C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Microsoft.IO.RecyclableMemoryStream.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\Configuration\FieldMaps.json
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\MercedesEISTool.Core.dll
 C:\Users\Eetu Aittonen\source\repos\MercedesEISTool\MercedesEISTool.GUI\bin\Release\net8.0\MercedesEISTool.Core.pdb

@@ -31,6 +31,8 @@ public interface IMercedesEisApiClient
     Task<byte[]> DownloadStoredFileAsync(Guid storedFileId, CancellationToken cancellationToken = default);
     Task<StoredFileDetailsDto> ReanalyzeStoredFileAsync(Guid storedFileId, CancellationToken cancellationToken = default);
     Task<CompareDumpsResponse> CompareDumpsAsync(byte[] left, byte[] right, string leftFileName, string rightFileName, string vehicleIdentifier, string registrationNumber, CancellationToken cancellationToken = default);
+    Task<VehicleInfoDto> LookupVehicleAsync(string registration, CancellationToken cancellationToken = default);
+    Task<string> LookupVehicleRawAsync(string registration, CancellationToken cancellationToken = default);
     [Obsolete("Bulk-consume preview is deprecated. The client should scan local files and upload them with UploadBulkConsumeFileAsync.")]
     Task<BulkConsumePreviewResponse> PreviewBulkConsumeAsync(string sourceFolderPath, bool includeSubdirectories, CancellationToken cancellationToken = default);
     [Obsolete("Bulk-consume import is deprecated. The client should upload each selected file independently with UploadBulkConsumeFileAsync.")]

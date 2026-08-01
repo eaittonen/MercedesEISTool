@@ -323,6 +323,28 @@ public sealed class StoredFileDetailsDto
     public bool CanViewSensitiveFields { get; set; }
 }
 
+public sealed class VehicleInfoDto
+{
+    public string? Registration { get; set; }
+    public string? Vin { get; set; }
+    public string? Manufacturer { get; set; }
+    public string? Model { get; set; }
+    public string? Type { get; set; }
+    public int? Year { get; set; }
+    public string? Fuel { get; set; }
+    public string? Power { get; set; }
+    public string? Engine { get; set; }
+    public string? EngineCode { get; set; }
+    public string? Transmission { get; set; }
+    public string? DriveType { get; set; }
+    public string? FirstRegistration { get; set; }
+    public string? Color { get; set; }
+    public string? Mass { get; set; }
+    public string? BodyType { get; set; }
+    public string? InspectionDate { get; set; }
+    public Dictionary<string, object?> AdditionalFields { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
 public sealed class StoredFileDownloadResult
 {
     public byte[] Data { get; set; } = Array.Empty<byte>();

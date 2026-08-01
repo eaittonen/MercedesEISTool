@@ -8,7 +8,7 @@
         x:Class="MercedesEISTool.GUI.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/App icon.png"
-        Title="Mercedes EIS Toolkit">
+        Title="Mercedes EIS Tool">
 
     <Design.DataContext>
         <vm:MainViewModel />
@@ -39,7 +39,7 @@
                     <Border Padding="6,2" CornerRadius="8" Background="#3b4a5a">
                         <TextBlock Text="{Binding CurrentUserDisplay}" FontWeight="SemiBold" />
                     </Border>
-                    <TextBlock Text="Korpidiagnostics" Opacity="0.55" FontSize="16" FontWeight="SemiBold" IsHitTestVisible="False" />
+                    <Image Source="/Assets/korpidiagnostics-long.png" Width="220" Stretch="Uniform" VerticalAlignment="Center" Opacity="0.95" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -81,6 +81,12 @@
                                     <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" />
                                     <TextBlock Text="Registration number" />
                                     <TextBox Text="{Binding RegistrationNumber}" />
+                                    <TextBlock Text="Lookup registration" />
+                                    <TextBox Text="{Binding VehicleLookupRegistration}" Watermark="Optional override" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                        <Button Content="Lookup vehicle" Command="{Binding LookupVehicleCommand}" IsEnabled="{Binding !IsVehicleLookupBusy}" />
+                                        <TextBlock Text="{Binding VehicleLookupSummary}" TextWrapping="Wrap" />
+                                    </StackPanel>
                                     <TextBlock Text="Customer name" />
                                     <TextBox Text="{Binding CustomerName}" PlaceholderText="Optional customer label" />
                                     <TextBlock Text="Additional information" />
@@ -272,6 +278,24 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+                </Border>
+            </TabItem>
+            <TabItem Header="Vehicles">
+                <Border Padding="12" CornerRadius="6" Background="#202020">
+                    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Vehicle lookup" FontSize="18" FontWeight="SemiBold" />
+                            <TextBox Text="{Binding VehicleLookupRegistration}" Watermark="Registration number" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Lookup" Command="{Binding LookupVehicleCommand}" IsEnabled="{Binding !IsVehicleLookupBusy}" />
+                                <TextBlock Text="{Binding VehicleLookupSummary}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Border Grid.Row="1" Margin="0,12,0,0" Padding="8" CornerRadius="4" Background="#303030">
+                            <TextBox Text="{Binding VehicleLookupDetails}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="240" />
+                        </Border>
+                        <TextBlock Grid.Row="2" Margin="0,8,0,0" Text="Vehicle lookup uses the server-owned RapidAPI integration so the desktop client never calls the provider directly." TextWrapping="Wrap" />
+                    </Grid>
                 </Border>
             </TabItem>
             <TabItem Header="Administration" IsVisible="{Binding IsAdministrator}">
@@ -558,13 +582,12 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.RowSpan="3"
-                   Text="Korpidiagnostics"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   Opacity="0.08"
-                   FontSize="42"
-                   FontWeight="Bold"
-                   IsHitTestVisible="False" />
+        <Image Grid.RowSpan="3"
+               Source="/Assets/korpidiagnostics-long.png"
+               Width="320"
+               Opacity="0.08"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               IsHitTestVisible="False" />
     </Grid>
 </Window>

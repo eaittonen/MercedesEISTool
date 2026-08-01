@@ -245,6 +245,20 @@ public class MercedesEisApiClient : IMercedesEisApiClient
         return await response.Content.ReadFromJsonAsync<CompareDumpsResponse>(cancellationToken: cancellationToken) ?? new CompareDumpsResponse();
     }
 
+    public async Task<VehicleInfoDto> LookupVehicleAsync(string registration, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"/api/vehicles/by-registration/{Uri.EscapeDataString(registration)}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<VehicleInfoDto>(cancellationToken: cancellationToken) ?? new VehicleInfoDto();
+    }
+
+    public async Task<string> LookupVehicleRawAsync(string registration, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"/api/vehicles/by-registration/{Uri.EscapeDataString(registration)}", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
     [Obsolete("Bulk-consume preview is deprecated. The client should scan local files and upload them with UploadBulkConsumeFileAsync.")]
     public async Task<BulkConsumePreviewResponse> PreviewBulkConsumeAsync(string sourceFolderPath, bool includeSubdirectories, CancellationToken cancellationToken = default)
     {

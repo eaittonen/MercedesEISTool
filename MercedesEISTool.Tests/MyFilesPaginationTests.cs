@@ -203,6 +203,12 @@ public class MyFilesPaginationTests
         public Task<CompareDumpsResponse> CompareDumpsAsync(byte[] left, byte[] right, string leftFileName, string rightFileName, string vehicleIdentifier, string registrationNumber, CancellationToken cancellationToken = default)
             => Task.FromResult(new CompareDumpsResponse());
 
+        public Task<VehicleInfoDto> LookupVehicleAsync(string registration, CancellationToken cancellationToken = default)
+            => Task.FromResult(new VehicleInfoDto { Registration = registration });
+
+        public Task<string> LookupVehicleRawAsync(string registration, CancellationToken cancellationToken = default)
+            => Task.FromResult($"{{\"registration\":\"{registration}\"}}");
+
         public Task<BulkConsumePreviewResponse> PreviewBulkConsumeAsync(string sourceFolderPath, bool includeSubdirectories, CancellationToken cancellationToken = default)
             => Task.FromResult(new BulkConsumePreviewResponse());
 

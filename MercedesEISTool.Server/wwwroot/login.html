@@ -8,12 +8,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="stylesheet" href="/app.css" />
-    <title>Sign in · Mercedes EIS Toolkit</title>
+    <title>Sign in · Mercedes EIS Tool</title>
   </head>
   <body>
     <div class="shell">
       <div class="login-box">
-        <h1>Mercedes EIS Toolkit</h1>
+        <a class="brand-link" href="/app" aria-label="Go to dashboard">
+          <img src="/brand-long.png" alt="Korpidiagnostics logo" />
+        </a>
         <p class="hint">Use the same account and password as the desktop application.</p>
         <form id="loginForm">
           <input id="email" name="email" type="email" placeholder="Email" autocomplete="username" required />

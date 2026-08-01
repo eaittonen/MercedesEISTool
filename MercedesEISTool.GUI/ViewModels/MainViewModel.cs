@@ -326,6 +326,18 @@ public partial class MainViewModel : ViewModelBase
     private string _registrationNumber = string.Empty;
 
     [ObservableProperty]
+    private string _vehicleLookupRegistration = string.Empty;
+
+    [ObservableProperty]
+    private string _vehicleLookupSummary = string.Empty;
+
+    [ObservableProperty]
+    private string _vehicleLookupDetails = string.Empty;
+
+    [ObservableProperty]
+    private bool _isVehicleLookupBusy;
+
+    [ObservableProperty]
     private bool _vinConfirmedByUser;
 
     [ObservableProperty]
@@ -1387,6 +1399,52 @@ public partial class MainViewModel : ViewModelBase
 
         MyFilesCurrentPage = MyFilesTotalPages;
         await RefreshUploadedFilesAsync();
+    }
+
+    [RelayCommand]
+    private async Task LookupVehicle()
+    {
+        var registrationToLookup = string.IsNullOrWhiteSpace(VehicleLookupRegistration)
+            ? RegistrationNumber
+            : VehicleLookupRegistration;
+
+        if (string.IsNullOrWhiteSpace(registrationToLookup))
+        {
+            VehicleLookupSummary = "Enter a vehicle registration number first.";
+            return;
+        }
+
+        try
+        {
+            IsVehicleLookupBusy = true;
+            VehicleLookupSummary = "Looking up vehicle...";
+            VehicleLookupDetails = string.Empty;
+            var result = await _apiClient.LookupVehicleAsync(registrationToLookup);
+
+            if (!string.IsNullOrWhiteSpace(result.Registration))
+            {
+                RegistrationNumber = result.Registration;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Vin))
+            {
+                VehicleIdentifier = result.Vin;
+            }
+
+            VehicleLookupSummary = string.IsNullOrWhiteSpace(result.Manufacturer) && string.IsNullOrWhiteSpace(result.Model)
+                ? "No vehicle information was returned."
+                : $"Vehicle info loaded for {result.Registration ?? registrationToLookup}";
+            VehicleLookupDetails = BuildVehicleLookupDetails(result);
+        }
+        catch (Exception ex)
+        {
+            VehicleLookupSummary = $"Lookup failed: {ex.Message}";
+            VehicleLookupDetails = string.Empty;
+        }
+        finally
+        {
+            IsVehicleLookupBusy = false;
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenDetails))]
@@ -3652,6 +3710,66 @@ public partial class MainViewModel : ViewModelBase
         }
 
         RawHexEditorStatus = $"Positioned at offset {offset}";
+    }
+
+    private static string BuildVehicleLookupDetails(VehicleInfoDto result)
+    {
+        var lines = new List<string>();
+        if (!string.IsNullOrWhiteSpace(result.Registration))
+        {
+            lines.Add($"Registration: {result.Registration}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Vin))
+        {
+            lines.Add($"VIN: {result.Vin}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Manufacturer))
+        {
+            lines.Add($"Manufacturer: {result.Manufacturer}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Model))
+        {
+            lines.Add($"Model: {result.Model}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Type))
+        {
+            lines.Add($"Type: {result.Type}");
+        }
+
+        if (result.Year.HasValue)
+        {
+            lines.Add($"Year: {result.Year.Value}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Fuel))
+        {
+            lines.Add($"Fuel: {result.Fuel}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Engine))
+        {
+            lines.Add($"Engine: {result.Engine}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Transmission))
+        {
+            lines.Add($"Transmission: {result.Transmission}");
+        }
+
+        if (result.AdditionalFields.Count > 0)
+        {
+            lines.Add("Additional fields:");
+            foreach (var field in result.AdditionalFields.OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                lines.Add($"- {field.Key}: {field.Value}");
+            }
+        }
+
+        return lines.Count == 0 ? "No details returned." : string.Join(Environment.NewLine, lines);
     }
 
     private static string BuildComparisonText(byte[] left, byte[] right, CompareDumpsResponse comparison)

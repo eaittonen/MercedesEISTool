@@ -14,6 +14,7 @@ using MercedesEISTool.Server.Authentication;
 using MercedesEISTool.Server.Data;
 using MercedesEISTool.Server.Middleware;
 using MercedesEISTool.Server.Models;
+using MercedesEISTool.Server.Options;
 using MercedesEISTool.Server.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -86,6 +87,10 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 builder.Services.AddAuthorization();
+builder.Services.Configure<VehicleLookupOptions>(builder.Configuration.GetSection(VehicleLookupOptions.SectionName));
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient(nameof(RapidApiVehicleLookupProvider));
+builder.Services.AddSingleton<IVehicleLookupProvider, RapidApiVehicleLookupProvider>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -284,6 +289,17 @@ app.MapGet("/api/health", (ILicenseService licenseService, ILoggerFactory logger
         ServerVersion = "1.0.0",
         ServiceName = "MercedesEISTool.Server"
     });
+});
+
+app.MapGet("/api/vehicles/by-registration/{registration}", async Task<IResult> (string registration, IVehicleLookupProvider lookupProvider, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(registration))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "A registration number is required.", ErrorCode = "missing_registration" });
+    }
+
+    var result = await lookupProvider.LookupAsync(registration, cancellationToken);
+    return Results.Ok(result);
 });
 
 app.MapPost("/api/auth/login", async Task<IResult> (LoginRequestDto request, UserManager<ApplicationUser> userManager, DevelopmentBootstrapService bootstrapService, IOptions<DevelopmentBootstrapOptions> bootstrapOptions, ILoggerFactory loggerFactory, HttpContext httpContext) =>

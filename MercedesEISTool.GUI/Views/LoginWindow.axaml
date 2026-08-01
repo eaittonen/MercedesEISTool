@@ -4,7 +4,7 @@
         x:Class="MercedesEISTool.GUI.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
         Icon="/App icon.png"
-        Title="Sign in"
+        Title="Mercedes EIS Tool"
         Width="420"
         Height="380"
         CanResize="False">
@@ -13,11 +13,13 @@
   </Design.DataContext>
 
   <StackPanel Margin="24" Spacing="12">
-    <TextBlock Text="Mercedes EIS Tool"
-               FontSize="20"
-               FontWeight="Bold" />
+    <Image Source="/Assets/korpidiagnostics-long.png"
+           Stretch="Uniform"
+           MaxWidth="280"
+           HorizontalAlignment="Center"
+           Margin="0,0,0,6" />
 
-    <TextBlock Text="Sign in to continue" />
+    <TextBlock Text="Sign in to continue" HorizontalAlignment="Center" />
 
     <TextBox PlaceholderText="Email"
              Text="{Binding Email, Mode=TwoWay}" />

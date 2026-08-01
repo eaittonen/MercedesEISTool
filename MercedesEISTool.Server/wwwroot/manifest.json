@@ -1,6 +1,6 @@
 {
-  "name": "Mercedes EIS Toolkit",
-  "short_name": "EIS Toolkit",
+  "name": "Mercedes EIS Tool",
+  "short_name": "EIS Tool",
   "start_url": "/app",
   "display": "standalone",
   "background_color": "#07111f",
