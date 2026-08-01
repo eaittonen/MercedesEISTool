@@ -103,35 +103,14 @@ jobs:
             exit 1
           fi
 
-      - name: Install server environment configuration
+      - name: Verify server production configuration is published
         shell: bash
-        env:
-          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
         run: |
           set -euo pipefail
-          if ! sudo -n true; then
-            echo "Runner does not have passwordless sudo access. Grant the GitHub Actions user sudo without a password or switch to a runner with sudo privileges." >&2
+          if [ ! -f "$RELEASE_PATH/appsettings.Production.json" ]; then
+            echo "Server production configuration was not published." >&2
             exit 1
           fi
-
-          if [ -z "${RAPIDAPI_KEY:-}" ]; then
-            echo "RAPIDAPI_KEY secret is not set on GitHub. Add the secret before running this workflow." >&2
-            exit 1
-          fi
-
-          sudo -n install -d -m 755 /etc/mercedes-eis-tool
-          sudo -n install -d -m 755 /etc/systemd/system/mercedes-eis-tool.service.d
-          sudo -n install -m 600 /dev/null /etc/mercedes-eis-tool/environment
-          sudo -n tee /etc/mercedes-eis-tool/environment >/dev/null <<EOF
-          VehicleLookup__RapidApiBaseUrl=https://ajoneuvon-tiedot.p.rapidapi.com
-          VehicleLookup__RapidApiHost=ajoneuvon-tiedot.p.rapidapi.com
-          VehicleLookup__RapidApiKey=${RAPIDAPI_KEY}
-          EOF
-          sudo -n tee /etc/systemd/system/mercedes-eis-tool.service.d/override.conf >/dev/null <<'EOF'
-          [Service]
-          EnvironmentFile=-/etc/mercedes-eis-tool/environment
-          EOF
-          sudo -n /usr/bin/systemctl daemon-reload
 
       - name: Switch current symlink to the new release
         shell: bash
