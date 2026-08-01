@@ -12,6 +12,8 @@ public sealed class EisParserResult
     public bool? TpCleared { get; set; }
     public bool? Personalized { get; set; }
     public bool? Activated { get; set; }
+    public bool? DealerEis { get; set; }
+    public bool? Fbs4 { get; set; }
     public List<string> Warnings { get; set; } = new();
     public string DetectionConfidence { get; set; } = "Unknown";
 }

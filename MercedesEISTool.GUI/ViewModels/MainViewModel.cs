@@ -542,7 +542,9 @@ public partial class MainViewModel : ViewModelBase
         var bytes = value is null ? Array.Empty<byte>() : (byte[])value.Clone();
         if (bytes.Length == 0)
         {
+            _isApplyingRawHexEditorText = true;
             RawHexEditorText = "No raw dump available.";
+            _isApplyingRawHexEditorText = false;
             RawHexEditorStatus = "No bytes loaded";
             IsRawHexModified = false;
             return;
@@ -551,7 +553,9 @@ public partial class MainViewModel : ViewModelBase
         var isApplyingText = _isApplyingRawHexEditorText;
         if (!isApplyingText)
         {
+            _isApplyingRawHexEditorText = true;
             RawHexEditorText = BuildRawHexText(bytes);
+            _isApplyingRawHexEditorText = false;
             RawHexEditorStatus = bytes.Length > 0 ? $"{bytes.Length} bytes loaded" : "No bytes loaded";
             IsRawHexModified = false;
         }
@@ -1238,7 +1242,7 @@ public partial class MainViewModel : ViewModelBase
             KeyCount = details?.KeyCount?.ToString() ?? "Not mapped";
             EisPassword = string.IsNullOrWhiteSpace(details?.EisPassword?.Value) ? "Not mapped" : details.EisPassword.Value;
             Ssid = string.IsNullOrWhiteSpace(details?.Ssid?.Value) ? "Not mapped" : details.Ssid.Value;
-            ResetEisStateDisplay();
+            ApplyEisStateDisplay(details);
             SelectedFileBytes = (byte[])bytes.Clone();
             RawHexText = RawHexEditorText;
             AnalysisSummary = response.Message;
@@ -1313,7 +1317,7 @@ public partial class MainViewModel : ViewModelBase
                 UploadSummary += $"{Environment.NewLine}EIS type: {details.EisType ?? "Not mapped"}; Key count: {details.KeyCount?.ToString() ?? "Not mapped"}";
                 EisPassword = string.IsNullOrWhiteSpace(details.EisPassword?.Value) ? "Not mapped" : details.EisPassword.Value;
                 Ssid = string.IsNullOrWhiteSpace(details.Ssid?.Value) ? "Not mapped" : details.Ssid.Value;
-                ResetEisStateDisplay();
+                ApplyEisStateDisplay(details);
             }
             Status = response.Status;
             await RefreshUploadedFilesAsync();
@@ -3495,7 +3499,7 @@ public partial class MainViewModel : ViewModelBase
         Ssid = string.IsNullOrWhiteSpace(details.Ssid) ? "Not mapped" : details.Ssid;
         KeySlots = new ObservableCollection<KeySlotDto>(details.Keys);
         VinConfirmedByUser = !string.IsNullOrWhiteSpace(VehicleIdentifier);
-        ResetEisStateDisplay();
+        ApplyEisStateDisplay(details);
         AnalysisSummary = $"Loaded {details.OriginalFileName} from server.";
     }
 
@@ -3506,14 +3510,29 @@ public partial class MainViewModel : ViewModelBase
     public string DealerEisDisplay => FormatTriState(DealerEis);
     public string Fbs4Display => FormatTriState(Fbs4);
 
+    private void ApplyEisStateDisplay(EisAnalysisDetailsDto? details)
+    {
+        Initialized = details?.Initialized;
+        Personalized = details?.Personalized;
+        TpCleared = details?.TpCleared;
+        Activated = details?.Activated;
+        DealerEis = details?.DealerEis;
+        Fbs4 = details?.Fbs4;
+    }
+
+    private void ApplyEisStateDisplay(StoredFileDetailsDto? details)
+    {
+        Initialized = details?.Initialized;
+        Personalized = details?.Personalized;
+        TpCleared = details?.TpCleared;
+        Activated = details?.Activated;
+        DealerEis = details?.DealerEis;
+        Fbs4 = details?.Fbs4;
+    }
+
     private void ResetEisStateDisplay()
     {
-        Initialized = null;
-        Personalized = null;
-        TpCleared = null;
-        Activated = null;
-        DealerEis = null;
-        Fbs4 = null;
+        ApplyEisStateDisplay((EisAnalysisDetailsDto?)null);
     }
 
     private static string FormatTriState(bool? value)

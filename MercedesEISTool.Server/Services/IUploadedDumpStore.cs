@@ -60,6 +60,12 @@ public class StoredFileAnalysisSnapshot
     public FieldValueStatus KeyCountStatus { get; set; }
     public SensitiveFieldDto EisPassword { get; set; } = new();
     public SensitiveFieldDto Ssid { get; set; } = new();
+    public bool? Initialized { get; set; }
+    public bool? Personalized { get; set; }
+    public bool? TpCleared { get; set; }
+    public bool? Activated { get; set; }
+    public bool? DealerEis { get; set; }
+    public bool? Fbs4 { get; set; }
     public List<KeySlotDto> Keys { get; set; } = new();
     public List<SensitiveFieldDto> AdditionalFields { get; set; } = new();
     public DateTimeOffset AnalyzedAtUtc { get; set; } = DateTimeOffset.UtcNow;

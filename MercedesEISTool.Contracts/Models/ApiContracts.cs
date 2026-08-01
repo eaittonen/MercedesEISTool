@@ -219,6 +219,12 @@ public sealed class EisAnalysisDetailsDto
     public FieldValueStatus KeyCountStatus { get; set; }
     public SensitiveFieldDto EisPassword { get; set; } = new();
     public SensitiveFieldDto Ssid { get; set; } = new();
+    public bool? Initialized { get; set; }
+    public bool? Personalized { get; set; }
+    public bool? TpCleared { get; set; }
+    public bool? Activated { get; set; }
+    public bool? DealerEis { get; set; }
+    public bool? Fbs4 { get; set; }
     public List<KeySlotDto> Keys { get; set; } = new();
     public List<SensitiveFieldDto> AdditionalFields { get; set; } = new();
     public DateTimeOffset AnalyzedAtUtc { get; set; }
@@ -244,6 +250,12 @@ public sealed class StoredFileListItemDto
     public string EisPasswordStatus { get; set; } = "NotMapped";
     public string? Ssid { get; set; }
     public string SsidStatus { get; set; } = "NotMapped";
+    public bool? Initialized { get; set; }
+    public bool? Personalized { get; set; }
+    public bool? TpCleared { get; set; }
+    public bool? Activated { get; set; }
+    public bool? DealerEis { get; set; }
+    public bool? Fbs4 { get; set; }
     public int KeyPasswordsFound { get; set; }
     public string AnalysisStatus { get; set; } = string.Empty;
     public string ParserVersion { get; set; } = string.Empty;
@@ -289,6 +301,12 @@ public sealed class StoredFileDetailsDto
     public string EisPasswordStatus { get; set; } = "NotMapped";
     public string? Ssid { get; set; }
     public string SsidStatus { get; set; } = "NotMapped";
+    public bool? Initialized { get; set; }
+    public bool? Personalized { get; set; }
+    public bool? TpCleared { get; set; }
+    public bool? Activated { get; set; }
+    public bool? DealerEis { get; set; }
+    public bool? Fbs4 { get; set; }
     public List<KeySlotDto> Keys { get; set; } = new();
     public string ParserVersion { get; set; } = string.Empty;
     public DateTimeOffset? AnalyzedAtUtc { get; set; }

@@ -33,6 +33,7 @@ public sealed class CgdiEisParser : IEisParser
 
         var ssid = ExtractReversedHex(data, 0x28, 4);
         var password = ExtractReversedHex(data, 0x38, 8);
+        var stateFlags = data[0x26];
 
         return new EisParserResult
         {
@@ -41,6 +42,12 @@ public sealed class CgdiEisParser : IEisParser
             Ssid = string.IsNullOrWhiteSpace(ssid) ? null : ssid,
             EisPartNumber = null,
             EisPassword = string.IsNullOrWhiteSpace(password) ? null : password,
+            Initialized = ReadBit(stateFlags, 0),
+            Personalized = ReadBit(stateFlags, 1),
+            TpCleared = ReadBit(stateFlags, 2),
+            Activated = ReadBit(stateFlags, 3),
+            DealerEis = ReadBit(stateFlags, 4),
+            Fbs4 = ReadBit(stateFlags, 5),
             DetectionConfidence = "Verified",
             Warnings = warnings
         };
@@ -70,6 +77,16 @@ public sealed class CgdiEisParser : IEisParser
         }
 
         return string.Join(" ", bytes.Select(value => value.ToString("X2")));
+    }
+
+    private static bool? ReadBit(byte flags, int bitIndex)
+    {
+        if (bitIndex < 0 || bitIndex > 7)
+        {
+            return null;
+        }
+
+        return ((flags >> bitIndex) & 0x01) == 0x01;
     }
 
     private static bool IsValidVin(string? vin)

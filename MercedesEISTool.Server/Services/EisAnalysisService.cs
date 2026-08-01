@@ -88,6 +88,13 @@ public sealed class EisAnalysisService : IEisAnalysisService
             details.VinStatus = "NotMapped";
         }
 
+        details.Initialized = parserResult.Initialized;
+        details.Personalized = parserResult.Personalized;
+        details.TpCleared = parserResult.TpCleared;
+        details.Activated = parserResult.Activated;
+        details.DealerEis = parserResult.DealerEis;
+        details.Fbs4 = parserResult.Fbs4;
+
         details.AdditionalFields.Add(new SensitiveFieldDto
         {
             Name = "FileName",

@@ -66,6 +66,23 @@ public class AnalysisServiceTests
     }
 
     [Fact]
+    public void Analyze_MapsCgdiStateFlags_WhenByte26ContainsFlags()
+    {
+        var service = new EisAnalysisService();
+        var bytes = CreateCgdiDump("WVWZZZ1JZ3C000005");
+        bytes[0x26] = 0x3F;
+
+        var result = service.Analyze(bytes, "sample.bin");
+
+        Assert.True(result.Initialized);
+        Assert.True(result.Personalized);
+        Assert.True(result.TpCleared);
+        Assert.True(result.Activated);
+        Assert.True(result.DealerEis);
+        Assert.True(result.Fbs4);
+    }
+
+    [Fact]
     public async Task PersistingAnalysisStoresLatestSnapshot()
     {
         var tempPath = Path.Combine(Path.GetTempPath(), "MercedesEISToolTests", Guid.NewGuid().ToString("N"));
