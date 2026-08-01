@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
@@ -8,17 +7,17 @@ namespace MercedesEISTool.GUI.Services;
 
 public interface IClipboardService
 {
-    Task SetTextAsync(string? value);
-    Task<string?> GetTextAsync();
+    System.Threading.Tasks.Task SetTextAsync(string? value);
+    System.Threading.Tasks.Task<string?> GetTextAsync();
 }
 
 public sealed class AvaloniaClipboardService : IClipboardService
 {
-    public Task SetTextAsync(string? value)
+    public System.Threading.Tasks.Task SetTextAsync(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return Task.CompletedTask;
+            return System.Threading.Tasks.Task.CompletedTask;
         }
 
         var clipboard = TopLevel.GetTopLevel((Window)Application.Current!.ApplicationLifetime!.
@@ -27,8 +26,8 @@ public sealed class AvaloniaClipboardService : IClipboardService
         return clipboard!.Clipboard!.SetTextAsync(value);
     }
 
-    public Task<string?> GetTextAsync()
+    public System.Threading.Tasks.Task<string?> GetTextAsync()
     {
-        return Task.FromResult<string?>(null);
+        return System.Threading.Tasks.Task.FromResult<string?>(null);
     }
 }
