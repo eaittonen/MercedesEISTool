@@ -14,13 +14,18 @@
     <div class="shell">
       <div class="login-box">
         <a class="brand-link" href="/app" aria-label="Go to dashboard">
-          <img src="/brand-long.png" alt="Korpidiagnostics logo" />
+          <img src="/brand-cropped.png" alt="Korpidiagnostics" />
         </a>
-        <p class="hint">Use the same account and password as the desktop application.</p>
+        <h1 class="visually-hidden">Mercedes EIS Tool sign in</h1>
         <form id="loginForm">
+          <label class="field-label" for="email">Email</label>
           <input id="email" name="email" type="email" placeholder="Email" autocomplete="username" required />
+          <label class="field-label" for="password">Password</label>
           <input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" required />
-          <label><input id="rememberMe" type="checkbox" /> Remember me</label>
+          <label class="remember-row" for="rememberMe">
+            <input id="rememberMe" type="checkbox" />
+            <span>Remember me</span>
+          </label>
           <button type="submit">Sign in</button>
         </form>
         <div id="loginMessage" class="hint"></div>

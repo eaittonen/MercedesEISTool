@@ -7,4 +7,6 @@ public sealed class VehicleLookupOptions
     public string RapidApiBaseUrl { get; set; } = "https://ajoneuvon-tiedot.p.rapidapi.com";
     public string RapidApiHost { get; set; } = "ajoneuvon-tiedot.p.rapidapi.com";
     public string RapidApiKey { get; set; } = string.Empty;
+    public int CacheDurationMinutes { get; set; } = 30;
+    public int NegativeCacheDurationMinutes { get; set; } = 5;
 }

@@ -325,6 +325,7 @@ public sealed class StoredFileDetailsDto
 
 public sealed class VehicleInfoDto
 {
+    public bool Found { get; set; }
     public string? Registration { get; set; }
     public string? Vin { get; set; }
     public string? Manufacturer { get; set; }
@@ -342,6 +343,11 @@ public sealed class VehicleInfoDto
     public string? Mass { get; set; }
     public string? BodyType { get; set; }
     public string? InspectionDate { get; set; }
+    public string? ErrorCode { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string? ProviderStatus { get; set; }
+    public string? ParseStatus { get; set; }
+    public string? ProviderRequestId { get; set; }
     public Dictionary<string, object?> AdditionalFields { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

@@ -1431,9 +1431,15 @@ public partial class MainViewModel : ViewModelBase
                 VehicleIdentifier = result.Vin;
             }
 
-            VehicleLookupSummary = string.IsNullOrWhiteSpace(result.Manufacturer) && string.IsNullOrWhiteSpace(result.Model)
-                ? "No vehicle information was returned."
-                : $"Vehicle info loaded for {result.Registration ?? registrationToLookup}";
+            if (result.Found)
+            {
+                VehicleLookupSummary = $"Vehicle info loaded for {result.Registration ?? registrationToLookup}";
+            }
+            else
+            {
+                VehicleLookupSummary = string.IsNullOrWhiteSpace(result.ErrorMessage) ? "Vehicle not found." : result.ErrorMessage;
+            }
+
             VehicleLookupDetails = BuildVehicleLookupDetails(result);
         }
         catch (Exception ex)
@@ -3715,6 +3721,20 @@ public partial class MainViewModel : ViewModelBase
     private static string BuildVehicleLookupDetails(VehicleInfoDto result)
     {
         var lines = new List<string>();
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage) && !result.Found)
+        {
+            lines.Add($"Error: {result.ErrorMessage}");
+            if (!string.IsNullOrWhiteSpace(result.ProviderStatus))
+            {
+                lines.Add($"Provider status: {result.ProviderStatus}");
+            }
+            if (!string.IsNullOrWhiteSpace(result.ErrorCode))
+            {
+                lines.Add($"Error code: {result.ErrorCode}");
+            }
+            return string.Join(Environment.NewLine, lines);
+        }
+
         if (!string.IsNullOrWhiteSpace(result.Registration))
         {
             lines.Add($"Registration: {result.Registration}");
@@ -3742,7 +3762,12 @@ public partial class MainViewModel : ViewModelBase
 
         if (result.Year.HasValue)
         {
-            lines.Add($"Year: {result.Year.Value}");
+            lines.Add($"Model year: {result.Year.Value}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.FirstRegistration))
+        {
+            lines.Add($"First registration: {result.FirstRegistration}");
         }
 
         if (!string.IsNullOrWhiteSpace(result.Fuel))
@@ -3750,14 +3775,19 @@ public partial class MainViewModel : ViewModelBase
             lines.Add($"Fuel: {result.Fuel}");
         }
 
+        if (!string.IsNullOrWhiteSpace(result.Power))
+        {
+            lines.Add($"Power: {result.Power}");
+        }
+
         if (!string.IsNullOrWhiteSpace(result.Engine))
         {
             lines.Add($"Engine: {result.Engine}");
         }
 
-        if (!string.IsNullOrWhiteSpace(result.Transmission))
+        if (!string.IsNullOrWhiteSpace(result.BodyType))
         {
-            lines.Add($"Transmission: {result.Transmission}");
+            lines.Add($"Body type: {result.BodyType}");
         }
 
         if (result.AdditionalFields.Count > 0)
