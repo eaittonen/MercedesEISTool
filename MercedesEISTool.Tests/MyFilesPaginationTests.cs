@@ -69,6 +69,44 @@ public class MyFilesPaginationTests
         Assert.Equal(50, apiClient.Requests[0].PageSize);
     }
 
+    [Fact]
+    public void PopulateWorkspaceFromDetails_RestoresMetadataAndSharedBytes()
+    {
+        var viewModel = new MainViewModel(new FakeApiClient(new StoredFileListResponse()));
+        var bytes = Enumerable.Range(0, 256).Select(value => (byte)value).ToArray();
+        var details = new StoredFileDetailsDto
+        {
+            Id = Guid.NewGuid(),
+            OriginalFileName = "restored.bin",
+            UserProvidedVin = "VIN12345678901234",
+            DetectedVin = "DETECTEDVIN",
+            RegistrationNumber = "ABC-123",
+            CustomerName = "Ada Lovelace",
+            AdditionalInformation = "Customer note",
+            DetectedFormat = "CGDI MB",
+            EisType = "EIS-A",
+            McuType = "MCU-A",
+            KeyCount = 4,
+            EisPassword = "1234",
+            Ssid = "SSID-1",
+            FileSizeBytes = bytes.Length,
+            Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))
+        };
+
+        var populateMethod = typeof(MainViewModel).GetMethod("PopulateWorkspaceFromDetails", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(populateMethod);
+
+        populateMethod!.Invoke(viewModel, new object?[] { details, bytes });
+
+        Assert.Equal("restored.bin", viewModel.SelectedFileName);
+        Assert.Equal("VIN12345678901234", viewModel.VehicleIdentifier);
+        Assert.Equal("ABC-123", viewModel.RegistrationNumber);
+        Assert.Equal("Ada Lovelace", viewModel.CustomerName);
+        Assert.Equal("Customer note", viewModel.AdditionalInformation);
+        Assert.Equal(bytes, viewModel.SelectedFileBytes);
+        Assert.Contains("0000", viewModel.RawHexEditorText);
+    }
+
     private sealed class FakeApiClient : IMercedesEisApiClient
     {
         private readonly StoredFileListResponse _storedFileResponse;

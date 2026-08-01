@@ -260,6 +260,9 @@ public partial class MainViewModel : ViewModelBase
     private string _customerName = string.Empty;
 
     [ObservableProperty]
+    private string _additionalInformation = string.Empty;
+
+    [ObservableProperty]
     private Guid? _selectedStoredFileId;
 
     [ObservableProperty]
@@ -345,6 +348,21 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _rawHexText = string.Empty;
+
+    [ObservableProperty]
+    private string _rawHexEditorText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isRawHexOverwriteMode = true;
+
+    [ObservableProperty]
+    private string _rawHexGotoOffsetText = string.Empty;
+
+    [ObservableProperty]
+    private string _rawHexEditorStatus = "Hex editor ready";
+
+    [ObservableProperty]
+    private bool _isRawHexModified;
 
     [ObservableProperty]
     private string _compareAPath = string.Empty;
@@ -517,6 +535,48 @@ public partial class MainViewModel : ViewModelBase
         MyFilesDetails = BuildSelectedStoredFileDetails(value);
         NotifySelectedStoredFileDetailPropertiesChanged();
         UpdateStoredFileCommandStates();
+    }
+
+    partial void OnSelectedFileBytesChanged(byte[]? value)
+    {
+        var bytes = value is null ? Array.Empty<byte>() : (byte[])value.Clone();
+        if (bytes.Length == 0)
+        {
+            RawHexEditorText = "No raw dump available.";
+            RawHexEditorStatus = "No bytes loaded";
+            IsRawHexModified = false;
+            return;
+        }
+
+        var isApplyingText = _isApplyingRawHexEditorText;
+        if (!isApplyingText)
+        {
+            RawHexEditorText = BuildRawHexText(bytes);
+            RawHexEditorStatus = bytes.Length > 0 ? $"{bytes.Length} bytes loaded" : "No bytes loaded";
+            IsRawHexModified = false;
+        }
+
+        RawHexText = RawHexEditorText;
+    }
+
+    private bool _isApplyingRawHexEditorText;
+
+    partial void OnRawHexEditorTextChanged(string value)
+    {
+        if (_isApplyingRawHexEditorText)
+        {
+            return;
+        }
+
+        var bytes = ParseRawHexEditorText(value);
+        if (bytes is not null)
+        {
+            _isApplyingRawHexEditorText = true;
+            SelectedFileBytes = bytes;
+            _isApplyingRawHexEditorText = false;
+            RawHexText = value;
+            IsRawHexModified = true;
+        }
     }
 
     partial void OnIsLoadingStoredFileChanged(bool value)
@@ -1143,7 +1203,9 @@ public partial class MainViewModel : ViewModelBase
             SelectedFileName = Path.GetFileName(result.Value.Path);
             SelectedFilePath = result.Value.Path;
             CustomerName = string.Empty;
-            RawHexText = BuildRawHexText(bytes);
+            AdditionalInformation = string.Empty;
+            SelectedFileBytes = (byte[])bytes.Clone();
+            RawHexText = RawHexEditorText;
             AnalysisSummary = "File loaded locally. Use Analyze to send it to the server.";
             UploadSummary = string.Empty;
             Status = $"Loaded {SelectedFileName}";
@@ -1177,7 +1239,8 @@ public partial class MainViewModel : ViewModelBase
             EisPassword = string.IsNullOrWhiteSpace(details?.EisPassword?.Value) ? "Not mapped" : details.EisPassword.Value;
             Ssid = string.IsNullOrWhiteSpace(details?.Ssid?.Value) ? "Not mapped" : details.Ssid.Value;
             ResetEisStateDisplay();
-            RawHexText = BuildRawHexText(bytes);
+            SelectedFileBytes = (byte[])bytes.Clone();
+            RawHexText = RawHexEditorText;
             AnalysisSummary = response.Message;
             UploadSummary = string.Empty;
             ValidationMessage = string.Empty;
@@ -3067,7 +3130,8 @@ public partial class MainViewModel : ViewModelBase
             EisType = details?.EisType ?? "Not mapped";
             Mcu = details?.McuType ?? "Not mapped";
             KeyCount = details?.KeyCount?.ToString() ?? "Not mapped";
-            RawHexText = BuildRawHexText(data);
+            SelectedFileBytes = (byte[])data.Clone();
+            RawHexText = RawHexEditorText;
             ServerStatus = "Connected";
             Status = response.Status;
             CanConvert = false;
@@ -3081,7 +3145,8 @@ public partial class MainViewModel : ViewModelBase
             EisType = "Unknown";
             Mcu = "Unknown";
             KeyCount = "0";
-            RawHexText = BuildRawHexText(data);
+            SelectedFileBytes = (byte[])data.Clone();
+            RawHexText = RawHexEditorText;
             Status = "Server unavailable. Analysis requires an active server connection.";
         }
     }
@@ -3413,11 +3478,13 @@ public partial class MainViewModel : ViewModelBase
     private void PopulateWorkspaceFromDetails(StoredFileDetailsDto details, byte[]? bytes = null)
     {
         SelectedFileName = details.OriginalFileName;
-        SelectedFileBytes = bytes ?? SelectedFileBytes;
+        SelectedFileBytes = bytes is null ? SelectedFileBytes : (byte[])bytes.Clone();
+        VehicleIdentifier = string.IsNullOrWhiteSpace(details.UserProvidedVin) ? DisplayValue(details.DetectedVin) : details.UserProvidedVin;
+        RegistrationNumber = details.RegistrationNumber ?? string.Empty;
         CustomerName = details.CustomerName ?? string.Empty;
+        AdditionalInformation = details.AdditionalInformation ?? string.Empty;
         SelectedFileSize = bytes?.Length ?? details.FileSizeBytes;
         SelectedFileSha256 = details.Sha256;
-        RawHexText = bytes is null ? "No raw dump available." : BuildRawHexText(bytes);
         DetectedFormat = DisplayValue(details.DetectedFormat);
         Vin = DisplayValue(details.DetectedVin);
         VinStatus = details.VinStatus;
@@ -3427,6 +3494,7 @@ public partial class MainViewModel : ViewModelBase
         EisPassword = string.IsNullOrWhiteSpace(details.EisPassword) ? "Not mapped" : details.EisPassword;
         Ssid = string.IsNullOrWhiteSpace(details.Ssid) ? "Not mapped" : details.Ssid;
         KeySlots = new ObservableCollection<KeySlotDto>(details.Keys);
+        VinConfirmedByUser = !string.IsNullOrWhiteSpace(VehicleIdentifier);
         ResetEisStateDisplay();
         AnalysisSummary = $"Loaded {details.OriginalFileName} from server.";
     }
@@ -3465,7 +3533,7 @@ public partial class MainViewModel : ViewModelBase
 
     private static string BuildRawHexText(byte[] data)
     {
-        if (data is null || data.Length != 256)
+        if (data is null || data.Length == 0)
         {
             return "No raw dump available.";
         }
@@ -3480,6 +3548,91 @@ public partial class MainViewModel : ViewModelBase
         }
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static byte[]? ParseRawHexEditorText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Array.Empty<byte>();
+        }
+
+        var matches = Regex.Matches(text, "[0-9A-Fa-f]{2}");
+        if (matches.Count == 0)
+        {
+            return null;
+        }
+
+        var bytes = new byte[matches.Count];
+        for (var index = 0; index < matches.Count; index++)
+        {
+            bytes[index] = byte.Parse(matches[index].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        }
+
+        return bytes;
+    }
+
+    [RelayCommand]
+    private void ToggleRawHexOverwriteMode()
+    {
+        IsRawHexOverwriteMode = !IsRawHexOverwriteMode;
+        RawHexEditorStatus = IsRawHexOverwriteMode ? "Overwrite mode enabled" : "Insert mode enabled";
+    }
+
+    [RelayCommand]
+    private async Task CopyRawHexEditorAsync()
+    {
+        if (string.IsNullOrWhiteSpace(RawHexEditorText))
+        {
+            return;
+        }
+
+        await _clipboardService.SetTextAsync(RawHexEditorText);
+        RawHexEditorStatus = "Hex view copied to clipboard";
+    }
+
+    [RelayCommand]
+    private async Task PasteRawHexEditorAsync()
+    {
+        var clipboardText = await _clipboardService.GetTextAsync();
+        if (string.IsNullOrWhiteSpace(clipboardText))
+        {
+            RawHexEditorStatus = "Clipboard is empty";
+            return;
+        }
+
+        var bytes = ParseRawHexEditorText(clipboardText);
+        if (bytes is null)
+        {
+            RawHexEditorStatus = "Clipboard content is not valid hex";
+            return;
+        }
+
+        _isApplyingRawHexEditorText = true;
+        RawHexEditorText = BuildRawHexText(bytes);
+        _isApplyingRawHexEditorText = false;
+        SelectedFileBytes = bytes;
+        RawHexText = RawHexEditorText;
+        RawHexEditorStatus = "Hex view pasted from clipboard";
+        IsRawHexModified = true;
+    }
+
+    [RelayCommand]
+    private void GotoRawHexOffset()
+    {
+        if (!TryParseOffset(RawHexGotoOffsetText, out var offset))
+        {
+            RawHexEditorStatus = "Enter a valid decimal or 0x-prefixed offset";
+            return;
+        }
+
+        if (SelectedFileBytes is null || offset < 0 || offset >= SelectedFileBytes.Length)
+        {
+            RawHexEditorStatus = "Offset is outside the current byte buffer";
+            return;
+        }
+
+        RawHexEditorStatus = $"Positioned at offset {offset}";
     }
 
     private static string BuildComparisonText(byte[] left, byte[] right, CompareDumpsResponse comparison)

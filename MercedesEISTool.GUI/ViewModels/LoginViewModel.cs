@@ -30,8 +30,7 @@ public partial class LoginViewModel : ObservableObject
         _configuration = configuration;
         var storedEnvironment = LoadSelectedEnvironment();
         var savedCredentials = LoadSavedCredentials();
-        SelectedEnvironment = storedEnvironment;
-        SelectedServerDisplay = GetBaseUrl(storedEnvironment);
+        UpdateSelectedEnvironment(storedEnvironment);
         if (savedCredentials is not null)
         {
             Email = savedCredentials.Email;
@@ -50,8 +49,22 @@ public partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private string _status = string.Empty;
 
-    [ObservableProperty]
     private string _selectedEnvironment = "Production";
+    public string SelectedEnvironment
+    {
+        get => _selectedEnvironment;
+        set
+        {
+            if (_selectedEnvironment == value)
+            {
+                return;
+            }
+
+            _selectedEnvironment = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedServerDisplay));
+        }
+    }
 
     [ObservableProperty]
     private ObservableCollection<string> _availableEnvironments = new() { "Production", "QA" };
@@ -62,8 +75,9 @@ public partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private bool _rememberMe;
 
-    partial void OnSelectedEnvironmentChanged(string value)
+    private void UpdateSelectedEnvironment(string value)
     {
+        SelectedEnvironment = value;
         SelectedServerDisplay = GetBaseUrl(value);
         _apiClient = CreateApiClient(SelectedServerDisplay);
         SaveSelectedEnvironment(value);
@@ -76,7 +90,7 @@ public partial class LoginViewModel : ObservableObject
 
     private IMercedesEisApiClient CreateApiClient(string? baseUrl = null)
     {
-        var selectedBaseUrl = baseUrl ?? GetBaseUrl(_selectedEnvironment);
+        var selectedBaseUrl = baseUrl ?? GetBaseUrl(SelectedEnvironment);
         return new MercedesEisApiClient(new HttpClient
         {
             BaseAddress = new Uri(selectedBaseUrl),
@@ -164,12 +178,12 @@ public partial class LoginViewModel : ObservableObject
         try
         {
             Status = "Signing in...";
-            _apiClient = CreateApiClient(GetBaseUrl(_selectedEnvironment));
+            _apiClient = CreateApiClient(GetBaseUrl(SelectedEnvironment));
             var response = await _apiClient.LoginAsync(Email, Password);
             _apiClient.SetAccessToken(response.AccessToken);
 
             var settings = LoadSettings();
-            settings.SelectedEnvironment = _selectedEnvironment;
+            settings.SelectedEnvironment = SelectedEnvironment;
             settings.Email = RememberMe ? Email : string.Empty;
             settings.Password = RememberMe ? Password : string.Empty;
             settings.RememberMe = RememberMe;

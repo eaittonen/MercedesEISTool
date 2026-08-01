@@ -182,6 +182,124 @@
         }
       }
     },
+    "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.GUI\\MercedesEISTool.GUI.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.GUI\\MercedesEISTool.GUI.csproj",
+        "projectName": "MercedesEISTool.GUI",
+        "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.GUI\\MercedesEISTool.GUI.csproj",
+        "packagesPath": "C:\\Users\\Eetu Aittonen\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.GUI\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\Eetu Aittonen\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.ApiClient\\MercedesEISTool.ApiClient.csproj": {
+                "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.ApiClient\\MercedesEISTool.ApiClient.csproj"
+              },
+              "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Contracts\\MercedesEISTool.Contracts.csproj": {
+                "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Contracts\\MercedesEISTool.Contracts.csproj"
+              },
+              "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Core\\MercedesEISTool.Core.csproj": {
+                "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Core\\MercedesEISTool.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Avalonia": {
+              "target": "Package",
+              "version": "[12.1.0, )"
+            },
+            "Avalonia.Controls.DataGrid": {
+              "target": "Package",
+              "version": "[12.1.0, )"
+            },
+            "Avalonia.Desktop": {
+              "target": "Package",
+              "version": "[12.1.0, )"
+            },
+            "Avalonia.Fonts.Inter": {
+              "target": "Package",
+              "version": "[12.1.0, )"
+            },
+            "Avalonia.Themes.Fluent": {
+              "target": "Package",
+              "version": "[12.1.0, )"
+            },
+            "AvaloniaUI.DiagnosticsSupport": {
+              "target": "Package",
+              "version": "[2.2.3, )"
+            },
+            "CommunityToolkit.Mvvm": {
+              "target": "Package",
+              "version": "[8.4.2, )"
+            },
+            "Microsoft.Extensions.Configuration": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Binder": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.EnvironmentVariables": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Json": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.DependencyInjection": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.423/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
     "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Server\\MercedesEISTool.Server.csproj": {
       "version": "1.0.0",
       "restore": {
@@ -300,6 +418,9 @@
               },
               "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Core\\MercedesEISTool.Core.csproj": {
                 "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Core\\MercedesEISTool.Core.csproj"
+              },
+              "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.GUI\\MercedesEISTool.GUI.csproj": {
+                "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.GUI\\MercedesEISTool.GUI.csproj"
               },
               "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Server\\MercedesEISTool.Server.csproj": {
                 "projectPath": "C:\\Users\\Eetu Aittonen\\source\\repos\\MercedesEISTool\\MercedesEISTool.Server\\MercedesEISTool.Server.csproj"
