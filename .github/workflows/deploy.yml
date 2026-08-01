@@ -103,6 +103,26 @@ jobs:
             exit 1
           fi
 
+      - name: Install server environment configuration
+        shell: bash
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+        run: |
+          set -euo pipefail
+          sudo install -d -m 755 /etc/mercedes-eis-tool
+          sudo install -d -m 755 /etc/systemd/system/mercedes-eis-tool.service.d
+          sudo install -m 600 /dev/null /etc/mercedes-eis-tool/environment
+          sudo tee /etc/mercedes-eis-tool/environment >/dev/null <<EOF
+          VehicleLookup__RapidApiBaseUrl=https://ajoneuvon-tiedot.p.rapidapi.com
+          VehicleLookup__RapidApiHost=ajoneuvon-tiedot.p.rapidapi.com
+          VehicleLookup__RapidApiKey=${RAPIDAPI_KEY}
+          EOF
+          sudo tee /etc/systemd/system/mercedes-eis-tool.service.d/override.conf >/dev/null <<'EOF'
+          [Service]
+          EnvironmentFile=-/etc/mercedes-eis-tool/environment
+          EOF
+          sudo /usr/bin/systemctl daemon-reload
+
       - name: Switch current symlink to the new release
         shell: bash
         run: |

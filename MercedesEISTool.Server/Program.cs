@@ -114,6 +114,12 @@ builder.Services.AddScoped<DevelopmentBootstrapService>();
 
 var app = builder.Build();
 
+var vehicleLookupOptions = builder.Configuration.GetSection(VehicleLookupOptions.SectionName).Get<VehicleLookupOptions>() ?? new VehicleLookupOptions();
+var vehicleLookupConfigured = !string.IsNullOrWhiteSpace(vehicleLookupOptions.RapidApiBaseUrl)
+    && !string.IsNullOrWhiteSpace(vehicleLookupOptions.RapidApiHost)
+    && !string.IsNullOrWhiteSpace(vehicleLookupOptions.RapidApiKey);
+app.Logger.LogInformation("Vehicle lookup configured: {Status}", vehicleLookupConfigured ? "YES" : "NO");
+
 var databasePath = effectiveConnectionString.Contains("Data Source=")
     ? new SqliteConnectionStringBuilder(effectiveConnectionString).DataSource
     : resolvedDatabasePath;

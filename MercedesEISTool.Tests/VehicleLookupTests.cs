@@ -32,7 +32,7 @@ public sealed class VehicleLookupTests
         Assert.Equal("WDB00000000000000", result.Vin);
         Assert.Equal("Mercedes-Benz", result.Manufacturer);
         Assert.Equal("C 200", result.Model);
-        Assert.Equal("https://example.test/api/Search?m=ModuleBasic&registration=NLU846&reg=NLU846", handler.LastRequestUri?.ToString());
+        Assert.Equal("https://example.test/api/Search?m=ModuleBasic&registration=NLU-846&reg=NLU-846", handler.LastRequestUri?.ToString());
     }
 
     [Fact]

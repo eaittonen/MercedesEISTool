@@ -119,6 +119,7 @@ public sealed class RapidApiVehicleLookupProvider : IVehicleLookupProvider
         var requestUri = BuildRequestUri(registration.Trim(), normalizedRegistration);
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.TryAddWithoutValidation("Content-Type", "application/json");
         request.Headers.Add("x-rapidapi-host", _options.RapidApiHost);
         request.Headers.Add("x-rapidapi-key", _options.RapidApiKey);
 
