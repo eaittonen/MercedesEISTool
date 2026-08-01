@@ -15,11 +15,17 @@ const signOutButton = document.getElementById('signOutButton');
 const backButton = document.getElementById('backButton');
 const searchButton = document.getElementById('searchButton');
 const dataPanel = document.getElementById('dataPanel');
+const installHint = document.getElementById('installHint');
+const offlineBanner = document.getElementById('offlineBanner');
 
 let debounceTimer = null;
+let deferredPrompt = null;
 
 function init() {
   bindEvents();
+  updateOfflineStatus();
+  window.addEventListener('online', updateOfflineStatus);
+  window.addEventListener('offline', updateOfflineStatus);
   checkAuth().then(() => {
     const routeId = getRouteFileId();
     if (routeId) {
@@ -38,6 +44,28 @@ function bindEvents() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => loadSearchResults(searchInput.value.trim()), 300);
   });
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    if (installHint) {
+      installHint.textContent = 'Install this page to keep a workshop-friendly shortcut on your device.';
+    }
+  });
+
+  if (installHint) {
+    installHint.addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        installHint.textContent = 'This browser is not offering app installation right now.';
+        return;
+      }
+
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installHint.textContent = 'Installation prompt completed.';
+    });
+  }
 
   searchButton.addEventListener('click', () => {
     loadSearchResults(searchInput.value.trim());
@@ -90,6 +118,17 @@ function showDetailView() {
   resultsHost.classList.add('hidden');
   detailHost.classList.remove('hidden');
   backButton.classList.remove('hidden');
+}
+
+function updateOfflineStatus() {
+  if (!offlineBanner) return;
+  if (navigator.onLine) {
+    offlineBanner.classList.add('hidden');
+    return;
+  }
+
+  offlineBanner.classList.remove('hidden');
+  offlineBanner.textContent = 'You are offline. The cached app shell is still available.';
 }
 
 async function loadSearchResults(term) {

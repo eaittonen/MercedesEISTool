@@ -28,6 +28,7 @@ public sealed class VvdiMercedesEisParser : IEisParser
         var ssid = ExtractHex(data, 0x10, 4);
         var partNumber = ExtractAscii(data, 0xE0, 10);
         var password = ExtractPassword(data, 0x70, 8);
+        var stateFlags = data[0x26];
 
         if (string.IsNullOrWhiteSpace(vin))
         {
@@ -59,6 +60,12 @@ public sealed class VvdiMercedesEisParser : IEisParser
             Ssid = string.IsNullOrWhiteSpace(ssid) ? null : ssid,
             EisPartNumber = string.IsNullOrWhiteSpace(partNumber) ? null : partNumber,
             EisPassword = string.IsNullOrWhiteSpace(password) ? null : password,
+            Initialized = ReadBit(stateFlags, 0),
+            Personalized = ReadBit(stateFlags, 1),
+            TpCleared = ReadBit(stateFlags, 2),
+            Activated = ReadBit(stateFlags, 3),
+            DealerEis = ReadBit(stateFlags, 4),
+            Fbs4 = ReadBit(stateFlags, 5),
             DetectionConfidence = "Supported",
             Warnings = warnings
         };
@@ -124,6 +131,16 @@ public sealed class VvdiMercedesEisParser : IEisParser
         }
 
         return ExtractHex(data, offset, length);
+    }
+
+    private static bool? ReadBit(byte flags, int bitIndex)
+    {
+        if (bitIndex < 0 || bitIndex > 7)
+        {
+            return null;
+        }
+
+        return ((flags >> bitIndex) & 0x01) == 0x01;
     }
 
     private static bool IsValidVin(string? vin)

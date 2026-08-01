@@ -18,7 +18,7 @@
             <img src="/brand-long.png" alt="Korpidiagnostics logo" />
           </a>
         </div>
-        <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div class="meta-stack">
           <div id="authStatus">Loading…</div>
           <button id="signOutButton" class="ghost-btn">Sign out</button>
         </div>
@@ -27,11 +27,18 @@
       <section class="hero">
         <h1>Quick lookup from the workshop</h1>
         <p>Search VIN, registration, customer, password, SSID or filename across the server index, then open the matching dump in one tap.</p>
+        <div class="hero-meta">
+          <span class="pill">Fast workshop lookup</span>
+          <span class="pill">Offline-ready shell</span>
+          <span class="pill">QR and copy tools</span>
+        </div>
         <div class="search-row">
           <input id="searchInput" placeholder="Search VIN, registration, customer, password, SSID..." />
           <button id="searchButton">Search</button>
         </div>
         <div id="searchSummary" class="status-line">Search the complete server index.</div>
+        <div id="installHint" class="status-line">Install this page as an app for a full-screen workshop experience.</div>
+        <div id="offlineBanner" class="offline-banner hidden">You are offline. The cached app shell is still available.</div>
       </section>
 
       <section class="panel">

@@ -84,7 +84,17 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.SlidingExpiration = true;
+    options.Events.OnSigningIn = context =>
+    {
+        if (context.Properties?.IsPersistent == true)
+        {
+            context.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
+        }
+
+        return Task.CompletedTask;
+    };
 });
 builder.Services.AddAuthorization();
 builder.Services.Configure<VehicleLookupOptions>(builder.Configuration.GetSection(VehicleLookupOptions.SectionName));
@@ -273,7 +283,13 @@ app.MapPost("/auth/login", async Task<IResult> (LoginRequestDto request, SignInM
         return Results.Unauthorized();
     }
 
-    await signInManager.SignInAsync(user, request.RememberMe);
+    var authProperties = new AuthenticationProperties
+    {
+        IsPersistent = request.RememberMe,
+        ExpiresUtc = request.RememberMe ? DateTimeOffset.UtcNow.AddDays(30) : null
+    };
+
+    await signInManager.SignInAsync(user, authProperties);
     return Results.Ok(new { redirectUrl = httpContext.Request.Query["returnUrl"].ToString() });
 }).AllowAnonymous();
 
