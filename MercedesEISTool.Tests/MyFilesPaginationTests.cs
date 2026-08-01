@@ -107,6 +107,49 @@ public class MyFilesPaginationTests
         Assert.Contains("0000", viewModel.RawHexEditorText);
     }
 
+    [Fact]
+    public void PopulateWorkspaceFromDetails_DoesNotAutoConfirmDetectedVinWithoutUserInput()
+    {
+        var viewModel = new MainViewModel(new FakeApiClient(new StoredFileListResponse()));
+        var details = new StoredFileDetailsDto
+        {
+            Id = Guid.NewGuid(),
+            OriginalFileName = "detected-only.bin",
+            DetectedVin = "VIN12345678901234",
+            RegistrationNumber = string.Empty,
+            CustomerName = "Ada Lovelace"
+        };
+
+        var populateMethod = typeof(MainViewModel).GetMethod("PopulateWorkspaceFromDetails", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(populateMethod);
+
+        populateMethod!.Invoke(viewModel, new object?[] { details, null });
+
+        Assert.Equal("VIN12345678901234", viewModel.VehicleIdentifier);
+        Assert.False(viewModel.VinConfirmedByUser);
+        Assert.False(viewModel.CanUpload);
+    }
+
+    [Fact]
+    public void ConvertDump_EnablesSavingAfterTheSelectedTargetFormatIsApplied()
+    {
+        var viewModel = new MainViewModel(new FakeApiClient(new StoredFileListResponse()));
+        viewModel.SelectedFileName = "sample.bin";
+        viewModel.SelectedFileBytes = new byte[] { 0x00, 0x01, 0x02 };
+        viewModel.DetectedFormat = "CGDI MB";
+        viewModel.SelectedTargetFormat = "VVDI MB Tool";
+        viewModel.CanSave = false;
+
+        var convertMethod = typeof(MainViewModel).GetMethod("ConvertDump", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(convertMethod);
+
+        convertMethod!.Invoke(viewModel, null);
+
+        Assert.Equal("VVDI MB Tool", viewModel.DetectedFormat);
+        Assert.True(viewModel.CanSave);
+        Assert.Contains("converted", viewModel.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class FakeApiClient : IMercedesEisApiClient
     {
         private readonly StoredFileListResponse _storedFileResponse;

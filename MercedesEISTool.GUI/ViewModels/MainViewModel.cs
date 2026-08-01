@@ -559,6 +559,7 @@ public partial class MainViewModel : ViewModelBase
             _isApplyingRawHexEditorText = false;
             RawHexEditorStatus = "No bytes loaded";
             IsRawHexModified = false;
+            UpdateConversionAndSaveAvailability();
             return;
         }
 
@@ -573,6 +574,14 @@ public partial class MainViewModel : ViewModelBase
         }
 
         RawHexText = RawHexEditorText;
+        UpdateConversionAndSaveAvailability();
+    }
+
+    private void UpdateConversionAndSaveAvailability()
+    {
+        var hasBytes = SelectedFileBytes is { Length: > 0 };
+        CanConvert = hasBytes && !IsBusy;
+        CanSave = hasBytes;
     }
 
     private bool _isApplyingRawHexEditorText;
@@ -2511,14 +2520,106 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ConvertDump()
     {
-        Status = "Conversion is not implemented yet.";
+        if (SelectedFileBytes is null || SelectedFileBytes.Length == 0)
+        {
+            Status = "Open or load a dump before converting it.";
+            CanConvert = false;
+            CanSave = false;
+            return;
+        }
+
+        if (SelectedTargetFormat is null || string.IsNullOrWhiteSpace(SelectedTargetFormat))
+        {
+            Status = "Choose a valid target format before converting.";
+            CanConvert = false;
+            CanSave = false;
+            return;
+        }
+
+        if (string.Equals(DetectedFormat, SelectedTargetFormat, StringComparison.OrdinalIgnoreCase))
+        {
+            Status = $"The dump is already in {SelectedTargetFormat} format.";
+            CanConvert = true;
+            CanSave = true;
+            return;
+        }
+
+        try
+        {
+            var service = new EisDumpService();
+            var currentFormat = string.IsNullOrWhiteSpace(DetectedFormat) ? service.DetectFormat(SelectedFileBytes) : DetectedFormat;
+            var dump = new EisDump
+            {
+                RawData = (byte[])SelectedFileBytes.Clone(),
+                Format = currentFormat,
+                VIN = string.Empty,
+                EisType = string.Empty,
+                MCU = string.Empty,
+                SSID = string.Empty,
+                Keys = new List<KeyInfo>()
+            };
+            var converted = service.ConvertDump(dump, SelectedTargetFormat);
+            SelectedFileBytes = (byte[])converted.RawData.Clone();
+            RawHexText = BuildRawHexText(SelectedFileBytes);
+            RawHexEditorText = RawHexText;
+            DetectedFormat = converted.Format;
+            CanConvert = true;
+            CanSave = true;
+            IsRawHexModified = true;
+            Status = $"Dump converted to {converted.Format} and ready to save.";
+        }
+        catch (Exception ex)
+        {
+            CanConvert = false;
+            CanSave = false;
+            Status = ex.Message;
+        }
     }
 
     [RelayCommand]
-    private Task SaveDump()
+    private async Task SaveDump()
     {
-        Status = "Saving is disabled until conversion is implemented.";
-        return Task.CompletedTask;
+        if (SelectedFileBytes is null || SelectedFileBytes.Length == 0)
+        {
+            Status = "No dump data available to save.";
+            CanSave = false;
+            return;
+        }
+
+        try
+        {
+            var window = (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as Window;
+            if (window is null)
+            {
+                Status = "Unable to access the desktop window for file saving.";
+                CanSave = false;
+                return;
+            }
+
+            var suggestedName = string.IsNullOrWhiteSpace(SelectedFileName) ? "converted.bin" : Path.GetFileNameWithoutExtension(SelectedFileName) + ".bin";
+            var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save converted EIS dump",
+                SuggestedFileName = suggestedName,
+                DefaultExtension = ".bin"
+            });
+
+            if (file is null)
+            {
+                Status = "Save cancelled.";
+                CanSave = true;
+                return;
+            }
+
+            await File.WriteAllBytesAsync(file.Path.LocalPath, SelectedFileBytes);
+            Status = $"Saved {file.Path.LocalPath}";
+            CanSave = true;
+        }
+        catch (Exception ex)
+        {
+            Status = ex.Message;
+            CanSave = false;
+        }
     }
 
     [RelayCommand]
@@ -3562,7 +3663,8 @@ public partial class MainViewModel : ViewModelBase
         EisPassword = string.IsNullOrWhiteSpace(details.EisPassword) ? "Not mapped" : details.EisPassword;
         Ssid = string.IsNullOrWhiteSpace(details.Ssid) ? "Not mapped" : details.Ssid;
         KeySlots = new ObservableCollection<KeySlotDto>(details.Keys);
-        VinConfirmedByUser = !string.IsNullOrWhiteSpace(VehicleIdentifier);
+        var hasUserProvidedIdentifier = !string.IsNullOrWhiteSpace(details.UserProvidedVin) || !string.IsNullOrWhiteSpace(details.RegistrationNumber);
+        VinConfirmedByUser = hasUserProvidedIdentifier;
         ApplyEisStateDisplay(details);
         AnalysisSummary = $"Loaded {details.OriginalFileName} from server.";
     }

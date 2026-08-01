@@ -9,11 +9,13 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
 {
     private readonly string _rootPath;
     private readonly string _indexPath;
+    private readonly IResourceAuthorizationService _authorizationService;
 
-    public JsonUploadedDumpStore(string? rootPath = null)
+    public JsonUploadedDumpStore(string? rootPath = null, IResourceAuthorizationService? authorizationService = null)
     {
         _rootPath = ResolveStorageRoot(rootPath);
         _indexPath = Path.Combine(_rootPath, "index.json");
+        _authorizationService = authorizationService ?? new ResourceAuthorizationService();
         Directory.CreateDirectory(_rootPath);
         MigrateLegacyStorageIfNeeded();
     }
@@ -61,7 +63,8 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
             Operation = operation,
             SizeBytes = data.Length,
             UploadedByUserId = currentUser?.UserId ?? "development",
-            FileCategory = fileCategory
+            FileCategory = fileCategory,
+            OrganizationName = currentUser?.OrganizationId ?? "default-org"
         };
 
         var fileNameSafe = SanitizeFileName(record.FileName);
@@ -85,7 +88,14 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
     public async Task<List<UploadedDumpRecord>> ListAsync(ICurrentUser? currentUser = null, string? search = null, int page = 1, int pageSize = 50)
     {
         var records = await LoadRecordsAsync();
-        var filtered = records.Where(record => CanAccessRecord(record, currentUser)).ToList();
+        var filtered = new List<UploadedDumpRecord>();
+        foreach (var record in records)
+        {
+            if (await CanAccessRecordAsync(record, currentUser, StoredFilePermission.ViewMetadata))
+            {
+                filtered.Add(record);
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -160,7 +170,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
     {
         var records = await LoadRecordsAsync();
         var record = records.FirstOrDefault(item => item.Id == storedFileId);
-        if (record is null || !CanAccessRecord(record, currentUser))
+        if (record is null || !await CanAccessRecordAsync(record, currentUser, StoredFilePermission.ViewMetadata))
         {
             return null;
         }
@@ -177,7 +187,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
     {
         var records = await LoadRecordsAsync();
         var record = records.FirstOrDefault(item => item.Id == storedFileId);
-        if (record is null || !CanAccessRecord(record, currentUser))
+        if (record is null || !await CanAccessRecordAsync(record, currentUser, StoredFilePermission.DownloadOriginal))
         {
             throw new FileNotFoundException("Stored file was not found.", storedFileId.ToString());
         }
@@ -189,28 +199,62 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
     {
         var records = await LoadRecordsAsync();
         var record = records.FirstOrDefault(item => item.Id == storedFileId);
-        return record is not null && CanAccessRecord(record, currentUser) ? record : null;
+        return record is not null && await CanAccessRecordAsync(record, currentUser, StoredFilePermission.ViewMetadata) ? record : null;
     }
 
-    private static bool CanAccessRecord(UploadedDumpRecord record, ICurrentUser? currentUser)
+    public async Task AddAccessGrantAsync(Guid resourceId, ResourceAccessGrant grant, ICurrentUser? currentUser)
+    {
+        var records = await LoadRecordsAsync();
+        var record = records.FirstOrDefault(item => item.Id == resourceId);
+        if (record is null)
+        {
+            return;
+        }
+
+        await _authorizationService.AddAccessGrantAsync(resourceId, grant, currentUser);
+    }
+
+    private async Task<bool> CanAccessRecordAsync(UploadedDumpRecord record, ICurrentUser? currentUser, StoredFilePermission requiredPermission)
     {
         if (currentUser is null)
         {
-            return true;
+            return false;
         }
 
-        var currentUserId = currentUser.UserId;
-        if (string.IsNullOrWhiteSpace(currentUserId))
+        if (string.Equals(currentUser.UserId, "development", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        var isDevelopmentUser = string.Equals(currentUserId, "development", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(currentUser.DisplayName, "Development", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(record.UploadedByUserId, "development", StringComparison.OrdinalIgnoreCase);
+        if (currentUser.IsInRole("SystemAdministrator"))
+        {
+            return true;
+        }
 
-        return isDevelopmentUser
-            || string.Equals(record.UploadedByUserId, currentUserId, StringComparison.OrdinalIgnoreCase);
+        var currentOrganizationId = currentUser.OrganizationId;
+        var isOwnerOrganization = string.Equals(currentOrganizationId, record.OrganizationName, StringComparison.OrdinalIgnoreCase);
+        if (isOwnerOrganization)
+        {
+            return true;
+        }
+
+        var grants = await _authorizationService.GetActiveGrantsAsync(record.Id);
+        foreach (var grant in grants)
+        {
+            if (grant.ExpiresUtc.HasValue && grant.ExpiresUtc.Value <= DateTimeOffset.UtcNow)
+            {
+                continue;
+            }
+
+            var targetMatchesUser = !string.IsNullOrWhiteSpace(grant.GrantedToUserId) && string.Equals(grant.GrantedToUserId, currentUser.UserId, StringComparison.OrdinalIgnoreCase);
+            var targetMatchesOrganization = !string.IsNullOrWhiteSpace(grant.GrantedToOrganizationId) && string.Equals(grant.GrantedToOrganizationId, currentOrganizationId, StringComparison.OrdinalIgnoreCase);
+            if ((targetMatchesUser || targetMatchesOrganization) && (grant.Permissions & requiredPermission) == requiredPermission)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task<List<UploadedDumpRecord>> LoadRecordsAsync()

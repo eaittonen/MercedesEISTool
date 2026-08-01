@@ -11,6 +11,9 @@ public interface ICurrentUser
 {
     string UserId { get; }
     string DisplayName { get; }
+    string? OrganizationId { get; }
+    IReadOnlyCollection<string> Roles { get; }
+    bool IsInRole(string role);
 }
 
 public interface ILicenseService

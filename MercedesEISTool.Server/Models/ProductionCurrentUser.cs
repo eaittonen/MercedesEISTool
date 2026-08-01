@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 namespace MercedesEISTool.Server.Models;
 
 public sealed class ProductionCurrentUser : ICurrentUser
@@ -9,9 +11,20 @@ public sealed class ProductionCurrentUser : ICurrentUser
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public string UserId => _httpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-        ?? _httpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+    public string UserId => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        ?? _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value
         ?? "development";
 
     public string DisplayName => _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "Development";
+
+    public string? OrganizationId => _httpContextAccessor.HttpContext?.User?.FindFirst("OrganizationId")?.Value
+        ?? _httpContextAccessor.HttpContext?.User?.FindFirst("organizationId")?.Value;
+
+    public IReadOnlyCollection<string> Roles => _httpContextAccessor.HttpContext?.User?.FindAll(ClaimTypes.Role)
+        .Select(claim => claim.Value)
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray() ?? Array.Empty<string>();
+
+    public bool IsInRole(string role) => Roles.Contains(role, StringComparer.OrdinalIgnoreCase);
 }

@@ -58,6 +58,7 @@ var effectiveConnectionString = new SqliteConnectionStringBuilder(connectionStri
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IUploadedDumpStore, JsonUploadedDumpStore>();
+builder.Services.AddSingleton<IResourceAuthorizationService, ResourceAuthorizationService>();
 builder.Services.AddSingleton<IEisAnalysisService, EisAnalysisService>();
 builder.Services.AddSingleton<IKeyFileAnalysisService, KeyFileAnalysisService>();
 builder.Services.AddSingleton<BulkConsumeService>();
