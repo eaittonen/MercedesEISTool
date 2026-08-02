@@ -4,6 +4,7 @@ using MercedesEISTool.Server.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace MercedesEISTool.Server.Authentication;
 
@@ -15,8 +16,9 @@ public sealed class UserIdBearerAuthenticationHandler : AuthenticationHandler<Au
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
+        TimeProvider timeProvider,
         UserManager<ApplicationUser> userManager)
-        : base(options, logger, encoder)
+        : base(options, logger, encoder, timeProvider)
     {
         _userManager = userManager;
     }

@@ -68,6 +68,129 @@ button:hover { transform: translateY(-1px); }
   padding: 1rem;
 }
 
+.admin-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.7rem;
+}
+
+.admin-nav-btn {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.85rem 0.9rem;
+  background: rgba(67, 196, 255, 0.09);
+  color: var(--text);
+  text-align: left;
+}
+
+.admin-nav-btn.active {
+  background: linear-gradient(135deg, rgba(67, 196, 255, 0.22), rgba(157, 124, 255, 0.22));
+  border-color: rgba(67, 196, 255, 0.35);
+}
+
+.admin-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.admin-card,
+.admin-panel {
+  padding: 1rem;
+  border-radius: 18px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.admin-card h3,
+.admin-panel h3 {
+  margin-top: 0;
+  margin-bottom: 0.6rem;
+}
+
+.admin-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-list-item {
+  padding: 0.8rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.65rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.admin-form-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-form-grid input,
+.admin-form-grid select,
+.admin-form-grid textarea {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.admin-inline-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(67, 196, 255, 0.12);
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.admin-stack {
+  display: grid;
+  gap: 0.6rem;
+}
+
+@media (max-width: 720px) {
+  .admin-nav-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    font-size: 0.9rem;
+    padding: 0.55rem 0.35rem;
+  }
+}
+
 .hero {
   padding: 1rem 0 1.1rem;
 }

@@ -12,7 +12,10 @@
 
   <ItemGroup>
     <Folder Include="Models\" />
-    <AvaloniaResource Include="Assets\**" />    <AvaloniaResource Include="App icon.png" />  </ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="App icon.png" />
+    <AvaloniaResource Include="Views\**\*.axaml" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.0" />

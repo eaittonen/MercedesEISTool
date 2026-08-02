@@ -21,11 +21,9 @@
 
     <TextBlock Text="Sign in to continue" HorizontalAlignment="Center" />
 
-    <TextBox PlaceholderText="Email"
-             Text="{Binding Email, Mode=TwoWay}" />
+    <TextBox Text="{Binding Email, Mode=TwoWay}" />
 
-    <TextBox PlaceholderText="Password"
-             Text="{Binding Password, Mode=TwoWay}"
+    <TextBox Text="{Binding Password, Mode=TwoWay}"
              PasswordChar="*" />
 
     <StackPanel Spacing="4">

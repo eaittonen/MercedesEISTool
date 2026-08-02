@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MercedesEISTool.Server.Data;
@@ -78,15 +79,17 @@ public class DevelopmentBootstrapServiceTests
     private static UserManager<ApplicationUser> CreateUserManager(ApplicationDbContext dbContext)
     {
         var userStore = new UserStore<ApplicationUser>(dbContext);
+        var options = new IdentityOptions();
+        var serviceProvider = new ServiceCollection().BuildServiceProvider(validateOnBuild: false);
         return new UserManager<ApplicationUser>(
             userStore,
-            null,
+            Options.Create(options),
             new PasswordHasher<ApplicationUser>(),
-            Array.Empty<IUserValidator<ApplicationUser>>(),
-            Array.Empty<IPasswordValidator<ApplicationUser>>(),
+            new[] { (IUserValidator<ApplicationUser>)new UserValidator<ApplicationUser>() },
+            new[] { (IPasswordValidator<ApplicationUser>)new PasswordValidator<ApplicationUser>() },
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
-            null,
+            serviceProvider,
             NullLogger<UserManager<ApplicationUser>>.Instance);
     }
 
@@ -95,7 +98,7 @@ public class DevelopmentBootstrapServiceTests
         var roleStore = new RoleStore<IdentityRole>(dbContext);
         return new RoleManager<IdentityRole>(
             roleStore,
-            Array.Empty<IRoleValidator<IdentityRole>>(),
+            new[] { (IRoleValidator<IdentityRole>)new RoleValidator<IdentityRole>() },
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
             NullLogger<RoleManager<IdentityRole>>.Instance);

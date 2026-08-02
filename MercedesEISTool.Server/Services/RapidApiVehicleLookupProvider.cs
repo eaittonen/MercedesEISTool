@@ -111,9 +111,7 @@ public sealed class RapidApiVehicleLookupProvider : IVehicleLookupProvider
 
         if (string.IsNullOrWhiteSpace(_options.RapidApiBaseUrl) || string.IsNullOrWhiteSpace(_options.RapidApiHost) || string.IsNullOrWhiteSpace(_options.RapidApiKey))
         {
-            var notConfigured = CreateError(normalizedRegistration, "provider_not_configured", "Vehicle lookup provider is not configured.");
-            _cache.Set(normalizedRegistration, notConfigured, TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes));
-            return notConfigured;
+            return CreateError(normalizedRegistration, "provider_not_configured", "Vehicle lookup provider is not configured.");
         }
 
         var requestUri = BuildRequestUri(registration.Trim(), normalizedRegistration);
@@ -130,38 +128,33 @@ public sealed class RapidApiVehicleLookupProvider : IVehicleLookupProvider
             var providerStatus = $"{(int)response.StatusCode} {response.StatusCode}";
             if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
             {
-                var authError = CreateError(normalizedRegistration, "authentication_failed", "RapidAPI authentication failed.", providerStatus);
-                _cache.Set(normalizedRegistration, authError, TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes));
-                return authError;
+                return CreateError(normalizedRegistration, "authentication_failed", "RapidAPI authentication failed.", providerStatus);
             }
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                var quotaError = CreateError(normalizedRegistration, "quota_exceeded", "RapidAPI quota exceeded.", providerStatus);
-                _cache.Set(normalizedRegistration, quotaError, TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes));
-                return quotaError;
+                return CreateError(normalizedRegistration, "quota_exceeded", "RapidAPI quota exceeded.", providerStatus);
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                var providerError = CreateError(normalizedRegistration, "provider_error", "Vehicle lookup request failed.", providerStatus);
-                _cache.Set(normalizedRegistration, providerError, TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes));
-                return providerError;
+                return CreateError(normalizedRegistration, "provider_error", "Vehicle lookup request failed.", providerStatus);
             }
 
             if (string.IsNullOrWhiteSpace(rawBody))
             {
-                var emptyError = CreateError(normalizedRegistration, "no_vehicle_found", "Vehicle not found.", providerStatus, "empty-response");
-                _cache.Set(normalizedRegistration, emptyError, TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes));
-                return emptyError;
+                return CreateError(normalizedRegistration, "no_vehicle_found", "Vehicle not found.", providerStatus, "empty-response");
             }
 
             try
             {
                 using var document = JsonDocument.Parse(rawBody);
                 var result = NormalizePayload(document.RootElement, normalizedRegistration, providerStatus, rawBody);
-                var cacheDuration = result.Found ? TimeSpan.FromMinutes(_options.CacheDurationMinutes) : TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes);
-                _cache.Set(normalizedRegistration, result, cacheDuration);
+                if (result.Found)
+                {
+                    _cache.Set(normalizedRegistration, result, TimeSpan.FromMinutes(_options.CacheDurationMinutes));
+                }
+
                 return result;
             }
             catch (JsonException ex)
@@ -173,16 +166,12 @@ public sealed class RapidApiVehicleLookupProvider : IVehicleLookupProvider
         }
         catch (TaskCanceledException ex)
         {
-            var timeoutError = CreateError(normalizedRegistration, "provider_timeout", "Vehicle lookup timed out.", "timed-out", "timeout", errorDetail: ex.Message);
-            _cache.Set(normalizedRegistration, timeoutError, TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes));
-            return timeoutError;
+            return CreateError(normalizedRegistration, "provider_timeout", "Vehicle lookup timed out.", "timed-out", "timeout", errorDetail: ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Vehicle lookup failed for registration {Registration}", normalizedRegistration);
-            var genericError = CreateError(normalizedRegistration, "provider_error", "Vehicle lookup failed.", "exception", "exception", errorDetail: ex.Message);
-            _cache.Set(normalizedRegistration, genericError, TimeSpan.FromMinutes(_options.NegativeCacheDurationMinutes));
-            return genericError;
+            return CreateError(normalizedRegistration, "provider_error", "Vehicle lookup failed.", "exception", "exception", errorDetail: ex.Message);
         }
     }
 

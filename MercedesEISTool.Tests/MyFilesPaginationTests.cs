@@ -64,7 +64,7 @@ public class MyFilesPaginationTests
 
         Assert.Equal(1, viewModel.MyFilesCurrentPage);
         Assert.Equal("abc", apiClient.LastSearch);
-        Assert.Equal(1, apiClient.Requests.Count);
+        Assert.Single(apiClient.Requests);
         Assert.Equal(1, apiClient.Requests[0].Page);
         Assert.Equal(50, apiClient.Requests[0].PageSize);
     }

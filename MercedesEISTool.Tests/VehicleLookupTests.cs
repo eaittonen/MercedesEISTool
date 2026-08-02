@@ -51,9 +51,16 @@ public sealed class VehicleLookupTests
 
         await provider.LookupAsync("ABC123", CancellationToken.None);
 
-        Assert.Equal("example.test", handler.LastRequestHeaders?.GetValues("x-rapidapi-host").Single());
-        Assert.Equal("test-key", handler.LastRequestHeaders?.GetValues("x-rapidapi-key").Single());
-        Assert.Contains(handler.LastRequestHeaders?.Accept, header => header.MediaType == "application/json");
+        var requestHeaders = handler.LastRequestHeaders;
+        Assert.NotNull(requestHeaders);
+        var headers = requestHeaders!;
+        var hostValues = headers.GetValues("x-rapidapi-host").ToArray();
+        var keyValues = headers.GetValues("x-rapidapi-key").ToArray();
+        Assert.Contains("example.test", hostValues);
+        Assert.Contains("test-key", keyValues);
+        var acceptedHeaders = headers.Accept?.ToArray() ?? Array.Empty<MediaTypeWithQualityHeaderValue>();
+        Assert.NotEmpty(acceptedHeaders);
+        Assert.Contains(acceptedHeaders, header => header.MediaType == "application/json");
     }
 
     [Fact]

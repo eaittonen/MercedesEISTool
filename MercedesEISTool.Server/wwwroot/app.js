@@ -1,7 +1,10 @@
 const state = {
   currentRoute: null,
   currentFileId: null,
-  activeResults: []
+  activeResults: [],
+  adminPage: 'dashboard',
+  currentUser: null,
+  adminData: {}
 };
 
 const authStatus = document.getElementById('authStatus');
@@ -83,6 +86,17 @@ function bindEvents() {
     window.location.assign('/login');
   });
 
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-admin-page]');
+    if (!button) {
+      return;
+    }
+
+    event.preventDefault();
+    state.adminPage = button.getAttribute('data-admin-page');
+    renderAdminPage(state.adminPage);
+  });
+
   backButton.addEventListener('click', () => {
     window.history.pushState({}, '', '/app');
     showSearchView();
@@ -138,6 +152,30 @@ function showAdminView() {
   dataPanel.innerHTML = '<div class="empty-state">Loading administration workspace…</div>';
 }
 
+function renderAdminNavigation(activePage) {
+  const pages = [
+    { key: 'dashboard', title: 'Dashboard' },
+    { key: 'users', title: 'Users' },
+    { key: 'organizations', title: 'Organizations' },
+    { key: 'sharing', title: 'Sharing' },
+    { key: 'audit', title: 'Audit log' },
+    { key: 'health', title: 'Health' },
+    { key: 'releases', title: 'Releases' },
+    { key: 'sessions', title: 'Sessions' },
+    { key: 'vehicleCache', title: 'Vehicle cache' },
+    { key: 'notifications', title: 'Notifications' },
+    { key: 'flags', title: 'Feature flags' }
+  ];
+
+  return `
+    <div class="admin-shell">
+      <div class="admin-nav-grid">
+        ${pages.map((page) => `<button class="admin-nav-btn ${activePage === page.key ? 'active' : ''}" data-admin-page="${page.key}">${escapeHtml(page.title)}</button>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function showDetailView() {
   resultsHost.classList.add('hidden');
   detailHost.classList.remove('hidden');
@@ -157,48 +195,307 @@ function updateOfflineStatus() {
 
 async function loadAdminOverview() {
   try {
-    const [meResponse, usersResponse, organizationsResponse, healthResponse] = await Promise.all([
+    const [meResponse, usersResponse, organizationsResponse, dashboardResponse, healthResponse, sharesResponse, auditResponse, sessionsResponse, releasesResponse, vehicleCacheResponse, notificationsResponse, featureFlagsResponse] = await Promise.all([
       fetch('/api/auth/me', { credentials: 'same-origin' }),
       fetch('/api/admin/users', { credentials: 'same-origin' }),
       fetch('/api/admin/organizations', { credentials: 'same-origin' }),
-      fetch('/api/health', { credentials: 'same-origin' })
+      fetch('/api/admin/dashboard', { credentials: 'same-origin' }),
+      fetch('/api/admin/health', { credentials: 'same-origin' }),
+      fetch('/api/admin/shares', { credentials: 'same-origin' }),
+      fetch('/api/admin/audit-log', { credentials: 'same-origin' }),
+      fetch('/api/admin/sessions', { credentials: 'same-origin' }),
+      fetch('/api/admin/releases', { credentials: 'same-origin' }),
+      fetch('/api/admin/vehicle-cache', { credentials: 'same-origin' }),
+      fetch('/api/admin/notifications', { credentials: 'same-origin' }),
+      fetch('/api/admin/feature-flags', { credentials: 'same-origin' })
     ]);
 
-    if (!meResponse.ok || !usersResponse.ok || !organizationsResponse.ok || !healthResponse.ok) {
+    if (!meResponse.ok || !usersResponse.ok || !organizationsResponse.ok || !dashboardResponse.ok || !healthResponse.ok || !sharesResponse.ok || !auditResponse.ok || !sessionsResponse.ok || !releasesResponse.ok || !vehicleCacheResponse.ok || !notificationsResponse.ok || !featureFlagsResponse.ok) {
       throw new Error('Unable to load administration workspace.');
     }
 
     const me = await meResponse.json();
     const users = await usersResponse.json();
     const organizations = await organizationsResponse.json();
+    const dashboard = await dashboardResponse.json();
     const health = await healthResponse.json();
+    const shares = await sharesResponse.json();
+    const audit = await auditResponse.json();
+    const sessions = await sessionsResponse.json();
+    const releases = await releasesResponse.json();
+    const vehicleCache = await vehicleCacheResponse.json();
+    const notifications = await notificationsResponse.json();
+    const featureFlags = await featureFlagsResponse.json();
 
-    const userCount = users.items?.length || 0;
-    const organizationCount = organizations.items?.length || 0;
-    const healthBadge = health.isHealthy ? 'Healthy' : 'Attention';
-    const adminSectionHtml = `
-      <div class="detail-grid">
-        <div class="detail-card">
-          <h3>Administration workspace</h3>
-          <p>${escapeHtml(me.displayName || me.email || 'Administrator')} is managing ${userCount} user(s) and ${organizationCount} organization(s).</p>
-          <div class="actions">
-            <button class="primary">Users</button>
-            <button>Organizations</button>
-            <button>Sharing</button>
-            <button>Health</button>
-          </div>
-        </div>
-        <div class="detail-card">
-          <div class="row"><span class="label">System health</span><span class="value">${escapeHtml(healthBadge)}</span></div>
-          <div class="row"><span class="label">Server version</span><span class="value">${escapeHtml(health.serverVersion || 'n/a')}</span></div>
-          <div class="row"><span class="label">Service</span><span class="value">${escapeHtml(health.serviceName || 'n/a')}</span></div>
-        </div>
-      </div>
-    `;
-    dataPanel.innerHTML = adminSectionHtml;
+    state.currentUser = me;
+    state.adminData = { users, organizations, dashboard, health, shares, audit, sessions, releases, vehicleCache, notifications, featureFlags };
+    renderAdminPage(state.adminPage);
   } catch (error) {
     dataPanel.innerHTML = `<div class="empty-state">${escapeHtml(error.message || 'Administration workspace unavailable.')}</div>`;
   }
+}
+
+function renderAdminPage(page) {
+  const adminData = state.adminData || {};
+  const users = adminData.users?.items || [];
+  const organizations = adminData.organizations?.items || [];
+  const dashboard = adminData.dashboard || {};
+  const health = adminData.health || {};
+  const shares = adminData.shares || {};
+  const audit = adminData.audit?.items || [];
+  const sessions = adminData.sessions?.items || [];
+  const releases = adminData.releases?.items || [];
+  const vehicleCache = adminData.vehicleCache?.items || [];
+  const notifications = adminData.notifications?.items || [];
+  const featureFlags = adminData.featureFlags?.items || [];
+
+  const pageContent = {
+    dashboard: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-grid">
+          <div class="admin-card">
+            <h3>Administration workspace</h3>
+            <p>${escapeHtml(state.currentUser?.displayName || state.currentUser?.email || 'Administrator')} is managing ${users.length} user(s) and ${organizations.length} organization(s).</p>
+            <div class="admin-inline-row">
+              <span class="admin-pill">Server ${escapeHtml(dashboard.serverVersion || 'n/a')}</span>
+              <span class="admin-pill">Status ${escapeHtml(dashboard.serverStatus || 'Healthy')}</span>
+            </div>
+          </div>
+          <div class="admin-card">
+            <h3>Runtime snapshot</h3>
+            <div class="admin-stack">
+              <div class="row"><span class="label">Uptime</span><span class="value">${escapeHtml(dashboard.uptime || 'n/a')}</span></div>
+              <div class="row"><span class="label">DB size</span><span class="value">${escapeHtml(dashboard.databaseSize || 'n/a')}</span></div>
+              <div class="row"><span class="label">Active sessions</span><span class="value">${escapeHtml(String(dashboard.activeSessions || 0))}</span></div>
+              <div class="row"><span class="label">Queue length</span><span class="value">${escapeHtml(String(dashboard.queueLength || 0))}</span></div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <h3>Quick actions</h3>
+            <div class="actions">
+              <button class="primary" data-admin-page="users">Users</button>
+              <button data-admin-page="organizations">Organizations</button>
+              <button data-admin-page="sharing">Sharing</button>
+              <button data-admin-page="health">Health</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+    users: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>User management</h3>
+          <div class="actions">
+            <button class="primary">Create user</button>
+            <button>Reset password</button>
+            <button>Enable/disable</button>
+          </div>
+          <table class="admin-table">
+            <thead><tr><th>Email</th><th>Organization</th><th>Roles</th><th>Status</th><th>Last login</th></tr></thead>
+            <tbody>
+              ${users.length ? users.map((user) => `
+                <tr>
+                  <td>${escapeHtml(user.email || user.displayName || '—')}</td>
+                  <td>${escapeHtml(user.organizationName || '—')}</td>
+                  <td>${escapeHtml((user.roles || []).join(', '))}</td>
+                  <td>${escapeHtml(user.isEnabled ? 'Enabled' : 'Disabled')}</td>
+                  <td>${escapeHtml(user.lastLoginAtUtc ? new Date(user.lastLoginAtUtc).toLocaleString() : '—')}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5">No users available</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `,
+    organizations: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>Organization management</h3>
+          <div class="actions">
+            <button class="primary">Create organization</button>
+            <button>Enable/disable</button>
+          </div>
+          <table class="admin-table">
+            <thead><tr><th>Name</th><th>ID</th><th>Users</th><th>License</th></tr></thead>
+            <tbody>
+              ${organizations.length ? organizations.map((organization) => `
+                <tr>
+                  <td>${escapeHtml(organization.name || '—')}</td>
+                  <td>${escapeHtml(organization.id || '—')}</td>
+                  <td>${escapeHtml(String(organization.userCount || 0))}</td>
+                  <td>${escapeHtml(organization.licenseType || '—')}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="4">No organizations available</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `,
+    sharing: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-grid">
+          <div class="admin-card">
+            <h3>Share selected dump(s)</h3>
+            <div class="admin-form-grid">
+              <input placeholder="Organization" />
+              <input placeholder="User (optional)" />
+              <select><option>View metadata</option><option>View sensitive data</option><option>Download original</option><option>Edit metadata</option><option>Reanalyze</option><option>Share further</option></select>
+              <input type="datetime-local" />
+              <textarea placeholder="Notes"></textarea>
+              <div class="actions"><button class="primary">Create share</button></div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <h3>Incoming shares</h3>
+            <div class="admin-list">${(shares.incomingShares || []).length ? (shares.incomingShares || []).map((item) => `<div class="admin-list-item"><strong>${escapeHtml(item.sourceOrganization || '—')}</strong><div>${escapeHtml(item.permissions || '—')}</div></div>`).join('') : '<div class="empty-state">No incoming shares</div>'}</div>
+          </div>
+          <div class="admin-card">
+            <h3>Outgoing shares</h3>
+            <div class="admin-list">${(shares.outgoingShares || []).length ? (shares.outgoingShares || []).map((item) => `<div class="admin-list-item"><strong>${escapeHtml(item.targetOrganization || item.targetUser || '—')}</strong><div>${escapeHtml(item.permissions || '—')}</div></div>`).join('') : '<div class="empty-state">No outgoing shares</div>'}</div>
+          </div>
+        </div>
+      </div>
+    `,
+    audit: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>Audit log</h3>
+          <table class="admin-table">
+            <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>IP</th></tr></thead>
+            <tbody>
+              ${audit.length ? audit.map((entry) => `
+                <tr>
+                  <td>${escapeHtml(new Date(entry.timestampUtc).toLocaleString())}</td>
+                  <td>${escapeHtml(entry.user || '—')}</td>
+                  <td>${escapeHtml(entry.action || '—')}</td>
+                  <td>${escapeHtml(entry.resource || '—')}</td>
+                  <td>${escapeHtml(entry.ipAddress || '—')}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5">No audit entries</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `,
+    health: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-grid">
+          <div class="admin-card">
+            <h3>System health</h3>
+            <div class="admin-stack">
+              <div class="row"><span class="label">CPU</span><span class="value">${escapeHtml(health.cpuUsage || 'n/a')}</span></div>
+              <div class="row"><span class="label">RAM</span><span class="value">${escapeHtml(health.ramUsage || 'n/a')}</span></div>
+              <div class="row"><span class="label">Disk</span><span class="value">${escapeHtml(health.diskUsage || 'n/a')}</span></div>
+              <div class="row"><span class="label">SQLite</span><span class="value">${escapeHtml(health.sqliteStatus || 'n/a')}</span></div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <h3>Services</h3>
+            <div class="admin-list">${(health.backgroundServices || []).map((service) => `<div class="admin-list-item">${escapeHtml(service)}</div>`).join('')}</div>
+          </div>
+        </div>
+      </div>
+    `,
+    releases: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>Releases</h3>
+          <table class="admin-table">
+            <thead><tr><th>Version</th><th>Channel</th><th>Published</th><th>Mandatory</th><th>Downloads</th></tr></thead>
+            <tbody>
+              ${releases.length ? releases.map((release) => `
+                <tr>
+                  <td>${escapeHtml(release.version || '—')}</td>
+                  <td>${escapeHtml(release.channel || '—')}</td>
+                  <td>${escapeHtml(new Date(release.publishedUtc).toLocaleString())}</td>
+                  <td>${escapeHtml(release.isMandatory ? 'Yes' : 'No')}</td>
+                  <td>${escapeHtml(String(release.downloadCount || 0))}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5">No releases available</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `,
+    sessions: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>Active sessions</h3>
+          <table class="admin-table">
+            <thead><tr><th>User</th><th>Platform</th><th>Organization</th><th>Last seen</th></tr></thead>
+            <tbody>
+              ${sessions.length ? sessions.map((session) => `
+                <tr>
+                  <td>${escapeHtml(session.user || '—')}</td>
+                  <td>${escapeHtml(session.platform || '—')}</td>
+                  <td>${escapeHtml(session.organization || '—')}</td>
+                  <td>${escapeHtml(new Date(session.lastSeenUtc).toLocaleString())}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="4">No active sessions</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `,
+    vehicleCache: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>Vehicle lookup cache</h3>
+          <table class="admin-table">
+            <thead><tr><th>Registration</th><th>VIN</th><th>Cached</th><th>Expires</th><th>Provider</th></tr></thead>
+            <tbody>
+              ${vehicleCache.length ? vehicleCache.map((entry) => `
+                <tr>
+                  <td>${escapeHtml(entry.registration || '—')}</td>
+                  <td>${escapeHtml(entry.vin || '—')}</td>
+                  <td>${escapeHtml(new Date(entry.cachedUtc).toLocaleString())}</td>
+                  <td>${escapeHtml(new Date(entry.expiresUtc).toLocaleString())}</td>
+                  <td>${escapeHtml(entry.provider || '—')}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5">No cache entries</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `,
+    notifications: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>Notifications</h3>
+          <div class="actions"><button class="primary">Send notification</button></div>
+          <div class="admin-list">${notifications.length ? notifications.map((entry) => `<div class="admin-list-item"><strong>${escapeHtml(entry.title || '—')}</strong><div>${escapeHtml(entry.message || '—')}</div></div>`).join('') : '<div class="empty-state">No notifications</div>'}</div>
+        </div>
+      </div>
+    `,
+    flags: `
+      <div class="admin-shell">
+        ${renderAdminNavigation(page)}
+        <div class="admin-card">
+          <h3>Feature flags</h3>
+          <div class="admin-list">${featureFlags.length ? featureFlags.map((entry) => `<div class="admin-list-item"><strong>${escapeHtml(entry.title || entry.key || '—')}</strong><div>${escapeHtml(entry.description || '—')}</div><div>${entry.enabled ? 'Enabled' : 'Disabled'}</div></div>`).join('') : '<div class="empty-state">No flags available</div>'}</div>
+        </div>
+      </div>
+    `
+  };
+
+  dataPanel.innerHTML = pageContent[page] || pageContent.dashboard;
+  dataPanel.querySelectorAll('[data-admin-page]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.adminPage = button.getAttribute('data-admin-page');
+      renderAdminPage(state.adminPage);
+    });
+  });
 }
 
 async function loadSearchResults(term) {

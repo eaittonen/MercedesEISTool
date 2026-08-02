@@ -82,15 +82,15 @@
                                     <TextBlock Text="Registration number" />
                                     <TextBox Text="{Binding RegistrationNumber}" />
                                     <TextBlock Text="Lookup registration" />
-                                    <TextBox Text="{Binding VehicleLookupRegistration}" Watermark="Optional override" />
+                                    <TextBox Text="{Binding VehicleLookupRegistration}" />
                                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
                                         <Button Content="Lookup vehicle" Command="{Binding LookupVehicleCommand}" IsEnabled="{Binding !IsVehicleLookupBusy}" />
                                         <TextBlock Text="{Binding VehicleLookupSummary}" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <TextBlock Text="Customer name" />
-                                    <TextBox Text="{Binding CustomerName}" PlaceholderText="Optional customer label" />
+                                    <TextBox Text="{Binding CustomerName}" />
                                     <TextBlock Text="Additional information" />
-                                    <TextBox Text="{Binding AdditionalInformation}" PlaceholderText="Optional notes" />
+                                    <TextBox Text="{Binding AdditionalInformation}" />
                                     <CheckBox Content="I confirm that the vehicle identifier is correct" IsChecked="{Binding VinConfirmedByUser}" />
                                     <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
                                 </StackPanel>
@@ -151,7 +151,7 @@
                             <Button Content="Copy" Command="{Binding CopyRawHexEditorCommand}" />
                             <Button Content="Paste" Command="{Binding PasteRawHexEditorCommand}" />
                             <Button Content="Goto" Command="{Binding GotoRawHexOffsetCommand}" />
-                            <TextBox Text="{Binding RawHexGotoOffsetText}" Width="120" Watermark="Offset" />
+                            <TextBox Text="{Binding RawHexGotoOffsetText}" Width="120" />
                         </StackPanel>
                         <TextBox Grid.Row="1" Text="{Binding RawHexEditorText}" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="300" />
                         <TextBlock Grid.Row="2" Margin="0,8,0,0" Text="{Binding RawHexEditorStatus}" Opacity="0.8" />
@@ -164,7 +164,7 @@
                         <StackPanel Spacing="12">
                             <TextBlock Text="Persisted uploads" FontSize="18" FontWeight="SemiBold" />
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto">
-                                <TextBox Grid.Row="0" Grid.Column="0" PlaceholderText="Search by file, VIN, registration, customer, or metadata" Text="{Binding MyFilesSearchText}" />
+                                <TextBox Grid.Row="0" Grid.Column="0" Text="{Binding MyFilesSearchText}" />
                                 <Button Grid.Row="0" Grid.Column="1" Content="Search" Command="{Binding SearchMyFilesCommand}" />
                                 <Button Grid.Row="0" Grid.Column="2" Content="Details" Command="{Binding OpenDetailsCommand}" />
                                 <Button Grid.Row="0" Grid.Column="3" Content="Load" Command="{Binding LoadIntoWorkspaceCommand}" />
@@ -285,7 +285,7 @@
                     <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*">
                         <StackPanel Spacing="10">
                             <TextBlock Text="Vehicle lookup" FontSize="18" FontWeight="SemiBold" />
-                            <TextBox Text="{Binding VehicleLookupRegistration}" Watermark="Registration number" />
+                            <TextBox Text="{Binding VehicleLookupRegistration}" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Content="Lookup" Command="{Binding LookupVehicleCommand}" IsEnabled="{Binding !IsVehicleLookupBusy}" />
                                 <TextBlock Text="{Binding VehicleLookupSummary}" TextWrapping="Wrap" />
@@ -442,7 +442,7 @@
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Length" />
                                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ResearchLength}" />
                                         <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding ResearchSearchModes}" SelectedItem="{Binding ResearchSelectedMode}" />
-                                        <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding ResearchXorValue}" PlaceholderText="XOR" />
+                                        <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding ResearchXorValue}" />
                                         <Button Grid.Row="2" Grid.Column="3" Content="Search" Command="{Binding ResearchSearchCommand}" />
                                     </Grid>
                                     <TextBox Text="{Binding ResearchSearchResults}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" MinHeight="140" />
