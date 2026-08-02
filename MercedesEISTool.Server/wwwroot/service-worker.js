@@ -1,6 +1,7 @@
-const CACHE_NAME = 'mercedes-eis-toolkit-v3';
+const CACHE_NAME = 'mercedes-eis-toolkit-v4';
 const ASSETS = ['/', '/app', '/app.css', '/app.js', '/manifest.json', '/login.html', '/app.html', '/brand-long.png', '/brand-cropped.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/favicon-16.png', '/icons/favicon-32.png', '/icons/favicon-48.png', '/icons/favicon.ico'];
 const SHELL_ASSET_PATHS = new Set(['/', '/app', '/app.css', '/app.js', '/app.html', '/login.html', '/manifest.json']);
+const AUTH_PATHS = new Set(['/api/auth/me', '/api/auth/login', '/auth/login', '/auth/logout']);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
@@ -19,6 +20,11 @@ self.addEventListener('fetch', (event) => {
   if (requestUrl.origin !== self.location.origin) return;
 
   if (requestUrl.pathname.startsWith('/api/')) {
+    if (AUTH_PATHS.has(requestUrl.pathname)) {
+      event.respondWith(fetch(event.request).catch(() => caches.match('/app')));
+      return;
+    }
+
     event.respondWith(fetch(event.request).catch(() => caches.match('/app')));
     return;
   }

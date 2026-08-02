@@ -85,13 +85,19 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
-    options.ExpireTimeSpan = TimeSpan.FromDays(30);
+    options.ExpireTimeSpan = TimeSpan.FromDays(90);
     options.SlidingExpiration = true;
     options.Events.OnSigningIn = context =>
     {
         if (context.Properties?.IsPersistent == true)
         {
-            context.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
+            context.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(90);
+            context.Properties.IsPersistent = true;
+        }
+        else
+        {
+            context.Properties!.ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8);
+            context.Properties.IsPersistent = false;
         }
 
         return Task.CompletedTask;
@@ -287,7 +293,7 @@ app.MapPost("/auth/login", async Task<IResult> (LoginRequestDto request, SignInM
     var authProperties = new AuthenticationProperties
     {
         IsPersistent = request.RememberMe,
-        ExpiresUtc = request.RememberMe ? DateTimeOffset.UtcNow.AddDays(30) : null
+        ExpiresUtc = request.RememberMe ? DateTimeOffset.UtcNow.AddDays(90) : DateTimeOffset.UtcNow.AddHours(8)
     };
 
     await signInManager.SignInAsync(user, authProperties);
@@ -1259,7 +1265,7 @@ app.MapPost("/api/files/{storedFileId:guid}/reanalyze", async Task<IResult> (Gui
     return Results.Ok(BuildStoredFileDetails(await uploadedDumpStore.GetByIdAsync(storedFileId, currentUser)));
 });
 
-app.MapPost("/api/bulk-consume/preview", async Task<IResult> (BulkConsumePreviewRequest request) =>
+app.MapPost("/api/bulk-consume/preview", (BulkConsumePreviewRequest request) =>
 {
     return Results.BadRequest(new ApiErrorResponse
     {
@@ -1268,7 +1274,7 @@ app.MapPost("/api/bulk-consume/preview", async Task<IResult> (BulkConsumePreview
     });
 });
 
-app.MapPost("/api/bulk-consume/import", async Task<IResult> (BulkConsumeImportRequest request) =>
+app.MapPost("/api/bulk-consume/import", (BulkConsumeImportRequest request) =>
 {
     return Results.BadRequest(new ApiErrorResponse
     {

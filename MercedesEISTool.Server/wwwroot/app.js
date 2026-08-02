@@ -26,7 +26,11 @@ function init() {
   updateOfflineStatus();
   window.addEventListener('online', updateOfflineStatus);
   window.addEventListener('offline', updateOfflineStatus);
-  checkAuth().then(() => {
+  checkAuth().then((isAuthenticated) => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     const routeId = getRouteFileId();
     if (window.location.pathname.startsWith('/app/admin')) {
       showAdminView();
@@ -90,15 +94,25 @@ async function checkAuth() {
   try {
     const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
     if (!response.ok) {
-      throw new Error('not-authenticated');
+      if (response.status === 401) {
+        throw new Error('not-authenticated');
+      }
+      throw new Error('auth-check-failed');
     }
     const user = await response.json();
     if (authStatus) {
       authStatus.textContent = `Signed in as ${user.displayName || user.email || 'user'}`;
     }
     return true;
-  } catch {
-    window.location.assign('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search));
+  } catch (error) {
+    if (error.message === 'not-authenticated') {
+      window.location.assign('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search));
+      return false;
+    }
+
+    if (authStatus) {
+      authStatus.textContent = 'Offline - authentication cannot currently be verified.';
+    }
     return false;
   }
 }
