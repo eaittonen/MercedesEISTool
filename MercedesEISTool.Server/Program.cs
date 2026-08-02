@@ -75,6 +75,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
+builder.Services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
 builder.Services.AddAuthentication()
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, UserIdBearerAuthenticationHandler>("Bearer", _ => { });
 builder.Services.ConfigureApplicationCookie(options =>
@@ -1195,7 +1196,6 @@ app.MapGet("/api/admin/health", async Task<IResult> (UserManager<ApplicationUser
 
 app.MapGet("/api/admin/shares", async Task<IResult> (UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    await Task.CompletedTask;
     var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {
@@ -1217,7 +1217,6 @@ app.MapGet("/api/admin/shares", async Task<IResult> (UserManager<ApplicationUser
 
 app.MapPost("/api/admin/shares", async Task<IResult> (CreateShareGrantRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
-    await Task.CompletedTask;
     var currentUser = await GetCurrentUserAsync(userManager, httpContext);
     if (currentUser is null)
     {

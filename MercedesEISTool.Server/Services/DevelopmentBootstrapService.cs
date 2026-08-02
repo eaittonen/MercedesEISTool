@@ -8,7 +8,7 @@ namespace MercedesEISTool.Server.Services;
 
 public sealed class DevelopmentBootstrapOptions
 {
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; set; } = false;
     public string? AdminEmail { get; set; }
     public string? AdminPassword { get; set; }
     public string? UserEmail { get; set; }
@@ -59,9 +59,8 @@ public sealed class DevelopmentBootstrapService
         var userEmail = !string.IsNullOrWhiteSpace(_options.Value.UserEmail) ? _options.Value.UserEmail : "user@example.local";
         var userPassword = !string.IsNullOrWhiteSpace(_options.Value.UserPassword) ? _options.Value.UserPassword : "development-only-password";
 
-        await EnsureUserAsync(adminEmail, adminPassword, "SystemAdministrator", true, "Administrator", defaultOrganization.Id);
-        await EnsureUserAsync(userEmail, userPassword, "ReadOnly", false, "User", defaultOrganization.Id);
-        await EnsureUserAsync(adminEmail, adminPassword, "Administrator", false, "Administrator", defaultOrganization.Id);
+        await EnsureUserAsync(adminEmail, adminPassword, new[] { "SystemAdministrator", "Administrator" }, true, "Administrator", defaultOrganization.Id);
+        await EnsureUserAsync(userEmail, userPassword, new[] { "ReadOnly", "User" }, false, "User", defaultOrganization.Id);
 
         _logger.LogInformation("Development bootstrap completed.");
     }
@@ -99,7 +98,7 @@ public sealed class DevelopmentBootstrapService
         return organization;
     }
 
-    private async Task EnsureUserAsync(string email, string password, string role, bool isAdmin, string displayName, string organizationId)
+    private async Task EnsureUserAsync(string email, string password, IReadOnlyCollection<string> roles, bool isAdmin, string displayName, string organizationId)
     {
         ApplicationUser? existing;
         try
@@ -136,9 +135,12 @@ public sealed class DevelopmentBootstrapService
                 }
             }
 
-            if (!await _userManager.IsInRoleAsync(existing, role))
+            foreach (var role in roles)
             {
-                await _userManager.AddToRoleAsync(existing, role);
+                if (!await _userManager.IsInRoleAsync(existing, role))
+                {
+                    await _userManager.AddToRoleAsync(existing, role);
+                }
             }
 
             if (isAdmin)
@@ -182,7 +184,10 @@ public sealed class DevelopmentBootstrapService
             throw new InvalidOperationException(string.Join(", ", result.Errors.Select(error => error.Description)));
         }
 
-        await _userManager.AddToRoleAsync(user, role);
+        foreach (var role in roles)
+        {
+            await _userManager.AddToRoleAsync(user, role);
+        }
 
         if (isAdmin)
         {

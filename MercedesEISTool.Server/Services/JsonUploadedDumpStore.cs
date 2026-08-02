@@ -64,7 +64,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
             SizeBytes = data.Length,
             UploadedByUserId = currentUser?.UserId ?? "development",
             FileCategory = fileCategory,
-            OrganizationName = currentUser?.OrganizationId ?? "default-org"
+            OrganizationName = currentUser?.OrganizationId ?? string.Empty
         };
 
         var fileNameSafe = SanitizeFileName(record.FileName);
@@ -218,7 +218,7 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
     {
         if (currentUser is null || string.IsNullOrWhiteSpace(currentUser.UserId))
         {
-            return true;
+            return false;
         }
 
         if (currentUser.IsInRole("SystemAdministrator"))
@@ -227,7 +227,16 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
         }
 
         var currentOrganizationId = currentUser.OrganizationId;
-        var isOwnerOrganization = string.Equals(currentOrganizationId, record.OrganizationName, StringComparison.OrdinalIgnoreCase);
+        var isOwnerUser = !string.IsNullOrWhiteSpace(record.UploadedByUserId)
+            && string.Equals(record.UploadedByUserId, currentUser.UserId, StringComparison.OrdinalIgnoreCase);
+        if (isOwnerUser)
+        {
+            return true;
+        }
+
+        var isOwnerOrganization = !string.IsNullOrWhiteSpace(currentOrganizationId)
+            && !string.IsNullOrWhiteSpace(record.OrganizationName)
+            && string.Equals(currentOrganizationId, record.OrganizationName, StringComparison.OrdinalIgnoreCase);
         if (isOwnerOrganization)
         {
             return true;

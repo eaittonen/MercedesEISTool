@@ -53,7 +53,7 @@ public sealed class VehicleLookupTests
 
         var requestHeaders = handler.LastRequestHeaders;
         Assert.NotNull(requestHeaders);
-        var headers = requestHeaders!;
+        var headers = requestHeaders ?? throw new InvalidOperationException("No request headers were recorded.");
         var hostValues = headers.GetValues("x-rapidapi-host").ToArray();
         var keyValues = headers.GetValues("x-rapidapi-key").ToArray();
         Assert.Contains("example.test", hostValues);

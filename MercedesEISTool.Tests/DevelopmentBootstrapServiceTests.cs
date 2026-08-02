@@ -93,7 +93,7 @@ public class DevelopmentBootstrapServiceTests
             new[] { (IPasswordValidator<ApplicationUser>)new PasswordValidator<ApplicationUser>() },
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
-            serviceProvider,
+            (IServiceProvider)serviceProvider,
             NullLogger<UserManager<ApplicationUser>>.Instance);
     }
 
