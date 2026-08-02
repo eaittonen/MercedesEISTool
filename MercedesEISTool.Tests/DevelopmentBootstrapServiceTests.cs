@@ -80,7 +80,11 @@ public class DevelopmentBootstrapServiceTests
     {
         var userStore = new UserStore<ApplicationUser>(dbContext);
         var options = new IdentityOptions();
-        var serviceProvider = new ServiceCollection().BuildServiceProvider(validateOnBuild: false);
+        var serviceProvider = new ServiceCollection().BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = false,
+            ValidateScopes = false
+        });
         return new UserManager<ApplicationUser>(
             userStore,
             Options.Create(options),
