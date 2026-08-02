@@ -1669,6 +1669,14 @@ static string ComputeSha256(byte[] bytes)
 
 static async Task<ApplicationUser?> GetCurrentUserAsync(UserManager<ApplicationUser> userManager, HttpContext httpContext)
 {
+    var userId = httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        ?? httpContext.User?.FindFirst(ClaimTypes.Name)?.Value
+        ?? httpContext.User?.Identity?.Name;
+    if (!string.IsNullOrWhiteSpace(userId))
+    {
+        return await userManager.Users.FirstOrDefaultAsync(u => u.Id == userId || u.UserName == userId || u.Email == userId);
+    }
+
     var authHeader = httpContext.Request.Headers.Authorization.ToString();
     if (!string.IsNullOrWhiteSpace(authHeader))
     {
@@ -1676,15 +1684,7 @@ static async Task<ApplicationUser?> GetCurrentUserAsync(UserManager<ApplicationU
         return await userManager.Users.FirstOrDefaultAsync(u => u.Id == token);
     }
 
-    var userId = httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-        ?? httpContext.User?.FindFirst(ClaimTypes.Name)?.Value
-        ?? httpContext.User?.Identity?.Name;
-    if (string.IsNullOrWhiteSpace(userId))
-    {
-        return null;
-    }
-
-    return await userManager.Users.FirstOrDefaultAsync(u => u.Id == userId || u.UserName == userId || u.Email == userId);
+    return null;
 }
 
 static StoredFileListItemDto BuildStoredFileListItem(UploadedDumpRecord record)

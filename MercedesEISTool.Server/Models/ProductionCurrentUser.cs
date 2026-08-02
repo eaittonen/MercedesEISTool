@@ -13,9 +13,11 @@ public sealed class ProductionCurrentUser : ICurrentUser
 
     public string UserId => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
         ?? _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value
-        ?? "development";
+        ?? string.Empty;
 
-    public string DisplayName => _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "Development";
+    public string DisplayName => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.GivenName)?.Value
+        ?? _httpContextAccessor.HttpContext?.User?.Identity?.Name
+        ?? string.Empty;
 
     public string? OrganizationId => _httpContextAccessor.HttpContext?.User?.FindFirst("OrganizationId")?.Value
         ?? _httpContextAccessor.HttpContext?.User?.FindFirst("organizationId")?.Value;

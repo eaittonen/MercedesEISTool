@@ -221,9 +221,9 @@ public class JsonUploadedDumpStore : IUploadedDumpStore
             return false;
         }
 
-        if (string.Equals(currentUser.UserId, "development", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(currentUser.UserId))
         {
-            return true;
+            return false;
         }
 
         if (currentUser.IsInRole("SystemAdministrator"))

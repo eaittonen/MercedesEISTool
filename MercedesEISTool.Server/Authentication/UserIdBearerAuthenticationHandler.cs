@@ -15,9 +15,8 @@ public sealed class UserIdBearerAuthenticationHandler : AuthenticationHandler<Au
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock,
         UserManager<ApplicationUser> userManager)
-        : base(options, logger, encoder, clock)
+        : base(options, logger, encoder)
     {
         _userManager = userManager;
     }
@@ -47,11 +46,20 @@ public sealed class UserIdBearerAuthenticationHandler : AuthenticationHandler<Au
             return AuthenticateResult.Fail("Invalid bearer token.");
         }
 
+        var roles = (await _userManager.GetRolesAsync(user)).ToList();
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Name, user.Email ?? user.UserName ?? user.Id)
+            new(ClaimTypes.Name, user.Email ?? user.UserName ?? user.Id),
+            new(ClaimTypes.GivenName, user.DisplayName),
+            new("OrganizationId", user.OrganizationId ?? string.Empty),
+            new(ClaimTypes.Email, user.Email ?? string.Empty)
         };
+
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
 
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var principal = new ClaimsPrincipal(identity);

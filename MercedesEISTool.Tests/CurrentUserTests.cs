@@ -6,7 +6,7 @@ namespace MercedesEISTool.Tests;
 public class CurrentUserTests
 {
     [Fact]
-    public void ProductionCurrentUser_UsesDevelopmentFallbackWhenNoClaimIsPresent()
+    public void ProductionCurrentUser_DoesNotUseDevelopmentFallbackWhenNoClaimsArePresent()
     {
         var httpContextAccessor = new HttpContextAccessor
         {
@@ -15,6 +15,8 @@ public class CurrentUserTests
 
         var currentUser = new ProductionCurrentUser(httpContextAccessor);
 
-        Assert.Equal("development", currentUser.UserId);
+        Assert.Equal(string.Empty, currentUser.UserId);
+        Assert.Equal(string.Empty, currentUser.DisplayName);
+        Assert.Null(currentUser.OrganizationId);
     }
 }

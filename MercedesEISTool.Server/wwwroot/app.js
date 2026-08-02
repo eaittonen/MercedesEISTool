@@ -28,7 +28,10 @@ function init() {
   window.addEventListener('offline', updateOfflineStatus);
   checkAuth().then(() => {
     const routeId = getRouteFileId();
-    if (routeId) {
+    if (window.location.pathname.startsWith('/app/admin')) {
+      showAdminView();
+      loadAdminOverview();
+    } else if (routeId) {
       state.currentFileId = routeId;
       showDetailView();
       loadFileDetails(routeId);
@@ -114,6 +117,13 @@ function showSearchView() {
   dataPanel.innerHTML = '';
 }
 
+function showAdminView() {
+  detailHost.classList.add('hidden');
+  resultsHost.classList.add('hidden');
+  backButton.classList.add('hidden');
+  dataPanel.innerHTML = '<div class="empty-state">Loading administration workspace…</div>';
+}
+
 function showDetailView() {
   resultsHost.classList.add('hidden');
   detailHost.classList.remove('hidden');
@@ -129,6 +139,52 @@ function updateOfflineStatus() {
 
   offlineBanner.classList.remove('hidden');
   offlineBanner.textContent = 'You are offline. The cached app shell is still available.';
+}
+
+async function loadAdminOverview() {
+  try {
+    const [meResponse, usersResponse, organizationsResponse, healthResponse] = await Promise.all([
+      fetch('/api/auth/me', { credentials: 'same-origin' }),
+      fetch('/api/admin/users', { credentials: 'same-origin' }),
+      fetch('/api/admin/organizations', { credentials: 'same-origin' }),
+      fetch('/api/health', { credentials: 'same-origin' })
+    ]);
+
+    if (!meResponse.ok || !usersResponse.ok || !organizationsResponse.ok || !healthResponse.ok) {
+      throw new Error('Unable to load administration workspace.');
+    }
+
+    const me = await meResponse.json();
+    const users = await usersResponse.json();
+    const organizations = await organizationsResponse.json();
+    const health = await healthResponse.json();
+
+    const userCount = users.items?.length || 0;
+    const organizationCount = organizations.items?.length || 0;
+    const healthBadge = health.isHealthy ? 'Healthy' : 'Attention';
+    const adminSectionHtml = `
+      <div class="detail-grid">
+        <div class="detail-card">
+          <h3>Administration workspace</h3>
+          <p>${escapeHtml(me.displayName || me.email || 'Administrator')} is managing ${userCount} user(s) and ${organizationCount} organization(s).</p>
+          <div class="actions">
+            <button class="primary">Users</button>
+            <button>Organizations</button>
+            <button>Sharing</button>
+            <button>Health</button>
+          </div>
+        </div>
+        <div class="detail-card">
+          <div class="row"><span class="label">System health</span><span class="value">${escapeHtml(healthBadge)}</span></div>
+          <div class="row"><span class="label">Server version</span><span class="value">${escapeHtml(health.serverVersion || 'n/a')}</span></div>
+          <div class="row"><span class="label">Service</span><span class="value">${escapeHtml(health.serviceName || 'n/a')}</span></div>
+        </div>
+      </div>
+    `;
+    dataPanel.innerHTML = adminSectionHtml;
+  } catch (error) {
+    dataPanel.innerHTML = `<div class="empty-state">${escapeHtml(error.message || 'Administration workspace unavailable.')}</div>`;
+  }
 }
 
 async function loadSearchResults(term) {
