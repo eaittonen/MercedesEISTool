@@ -16,9 +16,9 @@ public sealed class UserIdBearerAuthenticationHandler : AuthenticationHandler<Au
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        TimeProvider timeProvider,
+        ISystemClock clock,
         UserManager<ApplicationUser> userManager)
-        : base(options, logger, encoder, timeProvider)
+        : base(options, logger, encoder, clock)
     {
         _userManager = userManager;
     }
