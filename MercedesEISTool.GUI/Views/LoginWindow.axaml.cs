@@ -7,7 +7,12 @@ namespace MercedesEISTool.GUI.Views;
 
 public partial class LoginWindow : Window
 {
-    public LoginWindow(IConfiguration? configuration = null)
+    public LoginWindow()
+        : this(null)
+    {
+    }
+
+    public LoginWindow(IConfiguration? configuration)
     {
         InitializeComponent();
         DataContext = new LoginViewModel(configuration);
