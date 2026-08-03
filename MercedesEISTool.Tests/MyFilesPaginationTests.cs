@@ -70,6 +70,17 @@ public class MyFilesPaginationTests
     }
 
     [Fact]
+    public void FormatTriState_UsesYesNoAndUnknownLabels()
+    {
+        var method = typeof(MainViewModel).GetMethod("FormatTriState", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        Assert.Equal("Yes", method!.Invoke(null, new object?[] { true })?.ToString());
+        Assert.Equal("No", method.Invoke(null, new object?[] { false })?.ToString());
+        Assert.Equal("Unknown", method.Invoke(null, new object?[] { null })?.ToString());
+    }
+
+    [Fact]
     public void PopulateWorkspaceFromDetails_RestoresMetadataAndSharedBytes()
     {
         var viewModel = new MainViewModel(new FakeApiClient(new StoredFileListResponse()));

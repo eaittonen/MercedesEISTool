@@ -14,7 +14,7 @@
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
     <AvaloniaResource Include="App icon.png" />
-
+    <AvaloniaXaml Include="Views\**\*.axaml" />
   </ItemGroup>
 
   <ItemGroup>

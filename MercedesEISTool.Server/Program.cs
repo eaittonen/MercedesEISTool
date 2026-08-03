@@ -1215,6 +1215,7 @@ app.MapGet("/api/admin/shares", async Task<IResult> (UserManager<ApplicationUser
     return Results.Ok(shares);
 });
 
+#pragma warning disable CS1998
 app.MapPost("/api/admin/shares", async Task<IResult> (CreateShareGrantRequestDto request, UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
     var currentUser = await GetCurrentUserAsync(userManager, httpContext);
@@ -1264,6 +1265,7 @@ app.MapPost("/api/admin/shares", async Task<IResult> (CreateShareGrantRequestDto
 
     return Results.Ok(share);
 });
+#pragma warning restore CS1998
 
 app.MapGet("/api/admin/audit-log", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {
@@ -1288,6 +1290,7 @@ app.MapGet("/api/admin/audit-log", async Task<IResult> (UserManager<ApplicationU
         }
     });
 });
+#pragma warning restore CS1998
 
 app.MapGet("/api/admin/sessions", async Task<IResult> (UserManager<ApplicationUser> userManager, HttpContext httpContext) =>
 {

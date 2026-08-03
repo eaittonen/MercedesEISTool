@@ -53,14 +53,16 @@ public sealed class VehicleLookupTests
 
         var requestHeaders = handler.LastRequestHeaders;
         Assert.NotNull(requestHeaders);
-        var headers = requestHeaders ?? throw new InvalidOperationException("No request headers were recorded.");
+        var headers = requestHeaders!;
+        Assert.NotEmpty(headers);
         var hostValues = headers.GetValues("x-rapidapi-host").ToArray();
         var keyValues = headers.GetValues("x-rapidapi-key").ToArray();
         Assert.Contains("example.test", hostValues);
         Assert.Contains("test-key", keyValues);
         var acceptedHeaders = headers.Accept?.ToArray() ?? Array.Empty<MediaTypeWithQualityHeaderValue>();
         Assert.NotEmpty(acceptedHeaders);
-        Assert.Contains(acceptedHeaders, header => header.MediaType == "application/json");
+        var acceptedMediaTypes = acceptedHeaders.Select(header => header.MediaType).ToArray();
+        Assert.Contains("application/json", acceptedMediaTypes);
     }
 
     [Fact]

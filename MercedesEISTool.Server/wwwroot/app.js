@@ -4,7 +4,18 @@ const state = {
   activeResults: [],
   adminPage: 'dashboard',
   currentUser: null,
-  adminData: {}
+  adminData: {},
+  selectedAdminUserId: null,
+  adminStatusMessage: '',
+  adminUserForm: {
+    email: '',
+    displayName: '',
+    password: '',
+    organizationId: '',
+    roles: '',
+    isEnabled: true,
+    mustChangePassword: false
+  }
 };
 
 const authStatus = document.getElementById('authStatus');
@@ -88,13 +99,25 @@ function bindEvents() {
 
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-admin-page]');
-    if (!button) {
+    if (button) {
+      event.preventDefault();
+      state.adminPage = button.getAttribute('data-admin-page');
+      renderAdminPage(state.adminPage);
       return;
     }
 
-    event.preventDefault();
-    state.adminPage = button.getAttribute('data-admin-page');
-    renderAdminPage(state.adminPage);
+    const adminAction = event.target.closest('[data-admin-action]');
+    if (adminAction) {
+      event.preventDefault();
+      handleAdminUserAction(adminAction.getAttribute('data-admin-action'));
+      return;
+    }
+
+    const userRow = event.target.closest('[data-admin-user-id]');
+    if (userRow) {
+      event.preventDefault();
+      selectAdminUser(userRow.getAttribute('data-admin-user-id'));
+    }
   });
 
   backButton.addEventListener('click', () => {
@@ -235,6 +258,149 @@ async function loadAdminOverview() {
   }
 }
 
+function selectAdminUser(userId) {
+  state.selectedAdminUserId = userId;
+  const selectedUser = state.adminData.users?.items?.find((user) => user.id === userId);
+  state.adminUserForm = {
+    email: selectedUser?.email || '',
+    displayName: selectedUser?.displayName || '',
+    password: '',
+    organizationId: selectedUser?.organizationId || '',
+    roles: (selectedUser?.roles || []).join(', '),
+    isEnabled: selectedUser?.isEnabled !== false,
+    mustChangePassword: Boolean(selectedUser?.mustChangePassword)
+  };
+  state.adminStatusMessage = selectedUser ? `Selected ${selectedUser.email || selectedUser.displayName || 'user'}.` : 'No user selected.';
+  renderAdminPage(state.adminPage);
+}
+
+function readAdminUserFormValues() {
+  const email = document.querySelector('[data-admin-user-field="email"]')?.value || '';
+  const displayName = document.querySelector('[data-admin-user-field="displayName"]')?.value || '';
+  const password = document.querySelector('[data-admin-user-field="password"]')?.value || '';
+  const organizationId = document.querySelector('[data-admin-user-field="organizationId"]')?.value || '';
+  const rolesValue = document.querySelector('[data-admin-user-field="roles"]')?.value || '';
+  const isEnabled = document.querySelector('[data-admin-user-field="isEnabled"]')?.checked ?? true;
+  const mustChangePassword = document.querySelector('[data-admin-user-field="mustChangePassword"]')?.checked ?? false;
+
+  return {
+    email,
+    displayName,
+    password,
+    organizationId,
+    roles: rolesValue.split(',').map((role) => role.trim()).filter(Boolean),
+    isEnabled,
+    mustChangePassword
+  };
+}
+
+async function handleAdminUserAction(action) {
+  const selectedUser = state.adminData.users?.items?.find((user) => user.id === state.selectedAdminUserId);
+  if (!selectedUser && action !== 'save-admin-user') {
+    state.adminStatusMessage = 'Select a user before running that action.';
+    renderAdminPage(state.adminPage);
+    return;
+  }
+
+  if (action === 'save-admin-user') {
+    if (!selectedUser) {
+      state.adminStatusMessage = 'Select a user before saving changes.';
+      renderAdminPage(state.adminPage);
+      return;
+    }
+
+    const values = readAdminUserFormValues();
+    const body = {
+      email: values.email,
+      displayName: values.displayName,
+      password: values.password,
+      organizationId: values.organizationId || selectedUser.organizationId || '',
+      roles: values.roles.length ? values.roles : (selectedUser.roles || []),
+      isEnabled: values.isEnabled,
+      mustChangePassword: values.mustChangePassword
+    };
+
+    state.adminStatusMessage = 'Saving user changes…';
+    renderAdminPage(state.adminPage);
+
+    const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body)
+    });
+
+    if (response.ok) {
+      state.adminStatusMessage = 'User updated successfully.';
+      await loadAdminOverview();
+    } else {
+      const errorPayload = await response.json().catch(() => ({}));
+      state.adminStatusMessage = errorPayload.message || 'Unable to update the selected user.';
+      renderAdminPage(state.adminPage);
+    }
+    return;
+  }
+
+  if (action === 'toggle-user-enabled') {
+    const endpoint = selectedUser.isEnabled ? '/disable' : '/enable';
+    const response = await fetch(`/api/admin/users/${selectedUser.id}${endpoint}`, { method: 'POST', credentials: 'same-origin' });
+    if (response.ok) {
+      state.adminStatusMessage = selectedUser.isEnabled ? 'User disabled.' : 'User enabled.';
+      await loadAdminOverview();
+    } else {
+      const errorPayload = await response.json().catch(() => ({}));
+      state.adminStatusMessage = errorPayload.message || 'Unable to change the user status.';
+      renderAdminPage(state.adminPage);
+    }
+    return;
+  }
+
+  if (action === 'reset-password') {
+    const newPassword = window.prompt('Enter a new password for the selected user');
+    if (!newPassword) {
+      state.adminStatusMessage = 'Password reset cancelled.';
+      renderAdminPage(state.adminPage);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/users/${selectedUser.id}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ newPassword, forcePasswordChange: false })
+    });
+
+    if (response.ok) {
+      state.adminStatusMessage = 'Password reset completed.';
+      await loadAdminOverview();
+    } else {
+      const errorPayload = await response.json().catch(() => ({}));
+      state.adminStatusMessage = errorPayload.message || 'Unable to reset the password.';
+      renderAdminPage(state.adminPage);
+    }
+    return;
+  }
+
+  if (action === 'delete-user') {
+    if (!window.confirm(`Delete ${selectedUser.email || selectedUser.displayName || 'the selected user'}?`)) {
+      state.adminStatusMessage = 'Delete cancelled.';
+      renderAdminPage(state.adminPage);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/users/${selectedUser.id}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (response.ok) {
+      state.selectedAdminUserId = null;
+      state.adminStatusMessage = 'User deleted.';
+      await loadAdminOverview();
+    } else {
+      const errorPayload = await response.json().catch(() => ({}));
+      state.adminStatusMessage = errorPayload.message || 'Unable to delete the user.';
+      renderAdminPage(state.adminPage);
+    }
+  }
+}
+
 function renderAdminPage(page) {
   const adminData = state.adminData || {};
   const users = adminData.users?.items || [];
@@ -248,6 +414,7 @@ function renderAdminPage(page) {
   const vehicleCache = adminData.vehicleCache?.items || [];
   const notifications = adminData.notifications?.items || [];
   const featureFlags = adminData.featureFlags?.items || [];
+  const selectedUser = state.selectedAdminUserId ? users.find((user) => user.id === state.selectedAdminUserId) : null;
 
   const pageContent = {
     dashboard: `
@@ -289,24 +456,54 @@ function renderAdminPage(page) {
         <div class="admin-card">
           <h3>User management</h3>
           <div class="actions">
-            <button class="primary">Create user</button>
-            <button>Reset password</button>
-            <button>Enable/disable</button>
+            <button class="primary" data-admin-action="save-admin-user">Save selected</button>
+            <button data-admin-action="reset-password">Reset password</button>
+            <button data-admin-action="toggle-user-enabled">Enable/disable</button>
+            <button data-admin-action="delete-user">Delete user</button>
           </div>
-          <table class="admin-table">
-            <thead><tr><th>Email</th><th>Organization</th><th>Roles</th><th>Status</th><th>Last login</th></tr></thead>
-            <tbody>
-              ${users.length ? users.map((user) => `
-                <tr>
-                  <td>${escapeHtml(user.email || user.displayName || '—')}</td>
-                  <td>${escapeHtml(user.organizationName || '—')}</td>
-                  <td>${escapeHtml((user.roles || []).join(', '))}</td>
-                  <td>${escapeHtml(user.isEnabled ? 'Enabled' : 'Disabled')}</td>
-                  <td>${escapeHtml(user.lastLoginAtUtc ? new Date(user.lastLoginAtUtc).toLocaleString() : '—')}</td>
-                </tr>
-              `).join('') : '<tr><td colspan="5">No users available</td></tr>'}
-            </tbody>
-          </table>
+          <div class="admin-inline-row">
+            <span class="admin-pill">${escapeHtml(state.adminStatusMessage || 'Select a user to edit or manage their access.')}</span>
+          </div>
+          <div class="admin-grid">
+            <div class="admin-card">
+              <table class="admin-table">
+                <thead><tr><th>Email</th><th>Organization</th><th>Roles</th><th>Status</th><th>Last login</th></tr></thead>
+                <tbody>
+                  ${users.length ? users.map((user) => `
+                    <tr class="${selectedUser && selectedUser.id === user.id ? 'selected' : ''}" data-admin-user-id="${escapeHtml(String(user.id || ''))}">
+                      <td>${escapeHtml(user.email || user.displayName || '—')}</td>
+                      <td>${escapeHtml(user.organizationName || user.organizationId || '—')}</td>
+                      <td>${escapeHtml((user.roles || []).join(', '))}</td>
+                      <td>${escapeHtml(user.isEnabled ? 'Enabled' : 'Disabled')}</td>
+                      <td>${escapeHtml(user.lastLoginAtUtc ? new Date(user.lastLoginAtUtc).toLocaleString() : '—')}</td>
+                    </tr>
+                  `).join('') : '<tr><td colspan="5">No users available</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+            <div class="admin-card">
+              <h4>${selectedUser ? 'Edit selected user' : 'Choose a user'}</h4>
+              <div class="admin-form-grid">
+                <label>Email
+                  <input data-admin-user-field="email" value="${escapeHtml(selectedUser?.email || state.adminUserForm.email || '')}" />
+                </label>
+                <label>Display name
+                  <input data-admin-user-field="displayName" value="${escapeHtml(selectedUser?.displayName || state.adminUserForm.displayName || '')}" />
+                </label>
+                <label>Password
+                  <input data-admin-user-field="password" type="password" value="${escapeHtml(state.adminUserForm.password || '')}" />
+                </label>
+                <label>Organization ID
+                  <input data-admin-user-field="organizationId" value="${escapeHtml(selectedUser?.organizationId || state.adminUserForm.organizationId || '')}" />
+                </label>
+                <label>Roles (comma-separated)
+                  <input data-admin-user-field="roles" value="${escapeHtml((selectedUser?.roles || state.adminUserForm.roles || []).join(', '))}" />
+                </label>
+                <label><input data-admin-user-field="isEnabled" type="checkbox" ${selectedUser?.isEnabled === false ? '' : 'checked'} /> Enabled</label>
+                <label><input data-admin-user-field="mustChangePassword" type="checkbox" ${selectedUser?.mustChangePassword ? 'checked' : ''} /> Force password change</label>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `,

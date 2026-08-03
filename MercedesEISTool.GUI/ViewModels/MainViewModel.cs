@@ -3705,9 +3705,9 @@ public partial class MainViewModel : ViewModelBase
     {
         return value switch
         {
-            true => "✔",
-            false => "✖",
-            _ => "—"
+            true => "Yes",
+            false => "No",
+            _ => "Unknown"
         };
     }
 

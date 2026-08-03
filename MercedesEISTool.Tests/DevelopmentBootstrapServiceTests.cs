@@ -80,11 +80,9 @@ public class DevelopmentBootstrapServiceTests
     {
         var userStore = new UserStore<ApplicationUser>(dbContext);
         var options = new IdentityOptions();
-        var serviceProvider = new ServiceCollection().BuildServiceProvider(new ServiceProviderOptions
-        {
-            ValidateOnBuild = false,
-            ValidateScopes = false
-        });
+        var serviceProvider = new ServiceCollection().BuildServiceProvider(validateScopes: false);
+        var serviceProviderFactory = new ServiceCollection();
+        var serviceProviderWithNulls = serviceProviderFactory.BuildServiceProvider(validateScopes: false);
         return new UserManager<ApplicationUser>(
             userStore,
             Options.Create(options),
@@ -93,7 +91,7 @@ public class DevelopmentBootstrapServiceTests
             new[] { (IPasswordValidator<ApplicationUser>)new PasswordValidator<ApplicationUser>() },
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
-            (IServiceProvider)serviceProvider,
+            serviceProviderWithNulls,
             NullLogger<UserManager<ApplicationUser>>.Instance);
     }
 
